@@ -79,3 +79,14 @@ Le plugin de convention `mvp.kmp.library` (`build-logic/`) configure les cibles 
 - **Tests KMP** : `./gradlew allTests`
 - **Android** : ouvrir le dossier dans Android Studio, lancer `androidApp`.
 - **iOS** : `brew install xcodegen && cd iosApp && xcodegen && open iosApp.xcodeproj`. Le build Xcode compile le framework Kotlin via `:shared:embedAndSignAppleFrameworkForXcode`.
+
+## Environnement cloud (Claude Code)
+
+Pour que Claude puisse compiler KMP et Android dans ses sessions cloud, l'environnement doit :
+1. **Réseau** : autoriser `dl.google.com` et `maven.google.com` (SDK Android et plugin Android Gradle), en plus des gestionnaires de paquets par défaut.
+2. **Variable d'environnement** : `ANDROID_HOME=/opt/android-sdk`.
+3. **Setup script** : installer le SDK Android avec le contenu de `scripts/install-android-sdk.sh`.
+
+Au démarrage de chaque session, le hook `scripts/session-start.sh` (déclaré dans `.claude/settings.json`) écrit `local.properties` et précharge les dépendances Gradle. En local, il ne fait rien.
+
+Vérification : `./gradlew allTests :androidApp:assembleDebug`.

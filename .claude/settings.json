@@ -1,4 +1,13 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -7,6 +16,18 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/session-start.sh",
             "timeout": 600
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/hooks/check-architecture.sh",
+            "timeout": 10
           }
         ]
       }

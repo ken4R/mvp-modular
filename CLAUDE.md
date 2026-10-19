@@ -12,8 +12,14 @@ Prototype mobile iOS + Android, **toute la logique en Kotlin Multiplatform**, le
 | `ios-dev` | SwiftUI + ObservableObject dans `iosApp` |
 | `code-reviewer` | Revue architecture, correction, tests (lecture seule) |
 | `security-reviewer` | Revue OWASP MASVS (lecture seule) |
+| `qa-tester` | Complète et lance les tests, checklist de recette manuelle |
+| `ci-engineer` | Workflow GitHub Actions, échecs de CI, distribution |
 
 Commandes : `/feature <description>` enchaîne tout le flux, `/review` lance les deux revues en parallèle.
+
+Hook `PostToolUse` (`scripts/hooks/check-architecture.sh`) : après chaque écriture de fichier, signale à Claude un import interdit dans `domain` ou une couleur en dur dans `androidApp` / `iosApp`.
+
+CI (`.github/workflows/ci.yml`) : tests KMP + build Android sur Ubuntu, tests KMP iOS + build Xcode sur macOS, à chaque PR et push sur `main`.
 
 ## Règles non négociables
 - `domain` ne dépend de rien ; les apps n'appellent que des use cases exposés par `shared`, qui renvoient `AppResult`.

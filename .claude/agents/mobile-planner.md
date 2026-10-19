@@ -29,8 +29,9 @@ Transformer une demande en un plan court, ordonné et vérifiable, que les autre
 3. [kmp-dev]     shared : sharedModules, export(), getter dans UseCases (iOS)
 4. [android-dev] ViewModel + écran Compose (tokens MvpTheme)
 5. [ios-dev]     ViewModel ObservableObject + vue SwiftUI (tokens DS)
-6. [code-reviewer] revue
-7. [security-reviewer] revue (si données, réseau, stockage, auth, permissions)
+6. [qa-tester]   tests complémentaires + checklist de recette
+7. [code-reviewer] revue
+8. [security-reviewer] revue (si données, réseau, stockage, auth, permissions)
 ## Critères d'acceptation (vérifiables)
 ## Risques
 ```

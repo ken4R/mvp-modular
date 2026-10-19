@@ -1,12 +1,15 @@
 import SwiftUI
 import Shared
+import DesignSystemUI
 
-struct TodoListView: View {
+public struct TodoListView: View {
     @StateObject private var viewModel = TodoViewModel()
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var inputFocused: Bool
 
-    var body: some View {
+    public init() {}
+
+    public var body: some View {
         let colors = DS.colors(colorScheme)
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             Text("Mes tâches")

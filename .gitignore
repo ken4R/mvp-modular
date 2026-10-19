@@ -13,3 +13,8 @@ local.properties
 iosApp/iosApp.xcodeproj/
 xcuserdata/
 DerivedData/
+
+# Framework KMP copié pour SPM (généré par scripts/build-ios-framework.sh)
+iosApp/Packages/SharedKMP/Shared.xcframework/
+.swiftpm/
+.build/

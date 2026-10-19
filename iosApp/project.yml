@@ -1,42 +1,66 @@
-# Projet Xcode généré avec XcodeGen : `brew install xcodegen && cd iosApp && xcodegen`
+# Projet Xcode généré avec XcodeGen.
+# Premier lancement : `scripts/build-ios-framework.sh && cd iosApp && xcodegen && open iosApp.xcodeproj`
+#
+# Chaque feature iOS est un package SPM dans Packages/ ; sa démo éventuelle (Packages/<Feature>/Demo)
+# est une app déclarée ici, qui ne lance que cette feature.
 name: iosApp
 options:
   bundleIdPrefix: com.mvp
   deploymentTarget:
     iOS: "16.0"
+
+packages:
+  SharedKMP:
+    path: Packages/SharedKMP
+  DesignSystemUI:
+    path: Packages/DesignSystemUI
+  FeatureTodo:
+    path: Packages/FeatureTodo
+
+settingGroups:
+  app:
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_UILaunchScreen_Generation: YES
+
+aggregateTargets:
+  # Recompile le XCFramework Kotlin avant chaque build des apps.
+  KotlinShared:
+    buildScripts:
+      - name: Compile Kotlin (Shared.xcframework)
+        basedOnDependencyAnalysis: false
+        script: |
+          "$SRCROOT/../scripts/build-ios-framework.sh" debug
+    settings:
+      ENABLE_USER_SCRIPT_SANDBOXING: NO
+
 targets:
+  # App complète : assemble toutes les features.
   iosApp:
     type: application
     platform: iOS
     sources: [iosApp]
     settings:
+      groups: [app]
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        FRAMEWORK_SEARCH_PATHS: "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
-        OTHER_LDFLAGS: ["$(inherited)", "-framework", "Shared"]
-        ENABLE_USER_SCRIPT_SANDBOXING: NO
-    preBuildScripts:
-      - name: Compile Kotlin (Shared.framework)
-        basedOnDependencyAnalysis: false
-        script: |
-          # Xcode lancé depuis le Dock ne lit pas ~/.zshrc : on cherche le JDK nous-mêmes.
-          if [ -z "${JAVA_HOME:-}" ]; then
-            for candidate in \
-              "$(/usr/libexec/java_home 2>/dev/null)" \
-              /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
-              /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home \
-              /usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home; do
-              if [ -n "$candidate" ] && [ -x "$candidate/bin/java" ]; then
-                export JAVA_HOME="$candidate"
-                break
-              fi
-            done
-          fi
-          if [ -z "${JAVA_HOME:-}" ]; then
-            echo "error: JDK 17+ introuvable. Installer avec 'brew install openjdk@21'."
-            exit 1
-          fi
-          cd "$SRCROOT/.."
-          ./gradlew :shared:embedAndSignAppleFrameworkForXcode
+    dependencies:
+      - target: KotlinShared
+      - package: SharedKMP
+        product: Shared
+      - package: FeatureTodo
+
+  # Démo de la feature todo, lancée seule avec des données d'exemple.
+  TodoDemo:
+    type: application
+    platform: iOS
+    sources: [Packages/FeatureTodo/Demo]
+    settings:
+      groups: [app]
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.demo.todo
+        INFOPLIST_KEY_CFBundleDisplayName: Todo Demo
+    dependencies:
+      - target: KotlinShared
+      - package: SharedKMP
+        product: Shared
+      - package: FeatureTodo

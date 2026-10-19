@@ -29,8 +29,8 @@ case "$rel" in
     [ -n "$hits" ] && problems+=("$rel : couleur en dur, utiliser MaterialTheme.colorScheme (MvpTheme) ou ajouter un token dans core:designsystem.
 $hits")
     ;;
-  iosApp/iosApp/DesignSystem+SwiftUI.swift) ;;  # pont DS : seul endroit autorisé
-  iosApp/iosApp/*.swift)
+  iosApp/Packages/DesignSystemUI/*) ;;  # pont DS : seul endroit autorisé
+  iosApp/*.swift)
     hits=$(grep -nE 'Color\((red|hue|white):|UIColor\(|Color\.(red|blue|green|black|white|gray|yellow|orange|pink|purple)\b|\.(foregroundColor|foregroundStyle|background|tint)\(\.(red|blue|green|black|white|gray|yellow|orange|pink|purple)\)' "$file")
     [ -n "$hits" ] && problems+=("$rel : couleur en dur, utiliser DS.colors(scheme) ou ajouter un token dans core:designsystem.
 $hits")

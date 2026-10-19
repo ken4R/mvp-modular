@@ -46,7 +46,7 @@ Règles de dépendance :
 
 Source unique des valeurs visuelles, partagée par les deux plateformes : couleurs claires/sombres (ARGB), typographie, espacements et rayons, via l'objet `DesignSystem`.
 - **Android** : `MvpTheme` (`androidApp/.../ui/theme/MvpTheme.kt`) construit le `MaterialTheme` à partir des tokens ; `Spacing.md` etc. pour les dimensions.
-- **iOS** : `DS` (`iosApp/iosApp/DesignSystem+SwiftUI.swift`) expose `DS.colors(scheme)`, `DS.Spacing`, `DS.Typography`.
+- **iOS** : `DS` (package SPM `iosApp/Packages/DesignSystemUI`) expose `DS.colors(scheme)`, `DS.Spacing`, `DS.Typography`.
 
 Changer une couleur ou une taille dans le module KMP met à jour les deux apps.
 
@@ -56,7 +56,30 @@ Module de référence pour les prochaines features : ajouter, cocher et supprime
 - **Use cases** : `ObserveTodosUseCase` (Flow, tâches terminées en dernier), `AddTodoUseCase` (titre obligatoire, 80 caractères max), `ToggleTodoUseCase`, `DeleteTodoUseCase`.
 - **Data** : stockage en mémoire derrière `TodoLocalDataSource`, remplaçable par SQLDelight ou Room KMP sans toucher au domaine.
 - **Android** : `ui/todo/TodoViewModel.kt` + `TodoScreen.kt`.
-- **iOS** : `TodoViewModel.swift` + `TodoListView.swift`. Les Flow sont exposés à Swift par callbacks via `UseCases.observeTodos(...)`, qui renvoie une `Subscription` à annuler.
+- **iOS** : package SPM `iosApp/Packages/FeatureTodo` (`TodoViewModel.swift` + `TodoListView.swift`) et son app de démo `TodoDemo`. Les Flow sont exposés à Swift par callbacks via `UseCases.observeTodos(...)`, qui renvoie une `Subscription` à annuler.
+
+## iOS : une feature = un package SPM
+
+```
+iosApp/
+├─ project.yml              ← XcodeGen : app complète + une app de démo par feature
+├─ iosApp/                  ← app complète (iOSApp.swift) : assemble les features
+└─ Packages/
+   ├─ SharedKMP/            ← XCFramework Kotlin "Shared" (généré, non versionné)
+   ├─ DesignSystemUI/       ← pont SwiftUI vers core:designsystem (DS, Color(argb:))
+   └─ FeatureTodo/
+      ├─ Sources/FeatureTodo/   ← vues + ViewModel, seule la vue d'entrée est public
+      └─ Demo/TodoDemoApp.swift ← app de démo : la feature seule, avec données d'exemple
+```
+
+- Une feature iOS dépend uniquement de `SharedKMP` (la logique) et de `DesignSystemUI` (le visuel), jamais d'une autre feature.
+- La démo est optionnelle : c'est une cible app de `project.yml` dont les sources sont `Packages/<Feature>/Demo`. Elle sert à développer et tester la feature sans passer par l'app complète.
+- Le framework Kotlin est dynamique : SPM l'embarque une seule fois, même si plusieurs packages en dépendent.
+
+Ajouter une feature iOS `Xxx` :
+1. Copier `iosApp/Packages/FeatureTodo` en `FeatureXxx` et renommer le package, la cible et les fichiers.
+2. Dans `project.yml` : déclarer le package sous `packages`, l'ajouter aux dépendances de `iosApp` et, si besoin, créer la cible `XxxDemo` sur le modèle de `TodoDemo`.
+3. Ajouter le scheme `XxxDemo` à la boucle de build iOS de `.github/workflows/ci.yml`.
 
 ## Ajouter un module
 
@@ -78,7 +101,7 @@ Le plugin de convention `mvp.kmp.library` (`build-logic/`) configure les cibles 
 
 - **Tests KMP** : `./gradlew allTests`
 - **Android** : ouvrir le dossier dans Android Studio, lancer `androidApp`.
-- **iOS** : `brew install xcodegen && cd iosApp && xcodegen && open iosApp.xcodeproj`. Le build Xcode compile le framework Kotlin via `:shared:embedAndSignAppleFrameworkForXcode`.
+- **iOS** : `scripts/build-ios-framework.sh && cd iosApp && xcodegen && open iosApp.xcodeproj`, puis choisir le scheme `iosApp` (app complète) ou `TodoDemo` (démo de la feature). Le script doit tourner une première fois avant d'ouvrir Xcode, car les packages SPM ont besoin du XCFramework Kotlin ; ensuite la cible `KotlinShared` le relance à chaque build.
 
 ## Environnement cloud (Claude Code)
 

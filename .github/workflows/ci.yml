@@ -42,16 +42,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Tests KMP (simulateur iOS)
         run: ./gradlew iosSimulatorArm64Test --continue
+      - name: XCFramework KMP pour les packages SPM
+        run: scripts/build-ios-framework.sh debug
       - name: Génération du projet Xcode
         run: |
           brew install xcodegen
           cd iosApp && xcodegen
-      - name: Build de l'app iOS (simulateur, sans signature)
+      - name: Build de l'app iOS et des démos de features (simulateur, sans signature)
         run: |
           cd iosApp
-          xcodebuild build \
-            -project iosApp.xcodeproj \
-            -scheme iosApp \
-            -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO
+          for scheme in iosApp TodoDemo; do
+            xcodebuild build \
+              -project iosApp.xcodeproj \
+              -scheme "$scheme" \
+              -configuration Debug \
+              -destination 'generic/platform=iOS Simulator' \
+              CODE_SIGNING_ALLOWED=NO
+          done

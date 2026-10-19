@@ -4,6 +4,7 @@ import Shared
 struct TodoListView: View {
     @StateObject private var viewModel = TodoViewModel()
     @Environment(\.colorScheme) private var colorScheme
+    @FocusState private var inputFocused: Bool
 
     var body: some View {
         let colors = DS.colors(colorScheme)
@@ -15,8 +16,9 @@ struct TodoListView: View {
             HStack(spacing: DS.Spacing.sm) {
                 TextField("Nouvelle tâche", text: $viewModel.input)
                     .textFieldStyle(.roundedBorder)
-                    .onSubmit { Task { await viewModel.add() } }
-                Button("Ajouter") { Task { await viewModel.add() } }
+                    .focused($inputFocused)
+                    .onSubmit(add)
+                Button("Ajouter", action: add)
                     .tint(Color(argb: colors.primary))
             }
             if let error = viewModel.error {
@@ -39,11 +41,19 @@ struct TodoListView: View {
                 }
             }
             .listStyle(.plain)
+            .scrollDismissesKeyboard(.immediately)
         }
         .padding(DS.Spacing.md)
         .background(Color(argb: colors.background))
         .onAppear { viewModel.start() }
         .onDisappear { viewModel.stop() }
+    }
+
+    /// Ferme le clavier après l'ajout : sinon la barre d'autocorrection peut
+    /// encore intercepter le tap suivant sur une ligne de la liste.
+    private func add() {
+        inputFocused = false
+        Task { await viewModel.add() }
     }
 }
 

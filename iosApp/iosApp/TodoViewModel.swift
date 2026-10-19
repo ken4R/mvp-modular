@@ -23,7 +23,7 @@ final class TodoViewModel: ObservableObject {
     }
 
     func add() async {
-        let result = try? await UseCases.shared.addTodo().invoke(params: input)
+        let result = try? await UseCases.shared.addTodo().invoke(params: input as NSString)
         if let failure = result as? AppResultFailure {
             error = failure.error.userMessage
         } else {
@@ -33,12 +33,12 @@ final class TodoViewModel: ObservableObject {
     }
 
     func toggle(_ todo: Todo) async {
-        let result = try? await UseCases.shared.toggleTodo().invoke(params: todo.id)
+        let result = try? await UseCases.shared.toggleTodo().invoke(params: todo.id as NSString)
         if let failure = result as? AppResultFailure { error = failure.error.userMessage }
     }
 
     func delete(_ todo: Todo) async {
-        let result = try? await UseCases.shared.deleteTodo().invoke(params: todo.id)
+        let result = try? await UseCases.shared.deleteTodo().invoke(params: todo.id as NSString)
         if let failure = result as? AppResultFailure { error = failure.error.userMessage }
     }
 }

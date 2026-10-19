@@ -42,11 +42,13 @@ extension Color {
 
 extension TextStyleToken {
     var font: Font {
+        // On s'appuie sur la valeur numérique (400, 500...) plutôt que sur les noms
+        // des cas de l'enum, que l'export Kotlin vers Swift renomme.
         let weight: Font.Weight
-        switch self.weight {
-        case .bold: weight = .bold
-        case .semiBold: weight = .semibold
-        case .medium: weight = .medium
+        switch self.weight.value {
+        case 700...: weight = .bold
+        case 600..<700: weight = .semibold
+        case 500..<600: weight = .medium
         default: weight = .regular
         }
         return .system(size: CGFloat(size), weight: weight)

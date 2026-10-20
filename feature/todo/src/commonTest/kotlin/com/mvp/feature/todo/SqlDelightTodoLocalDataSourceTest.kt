@@ -1,7 +1,9 @@
 package com.mvp.feature.todo
 
+import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.database.testing.createInMemoryDriver
 import com.mvp.feature.todo.data.db.TodoDatabase
+import com.mvp.feature.todo.data.session.TodoUserSessionObserver
 import com.mvp.feature.todo.data.source.SqlDelightTodoLocalDataSource
 import com.mvp.feature.todo.domain.model.Todo
 import kotlinx.coroutines.flow.first
@@ -91,5 +93,16 @@ class SqlDelightTodoLocalDataSourceTest {
         job.cancel()
 
         assertEquals(listOf(emptyList(), listOf(Todo("a", "Nouvelle", isDone = false))), emissions)
+    }
+
+    @Test
+    fun logoutDeletesAllTodos() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Acheter du pain", isDone = false))
+        source.upsert(Todo("b", "Appeler Paul", isDone = true))
+
+        assertEquals(AppResult.Success(Unit), TodoUserSessionObserver(source).clearUserData())
+
+        assertEquals(emptyList(), newDataSource().observe().first())
     }
 }

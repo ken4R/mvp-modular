@@ -73,6 +73,21 @@ public struct SettingsView: View {
             }
             .listRowBackground(Color(argb: colors.surface))
 
+            Section(header: header("Compte", colors)) {
+                if let email = viewModel.accountEmail {
+                    Text("Connecté avec \(email)")
+                        .font(DS.Typography.body)
+                        .foregroundColor(Color(argb: colors.onSurface))
+                }
+                Text("La déconnexion efface les tâches, le profil et les réglages de cet appareil.")
+                    .font(DS.Typography.caption)
+                    .foregroundColor(Color(argb: colors.onSurface))
+                Button("Se déconnecter") { Task { await viewModel.logout() } }
+                    .foregroundColor(Color(argb: colors.error))
+                    .disabled(viewModel.isLoggingOut)
+            }
+            .listRowBackground(Color(argb: colors.surface))
+
             Section(header: header("À propos", colors)) {
                 HStack {
                     Text("Version")

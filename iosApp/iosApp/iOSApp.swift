@@ -1,10 +1,11 @@
 import SwiftUI
 import Shared
+import FeatureAuth
 import FeatureTodo
 import FeatureWeather
 import FeatureSettings
 
-/// App complète : initialise la logique KMP et assemble les features.
+/// App complète : initialise la logique KMP et assemble les features, derrière l'écran de connexion.
 @main
 struct iOSApp: App {
     init() {
@@ -13,13 +14,15 @@ struct iOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            TabView {
-                TodoListView()
-                    .tabItem { Label("Tâches", systemImage: "checklist") }
-                WeatherView()
-                    .tabItem { Label("Météo", systemImage: "cloud.sun") }
-                SettingsView()
-                    .tabItem { Label("Réglages", systemImage: "gearshape") }
+            SessionGate {
+                TabView {
+                    TodoListView()
+                        .tabItem { Label("Tâches", systemImage: "checklist") }
+                    WeatherView()
+                        .tabItem { Label("Météo", systemImage: "cloud.sun") }
+                    SettingsView()
+                        .tabItem { Label("Réglages", systemImage: "gearshape") }
+                }
             }
         }
     }

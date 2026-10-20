@@ -19,6 +19,9 @@ interface TodoLocalDataSource {
     /** Inverse l'état de la tâche en une seule opération ; `null` si elle n'existe pas (ou plus). */
     fun toggle(id: String): Todo?
     fun delete(id: String): Boolean
+
+    /** Supprime toutes les tâches (déconnexion). */
+    fun clear()
 }
 
 internal class InMemoryTodoLocalDataSource(initial: List<Todo> = emptyList()) : TodoLocalDataSource {
@@ -44,5 +47,9 @@ internal class InMemoryTodoLocalDataSource(initial: List<Todo> = emptyList()) : 
         val existed = todos.value.containsKey(id)
         todos.update { it - id }
         return existed
+    }
+
+    override fun clear() {
+        todos.value = emptyMap()
     }
 }

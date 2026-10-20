@@ -10,3 +10,9 @@ SELECT * FROM SettingEntity;
 
 upsert:
 INSERT OR REPLACE INTO SettingEntity(setting_key, setting_value) VALUES (?, ?);
+
+deleteByKey:
+DELETE FROM SettingEntity WHERE setting_key = ?;
+
+deleteAll:
+DELETE FROM SettingEntity;

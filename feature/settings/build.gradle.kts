@@ -8,6 +8,7 @@ kotlin {
         commonMain.dependencies {
             api(projects.core.common)
             implementation(projects.core.database)
+            implementation(projects.core.securestorage)
         }
         commonTest.dependencies {
             implementation(projects.core.databaseTesting)

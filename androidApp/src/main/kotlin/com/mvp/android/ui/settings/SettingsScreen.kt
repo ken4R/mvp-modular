@@ -18,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -74,6 +75,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
         onSaveProfile = { viewModel.onSaveProfile() },
         onNotificationsChange = onNotificationsChange,
         onConsentChange = { type, granted -> viewModel.onConsentChange(type, granted) },
+        onLogout = viewModel::onLogout,
     )
 }
 
@@ -86,6 +88,7 @@ private fun SettingsContent(
     onSaveProfile: () -> Unit,
     onNotificationsChange: (Boolean) -> Unit,
     onConsentChange: (ConsentType, Boolean) -> Unit,
+    onLogout: () -> Unit,
 ) {
     Scaffold { padding ->
         Column(
@@ -141,6 +144,15 @@ private fun SettingsContent(
                     onCheckedChange = { onConsentChange(consent.type, it) },
                 )
             }
+
+            HorizontalDivider()
+            SectionTitle("Compte")
+            state.accountEmail?.let { Text("Connecté avec $it", style = MaterialTheme.typography.bodyLarge) }
+            Text(
+                "La déconnexion efface les tâches, le profil et les réglages de cet appareil.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedButton(onClick = onLogout, enabled = !state.isLoggingOut) { Text("Se déconnecter") }
 
             HorizontalDivider()
             SectionTitle("À propos")

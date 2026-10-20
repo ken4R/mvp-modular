@@ -12,8 +12,10 @@ kotlin {
             implementation(libs.ktor.serialization.kotlinx.json)
         }
         // Un moteur HTTP par plateforme, choisi automatiquement par HttpClient().
+        // Android : moteur HttpURLConnection plutôt qu'OkHttp, dont la version tirée par Ktor
+        // exige compileSdk 37 (non supporté par AGP 8.13).
         androidMain.dependencies {
-            implementation(libs.ktor.client.okhttp)
+            implementation(libs.ktor.client.android)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)

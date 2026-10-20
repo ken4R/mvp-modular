@@ -14,7 +14,7 @@ import kotlinx.serialization.json.Json
  * par [safeApiCall]).
  *
  * [engine] permet d'injecter un MockEngine en test ; sinon le moteur de la plateforme
- * est utilisé (OkHttp sur Android, Darwin sur iOS).
+ * est utilisé (HttpURLConnection sur Android, Darwin sur iOS).
  */
 fun createHttpClient(engine: HttpClientEngine? = null): HttpClient {
     val config: HttpClientConfig<*>.() -> Unit = {

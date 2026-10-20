@@ -9,7 +9,7 @@ La feature `weather` est le premier appel réseau du projet. Toute la logique de
 
 ## Décision
 
-- **Ktor client** (3.6) avec `kotlinx.serialization` pour le JSON. Moteur OkHttp sur Android, Darwin (`NSURLSession`) sur iOS, choisis par plateforme dans `core:network`.
+- **Ktor client** (3.6) avec `kotlinx.serialization` pour le JSON. Moteur Android (`HttpURLConnection`) sur Android, plutôt qu'OkHttp dont la version tirée par Ktor 3.6 exige compileSdk 37, Darwin (`NSURLSession`) sur iOS, choisis par plateforme dans `core:network`.
 - Nouveau module **`core:network`** : `createHttpClient()` (JSON tolérant aux champs inconnus, délais d'attente, statuts non 2xx en exception), `safeApiCall` qui convertit les exceptions Ktor en `AppError` (`Network`, `Unauthorized`, `NotFound`, `Unknown`), et `networkModule` (un `HttpClient` unique dans Koin).
 - Les features en dépendent en `implementation` : les types Ktor ne sortent pas de leur couche `data`. `shared` ne l'exporte pas vers Swift.
 - Tests : `ktor-client-mock` (MockEngine) passé à `createHttpClient(engine)`, pour tester repository et use cases sans réseau.

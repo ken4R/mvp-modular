@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class SqlDelightSettingsLocalDataSourceTest {
 
@@ -66,5 +67,23 @@ class SqlDelightSettingsLocalDataSourceTest {
         val restored = newDataSource().observe().first()
         assertEquals(true, restored.notificationsEnabled)
         assertEquals("Youssef", restored.profile.displayName)
+    }
+
+    @Test
+    fun unreadableStoredValueFallsBackToDefault() = scope.runTest {
+        SettingsDatabase(driver).settingEntityQueries.upsert("notifications.enabled", "peut-être")
+
+        assertEquals(false, newDataSource().observe().first().notificationsEnabled)
+    }
+
+    @Test
+    fun failedTransformLeavesSettingsUnchanged() = scope.runTest {
+        val source = newDataSource()
+
+        assertFailsWith<IllegalStateException> {
+            source.update { error("échec pendant la mise à jour") }
+        }
+
+        assertEquals(UserSettings.initial(), newDataSource().observe().first())
     }
 }

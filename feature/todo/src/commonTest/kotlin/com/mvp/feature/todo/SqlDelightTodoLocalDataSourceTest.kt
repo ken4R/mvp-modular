@@ -56,6 +56,19 @@ class SqlDelightTodoLocalDataSourceTest {
     }
 
     @Test
+    fun toggleFlipsStateAndNeverRecreatesDeletedTodo() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Tâche", isDone = false))
+
+        assertEquals(Todo("a", "Tâche", isDone = true), source.toggle("a"))
+        assertEquals(Todo("a", "Tâche", isDone = true), newDataSource().get("a"))
+
+        source.delete("a")
+        assertNull(source.toggle("a"))
+        assertNull(source.get("a"))
+    }
+
+    @Test
     fun deleteRemovesTodoAndReportsWhetherItExisted() = scope.runTest {
         val source = newDataSource()
         source.upsert(Todo("a", "À supprimer", isDone = false))

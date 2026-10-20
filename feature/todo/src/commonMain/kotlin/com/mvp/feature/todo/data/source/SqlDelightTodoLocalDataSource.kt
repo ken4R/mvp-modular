@@ -6,6 +6,7 @@ import com.mvp.feature.todo.data.db.TodoDatabase
 import com.mvp.feature.todo.domain.model.Todo
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 /** Tâches stockées dans SQLite : elles survivent au redémarrage de l'app. */
 internal class SqlDelightTodoLocalDataSource(
@@ -15,7 +16,7 @@ internal class SqlDelightTodoLocalDataSource(
 
     private val queries = database.todoEntityQueries
 
-    override fun observe(): Flow<List<Todo>> = queries.selectAll(::toTodo).asFlow().mapToList(dispatcher)
+    override fun observe(): Flow<List<Todo>> = queries.selectAll(::toTodo).asFlow().mapToList(dispatcher).distinctUntilChanged()
 
     override fun get(id: String): Todo? = queries.selectById(id, ::toTodo).executeAsOneOrNull()
 
@@ -26,6 +27,13 @@ internal class SqlDelightTodoLocalDataSource(
         } else {
             queries.update(todo.title, isDone, todo.id)
         }
+    }
+
+    // Lecture et écriture dans une même transaction, sans insert : une tâche supprimée entre-temps
+    // n'est pas recréée.
+    override fun toggle(id: String): Todo? = queries.transactionWithResult {
+        val todo = queries.selectById(id, ::toTodo).executeAsOneOrNull() ?: return@transactionWithResult null
+        todo.copy(isDone = !todo.isDone).also { queries.update(it.title, if (it.isDone) 1L else 0L, it.id) }
     }
 
     override fun delete(id: String): Boolean = queries.transactionWithResult {

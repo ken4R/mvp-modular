@@ -9,6 +9,7 @@ import com.mvp.feature.settings.domain.model.UserProfile
 import com.mvp.feature.settings.domain.model.UserSettings
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 /** Réglages stockés dans SQLite : ils survivent au redémarrage de l'app. */
@@ -21,6 +22,8 @@ internal class SqlDelightSettingsLocalDataSource(
 
     override fun observe(): Flow<UserSettings> =
         queries.selectAll(::Pair).asFlow().mapToList(dispatcher).map { it.toMap().toSettings() }
+            // Chaque update réécrit toutes les clés : ne réémettre que si les réglages changent.
+            .distinctUntilChanged()
 
     // Lecture, transformation et écriture dans une même transaction : pas de mise à jour perdue.
     override fun update(transform: (UserSettings) -> UserSettings) = queries.transaction {

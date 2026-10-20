@@ -21,10 +21,8 @@ internal class TodoRepositoryImpl(
         Todo(id = idGenerator(), title = title, isDone = false).also(local::upsert)
     }
 
-    override suspend fun toggleTodo(id: String): AppResult<Todo> {
-        val todo = local.get(id) ?: return AppResult.Failure(AppError.NotFound)
-        return safeCall { todo.copy(isDone = !todo.isDone).also(local::upsert) }
-    }
+    override suspend fun toggleTodo(id: String): AppResult<Todo> =
+        local.toggle(id)?.let { AppResult.Success(it) } ?: AppResult.Failure(AppError.NotFound)
 
     override suspend fun deleteTodo(id: String): AppResult<Unit> =
         if (local.delete(id)) AppResult.Success(Unit) else AppResult.Failure(AppError.NotFound)

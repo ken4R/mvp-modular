@@ -18,6 +18,8 @@ packages:
     path: Packages/FeatureTodo
   FeatureWeather:
     path: Packages/FeatureWeather
+  FeatureSettings:
+    path: Packages/FeatureSettings
 
 settingGroups:
   app:
@@ -51,6 +53,7 @@ targets:
         product: Shared
       - package: FeatureTodo
       - package: FeatureWeather
+      - package: FeatureSettings
 
   # Démo de la feature todo, lancée seule avec des données d'exemple.
   TodoDemo:
@@ -83,3 +86,19 @@ targets:
       - package: SharedKMP
         product: Shared
       - package: FeatureWeather
+
+  # Démo de la feature réglages (profil, notifications, consentements).
+  SettingsDemo:
+    type: application
+    platform: iOS
+    sources: [Packages/FeatureSettings/Demo]
+    settings:
+      groups: [app]
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.demo.settings
+        INFOPLIST_KEY_CFBundleDisplayName: Settings Demo
+    dependencies:
+      - target: KotlinShared
+      - package: SharedKMP
+        product: Shared
+      - package: FeatureSettings

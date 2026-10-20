@@ -3,6 +3,11 @@ package com.mvp.shared
 import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.usecase.NoParams
+import com.mvp.feature.settings.domain.model.UserSettings
+import com.mvp.feature.settings.domain.usecase.ObserveSettingsUseCase
+import com.mvp.feature.settings.domain.usecase.SetConsentUseCase
+import com.mvp.feature.settings.domain.usecase.SetNotificationsEnabledUseCase
+import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
@@ -42,12 +47,29 @@ object UseCases : KoinComponent {
     fun searchCities(): SearchCitiesUseCase = get()
     fun getCurrentWeather(): GetCurrentWeatherUseCase = get()
 
+    fun updateProfile(): UpdateProfileUseCase = get()
+    fun setNotificationsEnabled(): SetNotificationsEnabledUseCase = get()
+    fun setConsent(): SetConsentUseCase = get()
+
     /** Les callbacks sont appelés sur le main thread. */
     fun observeTodos(onTodos: (List<Todo>) -> Unit, onError: (AppError) -> Unit): Subscription {
         val job = get<ObserveTodosUseCase>()(NoParams)
             .onEach { result ->
                 when (result) {
                     is AppResult.Success -> onTodos(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /** Les callbacks sont appelés sur le main thread. */
+    fun observeSettings(onSettings: (UserSettings) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveSettingsUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onSettings(result.data)
                     is AppResult.Failure -> onError(result.error)
                 }
             }

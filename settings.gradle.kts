@@ -33,4 +33,5 @@ include(":core:network")
 // Features
 include(":feature:todo")
 include(":feature:weather")
+include(":feature:settings")
 

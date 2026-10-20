@@ -1,0 +1,18 @@
+import SwiftUI
+import Shared
+import FeatureSettings
+
+/// App de démo : lance uniquement la feature réglages, pour la développer et la tester
+/// sans passer par l'app complète.
+@main
+struct SettingsDemoApp: App {
+    init() {
+        KoinIosKt.doInitKoin()
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            SettingsView()
+        }
+    }
+}

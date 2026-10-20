@@ -1,9 +1,13 @@
 package com.mvp.feature.settings.di
 
 import com.mvp.core.common.dispatcher.AppDispatchers
+import com.mvp.core.common.domain.session.UserSessionObserver
 import com.mvp.core.database.DatabaseDriverFactory
 import com.mvp.feature.settings.data.db.SettingsDatabase
 import com.mvp.feature.settings.data.repository.SettingsRepositoryImpl
+import com.mvp.feature.settings.data.session.SettingsUserSessionObserver
+import com.mvp.feature.settings.data.source.ProfileLocalDataSource
+import com.mvp.feature.settings.data.source.SecureProfileLocalDataSource
 import com.mvp.feature.settings.data.source.SettingsLocalDataSource
 import com.mvp.feature.settings.data.source.SqlDelightSettingsLocalDataSource
 import com.mvp.feature.settings.domain.repository.SettingsRepository
@@ -11,13 +15,18 @@ import com.mvp.feature.settings.domain.usecase.ObserveSettingsUseCase
 import com.mvp.feature.settings.domain.usecase.SetConsentUseCase
 import com.mvp.feature.settings.domain.usecase.SetNotificationsEnabledUseCase
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
+import org.koin.dsl.bind
 import org.koin.dsl.module
 
 val settingsModule = module {
     // Data
     single { SettingsDatabase(get<DatabaseDriverFactory>().create(SettingsDatabase.Schema, "settings.db")) }
     single<SettingsLocalDataSource> { SqlDelightSettingsLocalDataSource(get(), get<AppDispatchers>().io) }
-    single<SettingsRepository> { SettingsRepositoryImpl(get()) }
+    // Profil : stockage chiffré (core:securestorage), les autres réglages restent en SQLite.
+    single<ProfileLocalDataSource> { SecureProfileLocalDataSource(get(), legacy = get()) }
+    single<SettingsRepository> { SettingsRepositoryImpl(get(), get()) }
+    // Prévenu par feature:auth à la connexion et à la déconnexion.
+    single { SettingsUserSessionObserver(get(), get()) } bind UserSessionObserver::class
 
     // Domain
     factory { ObserveSettingsUseCase(get(), get<AppDispatchers>().io) }

@@ -6,6 +6,7 @@ import com.mvp.core.common.domain.result.getOrNull
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.feature.settings.data.repository.SettingsRepositoryImpl
 import com.mvp.feature.settings.data.source.InMemorySettingsLocalDataSource
+import com.mvp.feature.settings.data.source.SecureProfileLocalDataSource
 import com.mvp.feature.settings.domain.model.Consent
 import com.mvp.feature.settings.domain.model.ConsentType
 import com.mvp.feature.settings.domain.model.UserProfile
@@ -28,7 +29,8 @@ class SettingsUseCasesTest {
 
     private val scope = TestScope()
     private val dispatcher = StandardTestDispatcher(scope.testScheduler)
-    private val repository = SettingsRepositoryImpl(InMemorySettingsLocalDataSource())
+    private val local = InMemorySettingsLocalDataSource()
+    private val repository = SettingsRepositoryImpl(local, SecureProfileLocalDataSource(InMemorySecureStorage(), legacy = local))
 
     private val observe = ObserveSettingsUseCase(repository, dispatcher)
     private val updateProfile = UpdateProfileUseCase(repository, dispatcher)

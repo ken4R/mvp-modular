@@ -31,9 +31,11 @@ include(":core:designsystem")
 include(":core:network")
 include(":core:database")
 include(":core:database-testing")
+include(":core:securestorage")
 
 // Features
 include(":feature:todo")
 include(":feature:weather")
 include(":feature:settings")
+include(":feature:auth")
 

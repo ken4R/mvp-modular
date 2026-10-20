@@ -3,6 +3,8 @@ package com.mvp.shared.di
 import com.mvp.core.common.di.coreCommonModule
 import com.mvp.core.database.di.databaseModule
 import com.mvp.core.network.di.networkModule
+import com.mvp.core.securestorage.di.secureStorageModule
+import com.mvp.feature.auth.di.authModule
 import com.mvp.feature.settings.di.settingsModule
 import com.mvp.feature.todo.di.todoModule
 import com.mvp.feature.weather.di.weatherModule
@@ -19,9 +21,11 @@ val sharedModules: List<Module> = listOf(
     coreCommonModule,
     networkModule,
     databaseModule,
+    secureStorageModule,
     todoModule,
     weatherModule,
     settingsModule,
+    authModule,
 )
 
 fun initKoin(appDeclaration: KoinAppDeclaration = {}) = startKoin {

@@ -10,9 +10,12 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var profileMessage: String?
     @Published private(set) var notificationsEnabled = false
     @Published private(set) var consents: [Consent] = []
+    @Published private(set) var accountEmail: String?
+    @Published private(set) var isLoggingOut = false
     @Published private(set) var error: String?
 
     private var subscription: Subscription?
+    private var sessionSubscription: Subscription?
     /// Le formulaire de profil n'est pré-rempli qu'une fois, pour ne pas écraser la saisie en cours.
     private var profileLoaded = false
 
@@ -22,11 +25,29 @@ final class SettingsViewModel: ObservableObject {
             onSettings: { [weak self] settings in self?.apply(settings) },
             onError: { [weak self] error in self?.error = error.userMessage }
         )
+        sessionSubscription = UseCases.shared.observeSession(
+            onAccount: { [weak self] account in self?.accountEmail = account?.email },
+            onError: { _ in }
+        )
     }
 
     func stop() {
         subscription?.cancel()
         subscription = nil
+        sessionSubscription?.cancel()
+        sessionSubscription = nil
+    }
+
+    /// Efface les données locales puis la session ; l'app revient alors sur l'écran de connexion.
+    func logout() async {
+        guard !isLoggingOut else { return }
+        isLoggingOut = true
+        defer { isLoggingOut = false }
+        guard let result = try? await UseCases.shared.logout().invoke(params: NoParams.shared) else {
+            error = "Erreur inattendue"
+            return
+        }
+        if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
     func saveProfile() async {

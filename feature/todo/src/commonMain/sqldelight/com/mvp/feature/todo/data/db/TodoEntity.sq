@@ -20,3 +20,6 @@ UPDATE TodoEntity SET title = ?, is_done = ? WHERE id = ?;
 
 deleteById:
 DELETE FROM TodoEntity WHERE id = ?;
+
+deleteAll:
+DELETE FROM TodoEntity;

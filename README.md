@@ -14,8 +14,8 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
                        │                (framework iOS "Shared", initKoin, coordination)
                        │
                        ▼
-         feature:todo        feature:weather
-         (modèle à copier)   (réseau : Open-Meteo)
+         feature:todo        feature:weather          feature:settings   feature:auth
+         (modèle à copier)   (réseau : Open-Meteo)                       (connexion, session)
          ├─ domain : entités, interfaces de repository, use cases
          ├─ data   : repository, data sources (SQLite / HTTP)
          └─ di     : module Koin
@@ -24,6 +24,7 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
             ▼          ▼                 ▼
  core:designsystem  core:common     core:network  ← client HTTP Ktor partagé
                                     core:database ← SQLite (SQLDelight), une base par feature
+                                    core:securestorage ← Keystore / Keychain (secrets, profil)
      (tokens visuels :        ├─ domain : entités, interfaces de repository, use cases
       couleurs, typo,         ├─ data   : implémentations de repository, data sources
       espacements, rayons)    └─ di     : module Koin
@@ -45,6 +46,8 @@ Règles de dépendance :
 | `AppDispatchers` | Dispatchers injectables (remplaçables en test) |
 
 `core:database` ajoute la persistance locale ([ADR 0002](docs/adr/0002-persistance-sqldelight.md)) : `DatabaseDriverFactory` ouvre une base SQLDelight par feature (driver Android / iOS) et `databaseModule` la fournit via Koin. `core:database-testing` donne une base en mémoire aux tests `commonTest`.
+
+`core:securestorage` ajoute le stockage chiffré ([ADR 0003](docs/adr/0003-connexion-stockage-chiffre.md)) : `SecureStorage` (clé / valeur) chiffré par l'Android Keystore (AES-GCM) ou rangé dans le Keychain iOS, pour les secrets et les données personnelles (session, profil).
 
 `core:network` ajoute le réseau ([ADR 0001](docs/adr/0001-reseau-ktor.md)) : `createHttpClient()` (Ktor, JSON, délais, moteur Android / Darwin), `safeApiCall` (exceptions Ktor → `AppError`) et `networkModule` (un `HttpClient` unique). Les features l'utilisent dans leur couche `data` uniquement.
 
@@ -77,9 +80,18 @@ Météo actuelle d'une ville, via l'API gratuite [Open-Meteo](https://open-meteo
 Page Réglages : profil, notifications, consentements et version de l'app.
 - **Use cases** : `ObserveSettingsUseCase` (Flow), `UpdateProfileUseCase` (nom obligatoire, 50 caractères max ; e-mail facultatif mais valide), `SetNotificationsEnabledUseCase`, `SetConsentUseCase` (mesure d'audience, marketing, personnalisation).
 - **Règles** : au premier lancement, notifications coupées et aucun consentement accordé (opt-in RGPD). Activer les notifications demande d'abord la permission système (iOS, Android 13+) ; si elle est refusée, le réglage reste coupé. Si elle est retirée dans les paramètres système, le réglage se recoupe au retour dans l'app.
-- **Data** : réglages stockés en SQLite (SQLDelight, `settings.db`, table clé / valeur) derrière `SettingsLocalDataSource` ; ils survivent au redémarrage.
+- **Data** : réglages stockés en SQLite (SQLDelight, `settings.db`, table clé / valeur) derrière `SettingsLocalDataSource` ; ils survivent au redémarrage. Le profil (nom, e-mail), donnée personnelle, est dans le stockage chiffré (`SecureProfileLocalDataSource`), pré-rempli à la connexion et effacé à la déconnexion.
 - **Android** : `ui/settings/SettingsViewModel.kt` + `SettingsScreen.kt`, onglet « Réglages » à côté de « Tâches ».
 - **iOS** : package SPM `iosApp/Packages/FeatureSettings` (`SettingsViewModel.swift` + `SettingsView.swift`), onglet « Réglages » de l'app complète, et app de démo `SettingsDemo`. Le Flow est exposé par `UseCases.observeSettings(...)`.
+
+## Feature `auth`
+
+Connexion devant l'app : sans session, seul l'écran de connexion est accessible ([ADR 0003](docs/adr/0003-connexion-stockage-chiffre.md)).
+- **Use cases** : `LoginUseCase` (e-mail valide, mot de passe obligatoire), `LogoutUseCase`, `ObserveSessionUseCase` (Flow du compte connecté, `null` si déconnecté ou session expirée).
+- **Data** : pas encore de backend, `FakeAuthRemoteDataSource` accepte n'importe quel e-mail avec le mot de passe `demo1234` (session de 7 jours). La session est gardée dans `core:securestorage` ; le jeton ne sort jamais de la feature.
+- **Lien avec les autres features** : sans dépendance entre elles, via `UserSessionObserver` (`core:common`). À la connexion, le profil des Réglages est pré-rempli avec le compte ; à la déconnexion, les tâches, les réglages et le profil sont effacés, puis la session. Toute feature qui stocke des données de l'utilisateur doit déclarer le sien.
+- **Android** : `ui/auth/SessionViewModel.kt` (écran racine), `LoginViewModel.kt` + `LoginScreen.kt` ; déconnexion dans la section « Compte » des Réglages.
+- **iOS** : package SPM `iosApp/Packages/FeatureAuth` : `SessionGate { ... }` enveloppe les onglets de l'app, `LoginView` ; app de démo `AuthDemo`. Le Flow est exposé par `UseCases.observeSession(...)`.
 
 ## iOS : une feature = un package SPM
 
@@ -94,7 +106,8 @@ iosApp/
    │  ├─ Sources/FeatureTodo/   ← vues + ViewModel, seule la vue d'entrée est public
    │  └─ Demo/TodoDemoApp.swift ← app de démo : la feature seule, avec données d'exemple
    ├─ FeatureWeather/           ← même structure, démo WeatherDemo
-   └─ FeatureSettings/          ← même structure, démo SettingsDemo
+   ├─ FeatureSettings/          ← même structure, démo SettingsDemo
+   └─ FeatureAuth/              ← écran de connexion + SessionGate, démo AuthDemo
 ```
 
 - Une feature iOS dépend uniquement de `SharedKMP` (la logique) et de `DesignSystemUI` (le visuel), jamais d'une autre feature.
@@ -126,7 +139,7 @@ Le plugin de convention `mvp.kmp.library` (`build-logic/`) configure les cibles 
 
 - **Tests KMP** : `./gradlew allTests`
 - **Android** : ouvrir le dossier dans Android Studio, lancer `androidApp`.
-- **iOS** : `scripts/build-ios-framework.sh && cd iosApp && xcodegen && open iosApp.xcodeproj`, puis choisir le scheme `iosApp` (app complète, onglets Tâches, Météo et Réglages) ou une démo de feature (`TodoDemo`, `WeatherDemo`, `SettingsDemo`). Le script doit tourner une première fois avant d'ouvrir Xcode, car les packages SPM ont besoin du XCFramework Kotlin ; ensuite la cible `KotlinShared` le relance à chaque build.
+- **iOS** : `scripts/build-ios-framework.sh && cd iosApp && xcodegen && open iosApp.xcodeproj`, puis choisir le scheme `iosApp` (app complète : connexion, puis onglets Tâches, Météo et Réglages) ou une démo de feature (`TodoDemo`, `WeatherDemo`, `SettingsDemo`, `AuthDemo`). Le script doit tourner une première fois avant d'ouvrir Xcode, car les packages SPM ont besoin du XCFramework Kotlin ; ensuite la cible `KotlinShared` le relance à chaque build.
 
 ## Environnement cloud (Claude Code)
 

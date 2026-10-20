@@ -15,6 +15,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 
 class SqlDelightSettingsLocalDataSourceTest {
 
@@ -45,7 +46,8 @@ class SqlDelightSettingsLocalDataSourceTest {
 
         val restored = newDataSource().observe().first()
 
-        assertEquals(UserProfile("Youssef", "y@example.com"), restored.profile)
+        // Le profil n'est plus écrit en clair dans la base : il est dans le stockage chiffré.
+        assertEquals(UserSettings.initial().profile, restored.profile)
         assertEquals(true, restored.notificationsEnabled)
         assertEquals(
             listOf(
@@ -62,11 +64,39 @@ class SqlDelightSettingsLocalDataSourceTest {
         val source = newDataSource()
 
         source.update { it.copy(notificationsEnabled = true) }
-        source.update { it.copy(profile = UserProfile("Youssef", "")) }
+        source.setConsentGranted(ConsentType.Analytics)
 
         val restored = newDataSource().observe().first()
         assertEquals(true, restored.notificationsEnabled)
-        assertEquals("Youssef", restored.profile.displayName)
+        assertEquals(true, restored.consents.first { it.type == ConsentType.Analytics }.granted)
+    }
+
+    @Test
+    fun clearRestoresFirstLaunchSettings() = scope.runTest {
+        val source = newDataSource()
+        source.update { it.copy(notificationsEnabled = true) }
+        source.setConsentGranted(ConsentType.Marketing)
+
+        source.clear()
+
+        assertEquals(UserSettings.initial(), newDataSource().observe().first())
+    }
+
+    @Test
+    fun legacyProfileIsReadThenDeleted() = scope.runTest {
+        // Profil écrit en clair par la version précédente (PR #7).
+        val queries = SettingsDatabase(driver).settingEntityQueries
+        queries.upsert("profile.display_name", "Youssef")
+        queries.upsert("profile.email", "y@example.com")
+        queries.upsert("notifications.enabled", "true")
+        val source = newDataSource()
+
+        assertEquals(UserProfile("Youssef", "y@example.com"), source.readLegacyProfile())
+
+        source.deleteLegacyProfile()
+
+        assertNull(source.readLegacyProfile())
+        assertEquals(listOf("notifications.enabled"), queries.selectAll().executeAsList().map { it.setting_key })
     }
 
     @Test
@@ -86,4 +116,8 @@ class SqlDelightSettingsLocalDataSourceTest {
 
         assertEquals(UserSettings.initial(), newDataSource().observe().first())
     }
+}
+
+private fun SqlDelightSettingsLocalDataSource.setConsentGranted(type: ConsentType) = update { settings ->
+    settings.copy(consents = settings.consents.map { if (it.type == type) it.copy(granted = true) else it })
 }

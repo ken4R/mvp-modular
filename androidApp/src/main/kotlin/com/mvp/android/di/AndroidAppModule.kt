@@ -1,5 +1,7 @@
 package com.mvp.android.di
 
+import com.mvp.android.ui.auth.LoginViewModel
+import com.mvp.android.ui.auth.SessionViewModel
 import com.mvp.android.ui.settings.SettingsViewModel
 import com.mvp.android.ui.todo.TodoViewModel
 import org.koin.core.module.dsl.viewModelOf
@@ -9,4 +11,6 @@ import org.koin.dsl.module
 val androidAppModule = module {
     viewModelOf(::TodoViewModel)
     viewModelOf(::SettingsViewModel)
+    viewModelOf(::SessionViewModel)
+    viewModelOf(::LoginViewModel)
 }

@@ -7,6 +7,8 @@ import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.result.onFailure
 import com.mvp.core.common.domain.result.onSuccess
 import com.mvp.core.common.domain.usecase.NoParams
+import com.mvp.feature.auth.domain.usecase.LogoutUseCase
+import com.mvp.feature.auth.domain.usecase.ObserveSessionUseCase
 import com.mvp.feature.settings.domain.model.Consent
 import com.mvp.feature.settings.domain.model.ConsentType
 import com.mvp.feature.settings.domain.model.UserProfile
@@ -28,21 +30,29 @@ data class SettingsUiState(
     val profileMessage: String? = null,
     val notificationsEnabled: Boolean = false,
     val consents: List<Consent> = emptyList(),
+    val accountEmail: String? = null,
+    val isLoggingOut: Boolean = false,
     val error: String? = null,
 )
 
 class SettingsViewModel(
     observeSettings: ObserveSettingsUseCase,
+    observeSession: ObserveSessionUseCase,
     private val updateProfile: UpdateProfileUseCase,
     private val setNotificationsEnabled: SetNotificationsEnabledUseCase,
     private val setConsent: SetConsentUseCase,
+    private val logout: LogoutUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
 
-    /** Le formulaire de profil n'est pré-rempli qu'une fois, pour ne pas écraser la saisie en cours. */
-    private var profileLoaded = false
+    /**
+     * Le formulaire de profil suit le profil enregistré tant que l'utilisateur ne le modifie pas,
+     * pour ne pas écraser sa saisie en cours. Le ViewModel survit à la déconnexion (il est lié à
+     * l'activité) : le profil pré-rempli à la connexion suivante s'affiche donc bien.
+     */
+    private var profileEdited = false
 
     init {
         observeSettings(NoParams)
@@ -50,27 +60,36 @@ class SettingsViewModel(
                 when (result) {
                     is AppResult.Success -> _state.update { state ->
                         val settings = result.data
-                        val withProfile = if (profileLoaded) state else state.copy(
+                        val withProfile = if (profileEdited) state else state.copy(
                             nameInput = settings.profile.displayName,
                             emailInput = settings.profile.email,
                         )
-                        profileLoaded = true
                         withProfile.copy(notificationsEnabled = settings.notificationsEnabled, consents = settings.consents)
                     }
                     is AppResult.Failure -> showError(result.error)
                 }
             }
             .launchIn(viewModelScope)
+        observeSession(NoParams)
+            .onEach { result -> if (result is AppResult.Success) _state.update { it.copy(accountEmail = result.data?.email) } }
+            .launchIn(viewModelScope)
     }
 
-    fun onNameChange(value: String) = _state.update { it.copy(nameInput = value, profileMessage = null, error = null) }
+    fun onNameChange(value: String) {
+        profileEdited = true
+        _state.update { it.copy(nameInput = value, profileMessage = null, error = null) }
+    }
 
-    fun onEmailChange(value: String) = _state.update { it.copy(emailInput = value, profileMessage = null, error = null) }
+    fun onEmailChange(value: String) {
+        profileEdited = true
+        _state.update { it.copy(emailInput = value, profileMessage = null, error = null) }
+    }
 
     fun onSaveProfile() = viewModelScope.launch {
         val state = _state.value
         updateProfile(UserProfile(displayName = state.nameInput, email = state.emailInput))
             .onSuccess { profile ->
+                profileEdited = false
                 _state.update {
                     it.copy(nameInput = profile.displayName, emailInput = profile.email, profileMessage = "Profil enregistré", error = null)
                 }
@@ -93,6 +112,24 @@ class SettingsViewModel(
 
     fun onConsentChange(type: ConsentType, granted: Boolean) = viewModelScope.launch {
         setConsent(Consent(type, granted)).onSuccess { clearError() }.onFailure(::showError)
+    }
+
+    /** Efface les données locales puis la session ; l'app revient alors sur l'écran de connexion. */
+    fun onLogout() {
+        if (_state.value.isLoggingOut) return
+        _state.update { it.copy(isLoggingOut = true, error = null) }
+        viewModelScope.launch {
+            logout(NoParams)
+                .onSuccess {
+                    // Les réglages effacés arrivent par le Flow ; on vide aussi une saisie en cours.
+                    profileEdited = false
+                    _state.update { it.copy(nameInput = "", emailInput = "", profileMessage = null, isLoggingOut = false) }
+                }
+                .onFailure { error ->
+                    _state.update { it.copy(isLoggingOut = false) }
+                    showError(error)
+                }
+        }
     }
 
     private fun clearError() = _state.update { it.copy(error = null) }

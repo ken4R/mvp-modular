@@ -41,6 +41,10 @@ internal class SqlDelightTodoLocalDataSource(
         if (existed) queries.deleteById(id)
         existed
     }
+
+    override fun clear() {
+        queries.deleteAll()
+    }
 }
 
 private fun toTodo(id: String, title: String, isDone: Long) = Todo(id = id, title = title, isDone = isDone != 0L)

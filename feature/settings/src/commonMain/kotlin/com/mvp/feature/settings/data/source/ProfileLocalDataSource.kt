@@ -38,9 +38,11 @@ internal class SecureProfileLocalDataSource(
     }
 
     override fun clear() {
+        // D'abord l'état en mémoire : s'il n'était pas encore lu, sa lecture (et la migration
+        // d'un ancien profil) a lieu maintenant, avant l'effacement, et non juste après.
+        profile.value = EMPTY
         storage.remove(KEY_DISPLAY_NAME)
         storage.remove(KEY_EMAIL)
-        profile.value = EMPTY
     }
 
     private fun read(): UserProfile? {

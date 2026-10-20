@@ -22,7 +22,10 @@ interface SessionLocalDataSource {
  */
 internal class SecureSessionLocalDataSource(private val storage: SecureStorage) : SessionLocalDataSource {
 
-    private val session by lazy { MutableStateFlow(read()) }
+    // Stockage illisible (Keychain verrouillé, Keystore en erreur) : lu comme « pas de session ».
+    // Sinon le Flow observé par l'UI se terminerait en erreur et une connexion réussie ne
+    // ferait plus changer d'écran. `read()` n'est pas suspend : aucune annulation n'est avalée.
+    private val session by lazy { MutableStateFlow(runCatching { read() }.getOrNull()) }
 
     // Première lecture au moment de la collecte (sur le dispatcher io), pas à la création du Flow.
     override fun observe(): Flow<Session?> = flow { emitAll(session) }

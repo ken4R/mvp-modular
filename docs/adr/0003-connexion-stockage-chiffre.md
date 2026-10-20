@@ -23,7 +23,7 @@ L'app doit demander une connexion avant d'ouvrir les onglets, garder la session 
 - Coordination sans dépendance entre features : `UserSessionObserver` (`core:common`). Chaque feature qui garde des données de l'utilisateur en déclare un dans son module Koin (`bind UserSessionObserver::class`) ; `LoginUseCase` et `LogoutUseCase` les reçoivent tous (`getAll()`).
   - Connexion : les features sont prévenues (`onLogin`) ; Réglages pré-remplit un profil vide avec le nom et l'e-mail du compte.
   - Déconnexion : chaque feature efface ses données (tâches, réglages, profil), **puis** la session. Si l'effacement échoue, la session est gardée pour pouvoir réessayer.
-  - Session expirée puis connexion d'un **autre** compte : les données du précédent sont effacées avant d'ouvrir la nouvelle session.
+  - À la connexion, les données locales sont effacées avant d'ouvrir la session, sauf si le **même** compte se reconnecte après expiration. Sans session connue (premier lancement, sauvegarde restaurée sans le Keychain, clé Keystore perdue), on efface aussi : rien ne passe d'un utilisateur à l'autre.
 - L'UI ne voit que `UserAccount` (id, nom, e-mail) : le jeton ne sort pas de `feature:auth`.
 
 ## Conséquences

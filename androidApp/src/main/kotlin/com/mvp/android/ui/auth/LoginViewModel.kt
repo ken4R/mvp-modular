@@ -18,7 +18,10 @@ data class LoginUiState(
     val password: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
-)
+) {
+    // Le mot de passe ne doit jamais apparaître dans un log ou un rapport de crash.
+    override fun toString(): String = "LoginUiState(email=$email, password=***, isLoading=$isLoading, error=$error)"
+}
 
 class LoginViewModel(private val login: LoginUseCase) : ViewModel() {
 

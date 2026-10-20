@@ -49,8 +49,7 @@ class SettingsViewModel(
 
     /**
      * Le formulaire de profil suit le profil enregistré tant que l'utilisateur ne le modifie pas,
-     * pour ne pas écraser sa saisie en cours. Le ViewModel survit à la déconnexion (il est lié à
-     * l'activité) : le profil pré-rempli à la connexion suivante s'affiche donc bien.
+     * pour ne pas écraser sa saisie en cours.
      */
     private var profileEdited = false
 
@@ -120,11 +119,8 @@ class SettingsViewModel(
         _state.update { it.copy(isLoggingOut = true, error = null) }
         viewModelScope.launch {
             logout(NoParams)
-                .onSuccess {
-                    // Les réglages effacés arrivent par le Flow ; on vide aussi une saisie en cours.
-                    profileEdited = false
-                    _state.update { it.copy(nameInput = "", emailInput = "", profileMessage = null, isLoggingOut = false) }
-                }
+                // L'app revient sur la connexion et ce ViewModel est détruit avec la session.
+                .onSuccess { _state.update { it.copy(isLoggingOut = false) } }
                 .onFailure { error ->
                     _state.update { it.copy(isLoggingOut = false) }
                     showError(error)

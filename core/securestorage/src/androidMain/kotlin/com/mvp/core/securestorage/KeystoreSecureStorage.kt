@@ -3,9 +3,11 @@ package com.mvp.core.securestorage
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.util.Base64
-import java.security.GeneralSecurityException
 import java.security.KeyStore
+import java.security.UnrecoverableKeyException
+import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -21,17 +23,18 @@ import javax.crypto.spec.GCMParameterSpec
 internal class KeystoreSecureStorage(context: Context) : SecureStorage {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private var cachedKey: SecretKey? = null
 
     @Synchronized
     override fun get(key: String): String? {
         val stored = prefs.getString(key, null) ?: return null
         return try {
             decrypt(key, stored)
-        } catch (e: GeneralSecurityException) {
-            // Clé Keystore perdue ou valeur altérée : la valeur est inutilisable, on l'efface.
-            remove(key)
-            null
-        } catch (e: IllegalArgumentException) {
+        } catch (e: Exception) {
+            // Valeur altérée ou clé Keystore perdue : la valeur est définitivement inutilisable, on l'efface.
+            // Toute autre erreur (Keystore momentanément indisponible) remonte, sans rien effacer.
+            if (!e.isPermanentDecryptionFailure()) throw e
+            cachedKey = null
             remove(key)
             null
         }
@@ -64,7 +67,9 @@ internal class KeystoreSecureStorage(context: Context) : SecureStorage {
         return cipher.doFinal(bytes, IV_SIZE, bytes.size - IV_SIZE).decodeToString()
     }
 
-    private fun secretKey(): SecretKey {
+    private fun secretKey(): SecretKey = cachedKey ?: loadOrCreateKey().also { cachedKey = it }
+
+    private fun loadOrCreateKey(): SecretKey {
         val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
         (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
         val spec = KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
@@ -77,6 +82,12 @@ internal class KeystoreSecureStorage(context: Context) : SecureStorage {
             generateKey()
         }
     }
+
+    private fun Exception.isPermanentDecryptionFailure() =
+        this is AEADBadTagException ||
+            this is KeyPermanentlyInvalidatedException ||
+            this is UnrecoverableKeyException ||
+            this is IllegalArgumentException // Base64 ou format invalide
 
     private companion object {
         const val PREFS_NAME = "secure_storage"

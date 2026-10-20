@@ -122,8 +122,9 @@ internal class KeychainSecureStorage(private val service: String = SERVICE) : Se
     private fun wipeLeftoversFromPreviousInstall() {
         val defaults = NSUserDefaults.standardUserDefaults
         if (defaults.boolForKey(INSTALLED_FLAG)) return
-        cf { SecItemDelete(dictionary(kSecClass to kSecClassGenericPassword, kSecAttrService to retain(service))) }
-        defaults.setBool(true, forKey = INSTALLED_FLAG)
+        val status = cf { SecItemDelete(dictionary(kSecClass to kSecClassGenericPassword, kSecAttrService to retain(service))) }
+        // Keychain pas encore disponible : on réessaiera au prochain lancement.
+        if (status == errSecSuccess || status == errSecItemNotFound) defaults.setBool(true, forKey = INSTALLED_FLAG)
     }
 
     private companion object {

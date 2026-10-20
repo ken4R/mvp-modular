@@ -13,7 +13,7 @@ import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 /** Identifiants refusés par le service d'authentification. */
-class InvalidCredentialsException : Exception("Identifiants refusés")
+internal class InvalidCredentialsException : Exception("Identifiants refusés")
 
 /**
  * Service d'authentification. Le prototype n'a pas encore de backend : [FakeAuthRemoteDataSource]

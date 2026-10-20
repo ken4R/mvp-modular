@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,7 +59,12 @@ fun LoginScreen(viewModel: LoginViewModel = koinViewModel()) {
                 label = { Text("E-mail") },
                 singleLine = true,
                 enabled = !state.isLoading,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.None,
+                    autoCorrectEnabled = false,
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next,
+                ),
                 modifier = Modifier.fillMaxWidth(),
             )
             OutlinedTextField(

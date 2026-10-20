@@ -13,8 +13,10 @@ import com.mvp.feature.auth.domain.usecase.LoginUseCase
 import com.mvp.feature.auth.domain.usecase.LogoutUseCase
 import com.mvp.feature.auth.domain.usecase.ObserveSessionUseCase
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -125,7 +127,14 @@ class AuthUseCasesTest {
         login(demo)
 
         assertEquals(listOf("jean.dupont@exemple.fr"), observer.logins.map { it.email })
-        assertEquals(0, observer.clearCount)
+    }
+
+    @Test
+    fun loginWithoutKnownPreviousAccountWipesLeftoverData() = scope.runTest {
+        // Données sans session connue (sauvegarde restaurée, clé perdue) : on efface par prudence.
+        login(demo)
+
+        assertEquals(1, observer.clearCount)
     }
 
     @Test
@@ -146,7 +155,7 @@ class AuthUseCasesTest {
 
         login(demo)
 
-        assertEquals(0, observer.clearCount)
+        assertEquals(1, observer.clearCount, "seul le premier login efface")
         assertEquals("jean.dupont@exemple.fr", account()?.email)
     }
 
@@ -158,7 +167,7 @@ class AuthUseCasesTest {
 
         login(demo.copy(email = "marie@exemple.fr"))
 
-        assertEquals(1, observer.clearCount)
+        assertEquals(2, observer.clearCount)
         assertEquals("marie@exemple.fr", account()?.email)
     }
 
@@ -168,7 +177,7 @@ class AuthUseCasesTest {
 
         assertEquals(AppResult.Success(Unit), logout(NoParams))
 
-        assertEquals(1, observer.clearCount)
+        assertEquals(2, observer.clearCount)
         assertNull(account())
         assertTrue(storage.values.isEmpty(), "aucune trace de la session ne doit rester : ${storage.values.keys}")
     }
@@ -194,5 +203,56 @@ class AuthUseCasesTest {
         stack = useCases()
 
         assertNull(account())
+    }
+
+    @Test
+    fun unreadableStorageAtLaunchStillLetsUserLogIn() = scope.runTest {
+        storage.failReads = true
+        val emissions = mutableListOf<UserAccount?>()
+        val job = launch { observe(NoParams).collect { emissions += it.getOrNull() } }
+        advanceUntilIdle()
+
+        storage.failReads = false
+        login(demo)
+        advanceUntilIdle()
+
+        assertEquals(listOf(null, demo.email), emissions.map { it?.email })
+        job.cancel()
+    }
+
+    @Test
+    fun everyFeatureIsWipedEvenIfOneFails() = scope.runTest {
+        val failing = RecordingSessionObserver(failClear = true)
+        val other = RecordingSessionObserver()
+        val remote = FakeAuthRemoteDataSource(now = { now })
+        val repository = AuthRepositoryImpl(remote, SecureSessionLocalDataSource(storage), now = { now })
+        LoginUseCase(repository, listOf(other), dispatcher)(demo)
+
+        val result = LogoutUseCase(repository, listOf(failing, other), dispatcher)(NoParams)
+
+        assertIs<AppResult.Failure>(result)
+        assertEquals(1, failing.clearCount)
+        assertEquals(2, other.clearCount, "effacée à la connexion puis à la déconnexion")
+    }
+
+    @Test
+    fun failedWipeOnAccountChangeRefusesLoginAndKeepsPreviousSession() = scope.runTest {
+        login(demo)
+        now += 8.days.inWholeMilliseconds
+        stack = useCases()
+        observer.failClear = true
+
+        assertIs<AppResult.Failure>(login(demo.copy(email = "marie@exemple.fr")))
+
+        assertEquals(listOf("jean.dupont@exemple.fr"), observer.logins.map { it.email })
+        assertTrue(storage.values.containsValue("jean.dupont@exemple.fr"))
+    }
+
+    @Test
+    fun failedPrefillDoesNotBlockLogin() = scope.runTest {
+        observer.failLogin = true
+
+        assertIs<AppResult.Success<*>>(login(demo))
+        assertEquals(demo.email, account()?.email)
     }
 }

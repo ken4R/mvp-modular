@@ -4,21 +4,25 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.mvp.android.ui.auth.LoginScreen
 import com.mvp.android.ui.auth.SessionUiState
 import com.mvp.android.ui.auth.SessionViewModel
@@ -35,12 +39,16 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MvpTheme {
-                val session by koinViewModel<SessionViewModel>().state.collectAsStateWithLifecycle()
+                val sessionViewModel = koinViewModel<SessionViewModel>()
+                val session by sessionViewModel.state.collectAsStateWithLifecycle()
                 // Sans session, seul l'écran de connexion est accessible.
                 when (session) {
-                    SessionUiState.Loading -> Box(Modifier.fillMaxSize())
+                    SessionUiState.Loading -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
                     SessionUiState.LoggedOut -> LoginScreen()
-                    is SessionUiState.LoggedIn -> AppTabs()
+                    // Les ViewModels des onglets sont liés à la session : neufs à chaque connexion.
+                    is SessionUiState.LoggedIn -> CompositionLocalProvider(LocalViewModelStoreOwner provides sessionViewModel.screens) {
+                        AppTabs()
+                    }
                 }
             }
         }

@@ -12,8 +12,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 /**
  * Connecte l'utilisateur. Règles métier : e-mail obligatoire et valide (254 caractères max,
  * comparé sans tenir compte de la casse), mot de passe obligatoire (128 caractères max).
- * Si un autre compte était connecté sur l'appareil (session expirée sans déconnexion),
- * ses données sont effacées avant d'ouvrir la nouvelle session.
+ * Les données locales sont effacées avant d'ouvrir la session, sauf si c'est le même compte
+ * qui se reconnecte après expiration. En cas de doute (aucune session connue, par exemple après
+ * une restauration de sauvegarde ou une clé Keystore perdue), on efface aussi.
  * Les features sont ensuite prévenues ([UserSessionObserver.onLogin]), par exemple pour
  * pré-remplir le profil ; un échec à cette étape n'empêche pas la connexion.
  */
@@ -35,7 +36,7 @@ class LoginUseCase(
             is AppResult.Success -> result.data
             is AppResult.Failure -> return result
         }
-        if (previous != null && previous.id != session.account.id) {
+        if (previous?.id != session.account.id) {
             observers.clearAllUserData().let { if (it is AppResult.Failure) return it }
         }
         repository.saveSession(session).let { if (it is AppResult.Failure) return it }

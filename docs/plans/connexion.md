@@ -19,4 +19,4 @@ Objectif : un écran de connexion devant l'app (Android et iOS), une session gar
 - Ajouter des tâches, changer un réglage, tuer et relancer l'app : toujours connecté, données présentes.
 - Se déconnecter : retour à l'écran de connexion, formulaire vide. Se reconnecter : aucune tâche, réglages par défaut, profil pré-rempli à nouveau.
 - iOS : désinstaller puis réinstaller l'app : écran de connexion (la session du Keychain a été effacée).
-- Mise à jour depuis la version précédente avec un profil rempli : après connexion du même nom, le profil saisi avant est conservé (migré du SQLite vers le stockage chiffré).
+- Mise à jour depuis la version précédente : le profil laissé en clair dans `settings.db` est déplacé dans le stockage chiffré au lancement, puis la première connexion efface les données locales (aucune session connue).

@@ -8,6 +8,8 @@ import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
+import com.mvp.feature.weather.domain.usecase.GetCurrentWeatherUseCase
+import com.mvp.feature.weather.domain.usecase.SearchCitiesUseCase
 import com.mvp.shared.di.initKoin
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
@@ -36,6 +38,9 @@ object UseCases : KoinComponent {
     fun addTodo(): AddTodoUseCase = get()
     fun toggleTodo(): ToggleTodoUseCase = get()
     fun deleteTodo(): DeleteTodoUseCase = get()
+
+    fun searchCities(): SearchCitiesUseCase = get()
+    fun getCurrentWeather(): GetCurrentWeatherUseCase = get()
 
     /** Les callbacks sont appelés sur le main thread. */
     fun observeTodos(onTodos: (List<Todo>) -> Unit, onError: (AppError) -> Unit): Subscription {

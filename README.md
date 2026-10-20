@@ -14,14 +14,15 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
                        │                (framework iOS "Shared", initKoin, coordination)
                        │
                        ▼
-                  feature:todo        ← premier module feature (modèle à copier)
-                  ├─ domain : Todo, TodoRepository, use cases
-                  ├─ data   : TodoRepositoryImpl, TodoLocalDataSource (mémoire)
-                  └─ di     : todoModule
+         feature:todo        feature:weather
+         (modèle à copier)   (réseau : Open-Meteo)
+         ├─ domain : entités, interfaces de repository, use cases
+         ├─ data   : repository, data sources (mémoire / HTTP)
+         └─ di     : module Koin
                        │
-            ┌──────────┴───────────┐
-            ▼                      ▼
-     core:designsystem        core:common     ← clean archi
+            ┌──────────┼─────────────────┐
+            ▼          ▼                 ▼
+ core:designsystem  core:common     core:network  ← client HTTP Ktor partagé
      (tokens visuels :        ├─ domain : entités, interfaces de repository, use cases
       couleurs, typo,         ├─ data   : implémentations de repository, data sources
       espacements, rayons)    └─ di     : module Koin
@@ -42,6 +43,8 @@ Règles de dépendance :
 | `safeCall` | Convertit les exceptions techniques en `AppError` dans les repositories |
 | `AppDispatchers` | Dispatchers injectables (remplaçables en test) |
 
+`core:network` ajoute le réseau ([ADR 0001](docs/adr/0001-reseau-ktor.md)) : `createHttpClient()` (Ktor, JSON, délais, moteur OkHttp / Darwin), `safeApiCall` (exceptions Ktor → `AppError`) et `networkModule` (un `HttpClient` unique). Les features l'utilisent dans leur couche `data` uniquement.
+
 ## Design system (`core:designsystem`)
 
 Source unique des valeurs visuelles, partagée par les deux plateformes : couleurs claires/sombres (ARGB), typographie, espacements et rayons, via l'objet `DesignSystem`.
@@ -58,6 +61,14 @@ Module de référence pour les prochaines features : ajouter, cocher et supprime
 - **Android** : `ui/todo/TodoViewModel.kt` + `TodoScreen.kt`.
 - **iOS** : package SPM `iosApp/Packages/FeatureTodo` (`TodoViewModel.swift` + `TodoListView.swift`) et son app de démo `TodoDemo`. Les Flow sont exposés à Swift par callbacks via `UseCases.observeTodos(...)`, qui renvoie une `Subscription` à annuler.
 
+## Feature `weather`
+
+Météo actuelle d'une ville, via l'API gratuite [Open-Meteo](https://open-meteo.com) (sans clé). Premier appel réseau du projet.
+- **Use cases** : `SearchCitiesUseCase` (2 caractères minimum, sans appel réseau sinon), `GetCurrentWeatherUseCase` (température, ressenti, humidité, vent, condition).
+- **Data** : `OpenMeteoRemoteDataSource` (géocodage + prévisions) derrière `WeatherRemoteDataSource` ; les codes météo WMO sont traduits en `WeatherCondition`. Tests avec un MockEngine Ktor.
+- **iOS** : package SPM `iosApp/Packages/FeatureWeather` (`WeatherViewModel.swift` + `WeatherView.swift`), onglet « Météo » de l'app complète, et app de démo `WeatherDemo` ouverte sur « Paris ».
+- **Android** : pas encore d'écran.
+
 ## iOS : une feature = un package SPM
 
 ```
@@ -67,9 +78,10 @@ iosApp/
 └─ Packages/
    ├─ SharedKMP/            ← XCFramework Kotlin "Shared" (généré, non versionné)
    ├─ DesignSystemUI/       ← pont SwiftUI vers core:designsystem (DS, Color(argb:))
-   └─ FeatureTodo/
-      ├─ Sources/FeatureTodo/   ← vues + ViewModel, seule la vue d'entrée est public
-      └─ Demo/TodoDemoApp.swift ← app de démo : la feature seule, avec données d'exemple
+   ├─ FeatureTodo/
+   │  ├─ Sources/FeatureTodo/   ← vues + ViewModel, seule la vue d'entrée est public
+   │  └─ Demo/TodoDemoApp.swift ← app de démo : la feature seule, avec données d'exemple
+   └─ FeatureWeather/           ← même structure, démo WeatherDemo
 ```
 
 - Une feature iOS dépend uniquement de `SharedKMP` (la logique) et de `DesignSystemUI` (le visuel), jamais d'une autre feature.
@@ -101,7 +113,7 @@ Le plugin de convention `mvp.kmp.library` (`build-logic/`) configure les cibles 
 
 - **Tests KMP** : `./gradlew allTests`
 - **Android** : ouvrir le dossier dans Android Studio, lancer `androidApp`.
-- **iOS** : `scripts/build-ios-framework.sh && cd iosApp && xcodegen && open iosApp.xcodeproj`, puis choisir le scheme `iosApp` (app complète) ou `TodoDemo` (démo de la feature). Le script doit tourner une première fois avant d'ouvrir Xcode, car les packages SPM ont besoin du XCFramework Kotlin ; ensuite la cible `KotlinShared` le relance à chaque build.
+- **iOS** : `scripts/build-ios-framework.sh && cd iosApp && xcodegen && open iosApp.xcodeproj`, puis choisir le scheme `iosApp` (app complète, onglets Tâches et Météo) ou une démo de feature (`TodoDemo`, `WeatherDemo`). Le script doit tourner une première fois avant d'ouvrir Xcode, car les packages SPM ont besoin du XCFramework Kotlin ; ensuite la cible `KotlinShared` le relance à chaque build.
 
 ## Environnement cloud (Claude Code)
 

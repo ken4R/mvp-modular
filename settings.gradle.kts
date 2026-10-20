@@ -28,7 +28,9 @@ include(":shared")
 // Modules communs
 include(":core:common")
 include(":core:designsystem")
+include(":core:network")
 
 // Features
 include(":feature:todo")
+include(":feature:weather")
 

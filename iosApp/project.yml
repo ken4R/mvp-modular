@@ -16,6 +16,8 @@ packages:
     path: Packages/DesignSystemUI
   FeatureTodo:
     path: Packages/FeatureTodo
+  FeatureWeather:
+    path: Packages/FeatureWeather
 
 settingGroups:
   app:
@@ -48,6 +50,7 @@ targets:
       - package: SharedKMP
         product: Shared
       - package: FeatureTodo
+      - package: FeatureWeather
 
   # Démo de la feature todo, lancée seule avec des données d'exemple.
   TodoDemo:
@@ -64,3 +67,19 @@ targets:
       - package: SharedKMP
         product: Shared
       - package: FeatureTodo
+
+  # Démo de la feature météo, ouverte sur une recherche d'exemple.
+  WeatherDemo:
+    type: application
+    platform: iOS
+    sources: [Packages/FeatureWeather/Demo]
+    settings:
+      groups: [app]
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.demo.weather
+        INFOPLIST_KEY_CFBundleDisplayName: Weather Demo
+    dependencies:
+      - target: KotlinShared
+      - package: SharedKMP
+        product: Shared
+      - package: FeatureWeather

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -28,7 +29,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mvp.android.ui.theme.Spacing
 import com.mvp.feature.settings.domain.model.ConsentType
@@ -50,11 +54,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
         val needsPermission = enabled &&
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        if (needsPermission) {
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            viewModel.onNotificationsChange(enabled)
+        when {
+            needsPermission -> permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            enabled && !NotificationManagerCompat.from(context).areNotificationsEnabled() -> viewModel.onNotificationPermissionDenied()
+            else -> viewModel.onNotificationsChange(enabled)
         }
+    }
+
+    // L'utilisateur peut couper les notifications dans les paramètres système pendant que l'app est en arrière-plan.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.onSystemNotificationsChecked(NotificationManagerCompat.from(context).areNotificationsEnabled())
     }
 
     SettingsContent(
@@ -83,6 +92,7 @@ private fun SettingsContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),

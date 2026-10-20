@@ -73,8 +73,8 @@ Météo actuelle d'une ville, via l'API gratuite [Open-Meteo](https://open-meteo
 
 Page Réglages : profil, notifications, consentements et version de l'app.
 - **Use cases** : `ObserveSettingsUseCase` (Flow), `UpdateProfileUseCase` (nom obligatoire, 50 caractères max ; e-mail facultatif mais valide), `SetNotificationsEnabledUseCase`, `SetConsentUseCase` (mesure d'audience, marketing, personnalisation).
-- **Règles** : au premier lancement, notifications coupées et aucun consentement accordé (opt-in RGPD). Activer les notifications demande d'abord la permission système (iOS, Android 13+) ; si elle est refusée, le réglage reste coupé.
-- **Data** : stockage en mémoire derrière `SettingsLocalDataSource` (les réglages repartent à zéro à chaque lancement), remplaçable par DataStore / NSUserDefaults sans toucher au domaine.
+- **Règles** : au premier lancement, notifications coupées et aucun consentement accordé (opt-in RGPD). Activer les notifications demande d'abord la permission système (iOS, Android 13+) ; si elle est refusée, le réglage reste coupé. Si elle est retirée dans les paramètres système, le réglage se recoupe au retour dans l'app.
+- **Data** : stockage en mémoire derrière `SettingsLocalDataSource` (les réglages repartent à zéro à chaque lancement), remplaçable sans toucher au domaine : DataStore / NSUserDefaults pour les préférences, stockage chiffré (Keystore / Keychain) pour le profil.
 - **Android** : `ui/settings/SettingsViewModel.kt` + `SettingsScreen.kt`, onglet « Réglages » à côté de « Tâches ».
 - **iOS** : package SPM `iosApp/Packages/FeatureSettings` (`SettingsViewModel.swift` + `SettingsView.swift`), onglet « Réglages » de l'app complète, et app de démo `SettingsDemo`. Le Flow est exposé par `UseCases.observeSettings(...)`.
 

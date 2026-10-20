@@ -53,13 +53,25 @@ final class SettingsViewModel: ObservableObject {
                 return
             }
         }
+        await saveNotifications(enabled)
+    }
+
+    /// Au retour dans l'app : si les notifications ont été refusées dans Réglages iOS, on aligne le réglage.
+    func syncNotificationPermission() async {
+        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        if status == .denied && notificationsEnabled {
+            await saveNotifications(false)
+        }
+    }
+
+    private func saveNotifications(_ enabled: Bool) async {
         let result = try? await UseCases.shared.setNotificationsEnabled().invoke(params: KotlinBoolean(bool: enabled))
-        if let failure = result as? AppResultFailure { error = failure.error.userMessage }
+        if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
     func setConsent(_ type: ConsentType, granted: Bool) async {
         let result = try? await UseCases.shared.setConsent().invoke(params: Consent(type: type, granted: granted))
-        if let failure = result as? AppResultFailure { error = failure.error.userMessage }
+        if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
     private func apply(_ settings: UserSettings) {
@@ -80,7 +92,6 @@ private extension AppError {
         case is AppErrorNotFound: return "Réglage introuvable"
         case is AppErrorNetwork: return "Problème de connexion"
         case is AppErrorUnauthorized: return "Accès refusé"
-        case let unknown as AppErrorUnknown: return unknown.message ?? "Erreur inattendue"
         default: return "Erreur inattendue"
         }
     }

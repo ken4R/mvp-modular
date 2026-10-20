@@ -83,6 +83,15 @@ class SettingsUseCasesTest {
     }
 
     @Test
+    fun tooLongEmailIsRejected() = scope.runTest {
+        val email = "a".repeat(UpdateProfileUseCase.MAX_EMAIL_LENGTH) + "@example.com"
+
+        val result = updateProfile(UserProfile("Youssef", email))
+
+        assertIs<AppError.Validation>((result as AppResult.Failure).error)
+    }
+
+    @Test
     fun notificationsCanBeTurnedOnAndOff() = scope.runTest {
         setNotifications(true)
         assertTrue(current().notificationsEnabled)

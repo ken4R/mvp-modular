@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import Shared
 import DesignSystemUI
 
@@ -87,6 +88,11 @@ public struct SettingsView: View {
         .scrollDismissesKeyboard(.immediately)
         .background(Color(argb: colors.background))
         .onAppear { viewModel.start() }
+        .task { await viewModel.syncNotificationPermission() }
+        // L'utilisateur peut couper les notifications dans Réglages iOS pendant que l'app est en arrière-plan.
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            Task { await viewModel.syncNotificationPermission() }
+        }
         .onDisappear { viewModel.stop() }
     }
 

@@ -80,15 +80,22 @@ class SettingsViewModel(
 
     /** À appeler une fois la permission système accordée (ou pour couper les notifications). */
     fun onNotificationsChange(enabled: Boolean) = viewModelScope.launch {
-        setNotificationsEnabled(enabled).onFailure(::showError)
+        setNotificationsEnabled(enabled).onSuccess { clearError() }.onFailure(::showError)
+    }
+
+    /** Au retour dans l'app : si les notifications ont été coupées dans les paramètres système, on aligne le réglage. */
+    fun onSystemNotificationsChecked(allowed: Boolean) {
+        if (!allowed && _state.value.notificationsEnabled) onNotificationsChange(false)
     }
 
     fun onNotificationPermissionDenied() =
         _state.update { it.copy(error = "Autorisez les notifications dans les paramètres Android") }
 
     fun onConsentChange(type: ConsentType, granted: Boolean) = viewModelScope.launch {
-        setConsent(Consent(type, granted)).onFailure(::showError)
+        setConsent(Consent(type, granted)).onSuccess { clearError() }.onFailure(::showError)
     }
+
+    private fun clearError() = _state.update { it.copy(error = null) }
 
     private fun showError(error: AppError) = _state.update { it.copy(error = error.toMessage(), profileMessage = null) }
 }
@@ -98,5 +105,6 @@ private fun AppError.toMessage(): String = when (this) {
     AppError.NotFound -> "Réglage introuvable"
     AppError.Network -> "Problème de connexion"
     AppError.Unauthorized -> "Accès refusé"
-    is AppError.Unknown -> message ?: "Erreur inattendue"
+    // Le détail technique d'une exception n'est jamais montré à l'utilisateur.
+    is AppError.Unknown -> "Erreur inattendue"
 }

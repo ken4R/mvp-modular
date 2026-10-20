@@ -8,13 +8,16 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
 /**
- * Stockage local des tâches. L'implémentation en mémoire suffit pour le prototype ;
- * elle pourra être remplacée par SQLDelight / Room KMP sans toucher au domaine.
+ * Stockage local des tâches. L'app utilise [SqlDelightTodoLocalDataSource] (SQLite, persistant) ;
+ * l'implémentation en mémoire sert aux tests des use cases.
  */
 interface TodoLocalDataSource {
     fun observe(): Flow<List<Todo>>
     fun get(id: String): Todo?
     fun upsert(todo: Todo)
+
+    /** Inverse l'état de la tâche en une seule opération ; `null` si elle n'existe pas (ou plus). */
+    fun toggle(id: String): Todo?
     fun delete(id: String): Boolean
 }
 
@@ -27,6 +30,15 @@ internal class InMemoryTodoLocalDataSource(initial: List<Todo> = emptyList()) : 
     override fun get(id: String): Todo? = todos.value[id]
 
     override fun upsert(todo: Todo) = todos.update { it + (todo.id to todo) }
+
+    override fun toggle(id: String): Todo? {
+        var toggled: Todo? = null
+        todos.update { current ->
+            toggled = current[id]?.let { it.copy(isDone = !it.isDone) }
+            toggled?.let { current + (id to it) } ?: current
+        }
+        return toggled
+    }
 
     override fun delete(id: String): Boolean {
         val existed = todos.value.containsKey(id)

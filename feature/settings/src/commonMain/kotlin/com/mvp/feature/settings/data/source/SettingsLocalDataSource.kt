@@ -7,10 +7,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * Stockage local des réglages. L'implémentation en mémoire suffit pour le prototype ;
- * elle pourra être remplacée sans toucher au domaine : DataStore / NSUserDefaults pour les
- * préférences (notifications, consentements), mais stockage chiffré (Keystore / Keychain)
- * pour le profil, qui contient des données personnelles.
+ * Stockage local des réglages. L'app utilise [SqlDelightSettingsLocalDataSource] (SQLite,
+ * persistant) ; l'implémentation en mémoire sert aux tests des use cases.
  */
 interface SettingsLocalDataSource {
     fun observe(): Flow<UserSettings>

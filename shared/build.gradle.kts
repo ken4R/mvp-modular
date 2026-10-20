@@ -15,6 +15,9 @@ kotlin {
             // Dynamique : SPM l'embarque une seule fois même si plusieurs packages en dépendent.
             isStatic = false
             binaryOption("bundleId", "com.mvp.shared")
+            // SQLDelight (core:database) utilise le SQLite fourni par iOS. Les modules qui appliquent
+            // le plugin SQLDelight le lient d'eux-mêmes (linkSqlite) ; shared ne l'applique pas.
+            linkerOpts("-lsqlite3")
             export(projects.core.common)
             export(projects.core.designsystem)
             export(projects.feature.todo)
@@ -33,6 +36,7 @@ kotlin {
             api(projects.feature.settings)
             // Non exporté : les types Ktor n'ont pas à apparaître côté Swift.
             implementation(projects.core.network)
+            implementation(projects.core.database)
         }
     }
 }

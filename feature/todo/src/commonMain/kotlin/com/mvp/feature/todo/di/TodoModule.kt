@@ -1,8 +1,10 @@
 package com.mvp.feature.todo.di
 
 import com.mvp.core.common.dispatcher.AppDispatchers
+import com.mvp.core.database.DatabaseDriverFactory
+import com.mvp.feature.todo.data.db.TodoDatabase
 import com.mvp.feature.todo.data.repository.TodoRepositoryImpl
-import com.mvp.feature.todo.data.source.InMemoryTodoLocalDataSource
+import com.mvp.feature.todo.data.source.SqlDelightTodoLocalDataSource
 import com.mvp.feature.todo.data.source.TodoLocalDataSource
 import com.mvp.feature.todo.domain.repository.TodoRepository
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
@@ -13,7 +15,8 @@ import org.koin.dsl.module
 
 val todoModule = module {
     // Data
-    single<TodoLocalDataSource> { InMemoryTodoLocalDataSource() }
+    single { TodoDatabase(get<DatabaseDriverFactory>().create(TodoDatabase.Schema, "todo.db")) }
+    single<TodoLocalDataSource> { SqlDelightTodoLocalDataSource(get(), get<AppDispatchers>().io) }
     single<TodoRepository> { TodoRepositoryImpl(get()) }
 
     // Domain

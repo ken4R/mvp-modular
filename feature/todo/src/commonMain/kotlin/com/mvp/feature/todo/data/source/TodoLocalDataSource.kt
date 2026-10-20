@@ -8,8 +8,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
 /**
- * Stockage local des tâches. L'implémentation en mémoire suffit pour le prototype ;
- * elle pourra être remplacée par SQLDelight / Room KMP sans toucher au domaine.
+ * Stockage local des tâches. L'app utilise [SqlDelightTodoLocalDataSource] (SQLite, persistant) ;
+ * l'implémentation en mémoire sert aux tests des use cases.
  */
 interface TodoLocalDataSource {
     fun observe(): Flow<List<Todo>>

@@ -29,6 +29,8 @@ include(":shared")
 include(":core:common")
 include(":core:designsystem")
 include(":core:network")
+include(":core:database")
+include(":core:database-testing")
 
 // Features
 include(":feature:todo")

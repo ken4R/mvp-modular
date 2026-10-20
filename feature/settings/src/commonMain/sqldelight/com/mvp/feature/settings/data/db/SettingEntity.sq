@@ -1,0 +1,12 @@
+-- Réglages en clé / valeur : ajouter un réglage ne demande pas de migration.
+-- Une clé absente vaut sa valeur par défaut (UserSettings.initial()).
+CREATE TABLE SettingEntity (
+    setting_key TEXT NOT NULL PRIMARY KEY,
+    setting_value TEXT NOT NULL
+);
+
+selectAll:
+SELECT * FROM SettingEntity;
+
+upsert:
+INSERT OR REPLACE INTO SettingEntity(setting_key, setting_value) VALUES (?, ?);

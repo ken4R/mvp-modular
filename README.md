@@ -17,12 +17,13 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
          feature:todo        feature:weather
          (modèle à copier)   (réseau : Open-Meteo)
          ├─ domain : entités, interfaces de repository, use cases
-         ├─ data   : repository, data sources (mémoire / HTTP)
+         ├─ data   : repository, data sources (SQLite / HTTP)
          └─ di     : module Koin
                        │
             ┌──────────┼─────────────────┐
             ▼          ▼                 ▼
  core:designsystem  core:common     core:network  ← client HTTP Ktor partagé
+                                    core:database ← SQLite (SQLDelight), une base par feature
      (tokens visuels :        ├─ domain : entités, interfaces de repository, use cases
       couleurs, typo,         ├─ data   : implémentations de repository, data sources
       espacements, rayons)    └─ di     : module Koin
@@ -43,6 +44,8 @@ Règles de dépendance :
 | `safeCall` | Convertit les exceptions techniques en `AppError` dans les repositories |
 | `AppDispatchers` | Dispatchers injectables (remplaçables en test) |
 
+`core:database` ajoute la persistance locale ([ADR 0002](docs/adr/0002-persistance-sqldelight.md)) : `DatabaseDriverFactory` ouvre une base SQLDelight par feature (driver Android / iOS) et `databaseModule` la fournit via Koin. `core:database-testing` donne une base en mémoire aux tests `commonTest`.
+
 `core:network` ajoute le réseau ([ADR 0001](docs/adr/0001-reseau-ktor.md)) : `createHttpClient()` (Ktor, JSON, délais, moteur Android / Darwin), `safeApiCall` (exceptions Ktor → `AppError`) et `networkModule` (un `HttpClient` unique). Les features l'utilisent dans leur couche `data` uniquement.
 
 ## Design system (`core:designsystem`)
@@ -57,7 +60,7 @@ Changer une couleur ou une taille dans le module KMP met à jour les deux apps.
 
 Module de référence pour les prochaines features : ajouter, cocher et supprimer des tâches.
 - **Use cases** : `ObserveTodosUseCase` (Flow, tâches terminées en dernier), `AddTodoUseCase` (titre obligatoire, 80 caractères max), `ToggleTodoUseCase`, `DeleteTodoUseCase`.
-- **Data** : stockage en mémoire derrière `TodoLocalDataSource`, remplaçable par SQLDelight ou Room KMP sans toucher au domaine.
+- **Data** : tâches stockées en SQLite (SQLDelight, `todo.db`) derrière `TodoLocalDataSource` ; elles survivent au redémarrage. Une implémentation en mémoire sert aux tests des use cases.
 - **Android** : `ui/todo/TodoViewModel.kt` + `TodoScreen.kt`.
 - **iOS** : package SPM `iosApp/Packages/FeatureTodo` (`TodoViewModel.swift` + `TodoListView.swift`) et son app de démo `TodoDemo`. Les Flow sont exposés à Swift par callbacks via `UseCases.observeTodos(...)`, qui renvoie une `Subscription` à annuler.
 
@@ -74,7 +77,7 @@ Météo actuelle d'une ville, via l'API gratuite [Open-Meteo](https://open-meteo
 Page Réglages : profil, notifications, consentements et version de l'app.
 - **Use cases** : `ObserveSettingsUseCase` (Flow), `UpdateProfileUseCase` (nom obligatoire, 50 caractères max ; e-mail facultatif mais valide), `SetNotificationsEnabledUseCase`, `SetConsentUseCase` (mesure d'audience, marketing, personnalisation).
 - **Règles** : au premier lancement, notifications coupées et aucun consentement accordé (opt-in RGPD). Activer les notifications demande d'abord la permission système (iOS, Android 13+) ; si elle est refusée, le réglage reste coupé. Si elle est retirée dans les paramètres système, le réglage se recoupe au retour dans l'app.
-- **Data** : stockage en mémoire derrière `SettingsLocalDataSource` (les réglages repartent à zéro à chaque lancement), remplaçable sans toucher au domaine : DataStore / NSUserDefaults pour les préférences, stockage chiffré (Keystore / Keychain) pour le profil.
+- **Data** : réglages stockés en SQLite (SQLDelight, `settings.db`, table clé / valeur) derrière `SettingsLocalDataSource` ; ils survivent au redémarrage.
 - **Android** : `ui/settings/SettingsViewModel.kt` + `SettingsScreen.kt`, onglet « Réglages » à côté de « Tâches ».
 - **iOS** : package SPM `iosApp/Packages/FeatureSettings` (`SettingsViewModel.swift` + `SettingsView.swift`), onglet « Réglages » de l'app complète, et app de démo `SettingsDemo`. Le Flow est exposé par `UseCases.observeSettings(...)`.
 

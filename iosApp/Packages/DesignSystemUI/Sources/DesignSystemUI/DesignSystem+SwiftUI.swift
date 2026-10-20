@@ -18,6 +18,12 @@ public enum DS {
         public static var xl: CGFloat { CGFloat(tokens.spacing.xl) }
     }
 
+    public enum Radius {
+        public static var sm: CGFloat { CGFloat(tokens.radius.sm) }
+        public static var md: CGFloat { CGFloat(tokens.radius.md) }
+        public static var lg: CGFloat { CGFloat(tokens.radius.lg) }
+    }
+
     public enum Typography {
         public static var titleLarge: Font { tokens.typography.titleLarge.font }
         public static var titleMedium: Font { tokens.typography.titleMedium.font }

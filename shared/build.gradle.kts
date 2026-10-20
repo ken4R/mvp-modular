@@ -18,6 +18,7 @@ kotlin {
             export(projects.core.common)
             export(projects.core.designsystem)
             export(projects.feature.todo)
+            export(projects.feature.weather)
             xcFramework.add(this)
         }
     }
@@ -27,6 +28,9 @@ kotlin {
             api(projects.core.common)
             api(projects.core.designsystem)
             api(projects.feature.todo)
+            api(projects.feature.weather)
+            // Non exporté : les types Ktor n'ont pas à apparaître côté Swift.
+            implementation(projects.core.network)
         }
     }
 }

@@ -1,7 +1,9 @@
 package com.mvp.shared.di
 
 import com.mvp.core.common.di.coreCommonModule
+import com.mvp.core.network.di.networkModule
 import com.mvp.feature.todo.di.todoModule
+import com.mvp.feature.weather.di.weatherModule
 import org.koin.core.context.startKoin
 import org.koin.core.module.Module
 import org.koin.dsl.KoinAppDeclaration
@@ -13,7 +15,9 @@ import org.koin.dsl.KoinAppDeclaration
  */
 val sharedModules: List<Module> = listOf(
     coreCommonModule,
+    networkModule,
     todoModule,
+    weatherModule,
 )
 
 fun initKoin(appDeclaration: KoinAppDeclaration = {}) = startKoin {

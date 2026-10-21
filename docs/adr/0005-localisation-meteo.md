@@ -28,6 +28,7 @@ La météo doit pouvoir s'afficher pour la position de l'appareil, sur Android e
 ## Conséquences
 
 - Sur Android, sans services Google, la position peut être plus lente à obtenir qu'avec Play Services ; sur Android 8 à 11, sans fournisseur réseau (certains émulateurs), la position est indisponible car le GPS demanderait la permission précise.
-- La position arrondie est envoyée à Open-Meteo, tiers déjà utilisé par la recherche de ville. Le texte de permission iOS (`NSLocationWhenInUseUsageDescription`, dans `iosApp/project.yml`) le dit.
+- La position arrondie est envoyée à Open-Meteo, tiers déjà utilisé par la recherche de ville, avec l'adresse IP de l'appareil. Le texte de permission iOS (`NSLocationWhenInUseUsageDescription`, dans `iosApp/project.yml`) le dit. Deux décimales donnent environ 1 km : à réévaluer si un identifiant utilisateur est un jour ajouté aux requêtes.
+- iOS : `NSLocationDefaultAccuracyReduced` fait proposer la position approximative par défaut dans la demande d'autorisation, comme `ACCESS_COARSE_LOCATION` sur Android.
 - Pas de nom de lieu pour la position : l'écran affiche « Ma position ». Un géocodage inverse (CLGeocoder / `Geocoder`) enverrait la position à Apple ou Google ; laissé de côté.
 - Toute autre feature qui a besoin de la position injecte `LocationProvider`.

@@ -35,6 +35,13 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      # CoreLocation (core:location) lie le framework _LocationEssentials, absent des SDK antérieurs à Xcode 26 :
+      # on prend le Xcode stable le plus récent de l'image (Youssef développe sous Xcode 26).
+      - name: Xcode stable le plus récent
+        run: |
+          xcode=$(ls -d /Applications/Xcode_*.app | grep -iv beta | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -59,3 +66,8 @@ jobs:
               -destination 'generic/platform=iOS Simulator' \
               CODE_SIGNING_ALLOWED=NO
           done
+      - name: Textes de permission de localisation dans l'Info.plist de l'app
+        run: |
+          plist=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app/Info.plist' | head -1)
+          /usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$plist"
+          /usr/libexec/PlistBuddy -c 'Print :NSLocationDefaultAccuracyReduced' "$plist"

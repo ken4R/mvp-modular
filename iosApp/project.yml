@@ -49,7 +49,9 @@ targets:
       groups: [app]
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative sert à afficher la météo là où vous êtes. Elle n'est ni enregistrée ni partagée."
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative (environ 1 km) est envoyée au service météo Open-Meteo pour afficher la météo là où vous êtes. Elle n'est pas enregistrée."
+        # Propose la position approximative par défaut dans la demande d'autorisation (équivalent d'ACCESS_COARSE_LOCATION).
+        INFOPLIST_KEY_NSLocationDefaultAccuracyReduced: YES
     dependencies:
       - target: KotlinShared
       - package: SharedKMP
@@ -85,7 +87,9 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.demo.weather
         INFOPLIST_KEY_CFBundleDisplayName: Weather Demo
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative sert à afficher la météo là où vous êtes. Elle n'est ni enregistrée ni partagée."
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative (environ 1 km) est envoyée au service météo Open-Meteo pour afficher la météo là où vous êtes. Elle n'est pas enregistrée."
+        # Propose la position approximative par défaut dans la demande d'autorisation (équivalent d'ACCESS_COARSE_LOCATION).
+        INFOPLIST_KEY_NSLocationDefaultAccuracyReduced: YES
     dependencies:
       - target: KotlinShared
       - package: SharedKMP

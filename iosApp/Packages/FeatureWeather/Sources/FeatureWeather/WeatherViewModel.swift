@@ -20,6 +20,7 @@ final class WeatherViewModel: ObservableObject {
 
     @Published var query: String = ""
     @Published private(set) var state: State = .idle
+    private var requestID = 0
 
     private let initialQuery: String?
     private let searchCities: SearchCitiesUseCase
@@ -46,45 +47,27 @@ final class WeatherViewModel: ObservableObject {
     }
 
     func search() async {
-        state = .loading
-        do {
-            let result = try await searchCities.invoke(params: query as NSString)
-            if let cities = (result as? AppResultSuccess<AnyObject>)?.data as? [City] {
-                state = .results(cities)
-            } else {
-                showFailure(result)
-            }
-        } catch {
-            state = .error("Erreur inattendue")
+        await load {
+            let result = try await self.searchCities.invoke(params: self.query as NSString)
+            guard let cities = (result as? AppResultSuccess<AnyObject>)?.data as? [City] else { return Self.failure(result) }
+            return .results(cities)
         }
     }
 
     func select(_ city: City) async {
-        state = .loading
-        do {
-            let result = try await getCurrentWeather.invoke(params: city)
-            if let weather = (result as? AppResultSuccess<AnyObject>)?.data as? CurrentWeather {
-                state = .weather(.city(city), weather)
-            } else {
-                showFailure(result)
-            }
-        } catch {
-            state = .error("Erreur inattendue")
+        await load {
+            let result = try await self.getCurrentWeather.invoke(params: city)
+            guard let weather = (result as? AppResultSuccess<AnyObject>)?.data as? CurrentWeather else { return Self.failure(result) }
+            return .weather(.city(city), weather)
         }
     }
 
     /// La première fois, iOS demande l'autorisation de localisation (gérée par la logique KMP).
     func locate() async {
-        state = .loading
-        do {
-            let result = try await getLocalWeather.invoke(params: NoParams.shared)
-            if let local = (result as? AppResultSuccess<AnyObject>)?.data as? LocalWeather {
-                state = .weather(.myPosition, local.weather)
-            } else {
-                showFailure(result)
-            }
-        } catch {
-            state = .error("Erreur inattendue")
+        await load {
+            let result = try await self.getLocalWeather.invoke(params: NoParams.shared)
+            guard let local = (result as? AppResultSuccess<AnyObject>)?.data as? LocalWeather else { return Self.failure(result) }
+            return .weather(.myPosition, local.weather)
         }
     }
 
@@ -96,9 +79,20 @@ final class WeatherViewModel: ObservableObject {
         }
     }
 
-    private func showFailure(_ result: Any?) {
+    /// Affiche le chargement puis le résultat de `request`, sauf si une action plus récente a été lancée entre-temps
+    /// (« Ma position » peut prendre plusieurs secondes) : la dernière action de l'utilisateur l'emporte.
+    private func load(_ request: () async throws -> State) async {
+        requestID += 1
+        let id = requestID
+        state = .loading
+        let newState = (try? await request()) ?? .error("Erreur inattendue")
+        guard id == requestID else { return }
+        state = newState
+    }
+
+    private static func failure(_ result: Any?) -> State {
         let error = (result as? AppResultFailure)?.error
-        state = .error(error?.userMessage ?? "Erreur inattendue", canOpenSettings: error is AppErrorPermissionDenied)
+        return .error(error?.userMessage ?? "Erreur inattendue", canOpenSettings: error is AppErrorPermissionDenied)
     }
 }
 
@@ -110,8 +104,8 @@ private extension AppError {
         case is AppErrorNetwork: return "Problème de connexion"
         case is AppErrorUnauthorized: return "Accès refusé"
         case is AppErrorPermissionDenied:
-            return "La localisation est refusée. Autorisez-la dans Réglages pour voir la météo à votre position."
-        case is AppErrorUnavailable: return "Position indisponible. Vérifiez que le service de localisation est activé, puis réessayez."
+            return "La localisation est refusée ou coupée. Autorisez-la dans Réglages pour voir la météo à votre position."
+        case is AppErrorUnavailable: return "Position indisponible. Réessayez dans un endroit mieux dégagé."
         case let unknown as AppErrorUnknown: return unknown.message ?? "Erreur inattendue"
         default: return "Erreur inattendue"
         }

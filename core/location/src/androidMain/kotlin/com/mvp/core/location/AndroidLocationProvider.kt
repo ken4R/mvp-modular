@@ -84,7 +84,12 @@ internal class AndroidLocationProvider(private val context: Context) : LocationP
                     if (continuation.isActive) continuation.resume(location)
                 }
             } else {
-                val listener = SingleUpdateListener { location -> if (continuation.isActive) continuation.resume(location) }
+                lateinit var listener: SingleUpdateListener
+                listener = SingleUpdateListener { location ->
+                    // Retire la demande aussi quand le fournisseur est coupé : elle resterait sinon enregistrée.
+                    manager.removeUpdates(listener)
+                    if (continuation.isActive) continuation.resume(location)
+                }
                 continuation.invokeOnCancellation { manager.removeUpdates(listener) }
                 @Suppress("DEPRECATION")
                 manager.requestSingleUpdate(provider, listener, Looper.getMainLooper())
@@ -100,7 +105,7 @@ internal class AndroidLocationProvider(private val context: Context) : LocationP
         override fun onProviderDisabled(provider: String) = onLocation(null)
         override fun onProviderEnabled(provider: String) = Unit
 
-        @Deprecated("Remplacée par rien côté système, conservée pour Android < 11")
+        @Deprecated("Dépréciée en API 29, implémentée pour Android < 11")
         override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
     }
 

@@ -14,8 +14,9 @@ interface LocationProvider {
     /**
      * Position actuelle, approximative (de l'ordre du kilomètre).
      * Échoue avec [com.mvp.core.common.domain.error.AppError.PermissionDenied] si l'utilisateur refuse
-     * la localisation, et [com.mvp.core.common.domain.error.AppError.Unavailable] si aucune position
-     * n'est obtenue (localisation coupée, délai dépassé).
+     * la localisation (sur iOS, aussi quand elle est coupée pour tout l'appareil), et
+     * [com.mvp.core.common.domain.error.AppError.Unavailable] si aucune position n'est obtenue
+     * (Android : localisation coupée ; délai dépassé).
      */
     suspend fun currentPosition(): AppResult<GeoPosition>
 }

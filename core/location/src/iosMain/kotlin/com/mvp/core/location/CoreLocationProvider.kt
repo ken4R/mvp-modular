@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalForeignApi::class)
+
 package com.mvp.core.location
 
 import com.mvp.core.common.domain.error.AppError
@@ -37,8 +39,7 @@ internal class CoreLocationProvider : LocationProvider {
         manager.delegate = delegate
         manager.desiredAccuracy = kCLLocationAccuracyKilometer
         try {
-            withTimeoutOrNull(LOCATION_TIMEOUT_MS) { locate(manager, delegate) }
-                ?: AppResult.Failure(AppError.Unavailable)
+            locate(manager, delegate)
         } finally {
             manager.stopUpdatingLocation()
             // Le délégué est une référence faible côté iOS : on le garde jusqu'ici, puis on le détache.
@@ -52,16 +53,18 @@ internal class CoreLocationProvider : LocationProvider {
             manager.requestWhenInUseAuthorization()
             status = delegate.authorization.first { it != kCLAuthorizationStatusNotDetermined }
         }
-        // Refusé, restreint (contrôle parental) ou service de localisation coupé pour tout l'appareil.
+        // Refusé, restreint (contrôle parental) ou service de localisation coupé pour tout l'appareil :
+        // iOS renvoie « refusé » dans ce dernier cas aussi, sans le distinguer.
         if (status != kCLAuthorizationStatusAuthorizedWhenInUse && status != kCLAuthorizationStatusAuthorizedAlways) {
             return AppResult.Failure(AppError.PermissionDenied)
         }
         manager.requestLocation()
-        return delegate.result.await()
+        // Le délai ne porte que sur la mesure : l'utilisateur prend le temps qu'il veut pour répondre à la demande d'autorisation.
+        return withTimeoutOrNull(LOCATION_TIMEOUT_MS) { delegate.result.await() }
+            ?: AppResult.Failure(AppError.Unavailable)
     }
 }
 
-@OptIn(ExperimentalForeignApi::class)
 private class LocationDelegate : NSObject(), CLLocationManagerDelegateProtocol {
     val authorization = MutableStateFlow<CLAuthorizationStatus>(kCLAuthorizationStatusNotDetermined)
     val result = CompletableDeferred<AppResult<GeoPosition>>()

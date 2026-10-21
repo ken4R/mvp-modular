@@ -72,7 +72,10 @@ class WeatherViewModel(
             .onFailure(::showError)
     }
 
-    fun onLocationPermissionDenied() = showError(AppError.PermissionDenied)
+    fun onLocationPermissionDenied() {
+        request?.cancel()
+        showError(AppError.PermissionDenied)
+    }
 
     fun onRefresh() {
         val content = _state.value.content as? WeatherContent.Weather ?: return

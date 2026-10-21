@@ -45,11 +45,11 @@ class LocalWeatherUseCaseTest {
 
     @Test
     fun negativeCoordinatesAreRoundedToo() = scope.runTest {
-        position = AppResult.Success(GeoPosition(-33.868820, -151.209295))
+        position = AppResult.Success(GeoPosition(-33.868820, -70.209295))
 
         getLocalWeather(NoParams)
 
-        assertEquals(listOf(GeoPosition(-33.87, -151.21)), repository.requests)
+        assertEquals(listOf(GeoPosition(-33.87, -70.21)), repository.requests)
     }
 
     @Test

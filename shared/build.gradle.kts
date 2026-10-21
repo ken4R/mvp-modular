@@ -41,6 +41,7 @@ kotlin {
             implementation(projects.core.database)
             implementation(projects.core.securestorage)
             implementation(projects.core.notifications)
+            implementation(projects.core.location)
         }
     }
 }

@@ -56,6 +56,8 @@ class LoginViewModel(private val login: LoginUseCase) : ViewModel() {
 private fun AppError.toMessage(): String = when (this) {
     is AppError.Validation -> message
     AppError.Unauthorized -> "E-mail ou mot de passe incorrect"
+    AppError.PermissionDenied -> "Autorisation refusée"
+    AppError.Unavailable -> "Service indisponible"
     AppError.Network -> "Problème de connexion"
     AppError.NotFound -> "Compte introuvable"
     // Le détail technique d'une exception n'est jamais montré à l'utilisateur.

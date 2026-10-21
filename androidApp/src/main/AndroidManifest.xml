@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Météo : appels HTTPS à Open-Meteo (core:network) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Android 13+ : demandée par l'écran Réglages quand on active les notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Météo à ma position : position approximative seulement, demandée par l'écran Météo -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
         android:name=".MvpApplication"

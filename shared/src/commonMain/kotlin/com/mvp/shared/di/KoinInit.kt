@@ -2,6 +2,7 @@ package com.mvp.shared.di
 
 import com.mvp.core.common.di.coreCommonModule
 import com.mvp.core.database.di.databaseModule
+import com.mvp.core.location.di.locationModule
 import com.mvp.core.network.di.networkModule
 import com.mvp.core.notifications.di.notificationsModule
 import com.mvp.core.securestorage.di.secureStorageModule
@@ -24,6 +25,7 @@ val sharedModules: List<Module> = listOf(
     databaseModule,
     secureStorageModule,
     notificationsModule,
+    locationModule,
     todoModule,
     weatherModule,
     settingsModule,

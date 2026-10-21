@@ -21,6 +21,7 @@ import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
 import com.mvp.feature.weather.domain.usecase.GetCurrentWeatherUseCase
+import com.mvp.feature.weather.domain.usecase.GetLocalWeatherUseCase
 import com.mvp.feature.weather.domain.usecase.SearchCitiesUseCase
 import com.mvp.shared.di.initKoin
 import kotlinx.coroutines.Job
@@ -54,6 +55,7 @@ object UseCases : KoinComponent {
 
     fun searchCities(): SearchCitiesUseCase = get()
     fun getCurrentWeather(): GetCurrentWeatherUseCase = get()
+    fun getLocalWeather(): GetLocalWeatherUseCase = get()
 
     fun updateProfile(): UpdateProfileUseCase = get()
     fun setNotificationsEnabled(): SetNotificationsEnabledUseCase = get()

@@ -25,6 +25,7 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
  core:designsystem  core:common     core:network  ← client HTTP Ktor partagé
                                     core:database ← SQLite (SQLDelight), une base par feature
                                     core:securestorage ← Keystore / Keychain (secrets, profil)
+                                    core:notifications ← notifications locales programmées
      (tokens visuels :        ├─ domain : entités, interfaces de repository, use cases
       couleurs, typo,         ├─ data   : implémentations de repository, data sources
       espacements, rayons)    └─ di     : module Koin
@@ -49,6 +50,8 @@ Règles de dépendance :
 
 `core:securestorage` ajoute le stockage chiffré ([ADR 0003](docs/adr/0003-connexion-stockage-chiffre.md)) : `SecureStorage` (clé / valeur) chiffré par l'Android Keystore (AES-GCM) ou rangé dans le Keychain iOS, pour les secrets et les données personnelles (session, profil).
 
+`core:notifications` ajoute les notifications locales ([ADR 0004](docs/adr/0004-rappels-notifications-locales.md)) : `LocalNotificationScheduler` programme ou annule les notifications d'un groupe (WorkManager sur Android, `UNUserNotificationCenter` sur iOS). Le réglage Notifications est partagé par `NotificationsPreference` (`core:common`), fourni par `feature:settings`.
+
 `core:network` ajoute le réseau ([ADR 0001](docs/adr/0001-reseau-ktor.md)) : `createHttpClient()` (Ktor, JSON, délais, moteur Android / Darwin), `safeApiCall` (exceptions Ktor → `AppError`) et `networkModule` (un `HttpClient` unique). Les features l'utilisent dans leur couche `data` uniquement.
 
 ## Design system (`core:designsystem`)
@@ -63,9 +66,10 @@ Changer une couleur ou une taille dans le module KMP met à jour les deux apps.
 
 Module de référence pour les prochaines features : ajouter, cocher et supprimer des tâches.
 - **Use cases** : `ObserveTodosUseCase` (Flow, tâches terminées en dernier), `AddTodoUseCase` (titre obligatoire, 80 caractères max), `ToggleTodoUseCase`, `DeleteTodoUseCase`.
-- **Data** : tâches stockées en SQLite (SQLDelight, `todo.db`) derrière `TodoLocalDataSource` ; elles survivent au redémarrage. Une implémentation en mémoire sert aux tests des use cases.
-- **Android** : `ui/todo/TodoViewModel.kt` + `TodoScreen.kt`.
-- **iOS** : package SPM `iosApp/Packages/FeatureTodo` (`TodoViewModel.swift` + `TodoListView.swift`) et son app de démo `TodoDemo`. Les Flow sont exposés à Swift par callbacks via `UseCases.observeTodos(...)`, qui renvoie une `Subscription` à annuler.
+- **Rappels** ([plan](docs/plans/rappels-taches.md), [ADR 0004](docs/adr/0004-rappels-notifications-locales.md)) : `SetTodoReminderUseCase` (date à venir, `null` pour retirer), `ObserveRemindersEnabledUseCase`, et `SyncTodoRemindersUseCase`, lancé une fois par chaque app, qui programme une notification pour chaque tâche non terminée dont le rappel est à venir, seulement si le réglage Notifications est activé et avant la fin de la session (`SessionExpiry`, fourni par `feature:auth`). La déconnexion ou l'expiration de la session annule tous les rappels.
+- **Data** : tâches stockées en SQLite (SQLDelight, `todo.db`, migration `1.sqm` pour la colonne `reminder_at`) derrière `TodoLocalDataSource` ; elles survivent au redémarrage. Une implémentation en mémoire sert aux tests des use cases.
+- **Android** : `ui/todo/TodoViewModel.kt` + `TodoScreen.kt` (bouton « Rappel » : date puis heure) ; `MvpApplication` lance la synchronisation des rappels.
+- **iOS** : package SPM `iosApp/Packages/FeatureTodo` (`TodoViewModel.swift` + `TodoListView.swift`, cloche et feuille de rappel ; `TodoReminders.start()` à appeler au lancement) et son app de démo `TodoDemo`. Les Flow sont exposés à Swift par callbacks via `UseCases.observeTodos(...)`, qui renvoie une `Subscription` à annuler.
 
 ## Feature `weather`
 
@@ -89,7 +93,7 @@ Page Réglages : profil, notifications, consentements et version de l'app.
 Connexion devant l'app : sans session, seul l'écran de connexion est accessible ([ADR 0003](docs/adr/0003-connexion-stockage-chiffre.md)).
 - **Use cases** : `LoginUseCase` (e-mail valide, mot de passe obligatoire), `LogoutUseCase`, `ObserveSessionUseCase` (Flow du compte connecté, `null` si déconnecté ou session expirée).
 - **Data** : pas encore de backend, `FakeAuthRemoteDataSource` accepte n'importe quel e-mail avec le mot de passe `demo1234` (session de 7 jours). La session est gardée dans `core:securestorage` ; le jeton ne sort jamais de la feature.
-- **Lien avec les autres features** : sans dépendance entre elles, via `UserSessionObserver` (`core:common`). À la connexion, le profil des Réglages est pré-rempli avec le compte ; à la déconnexion, les tâches, les réglages et le profil sont effacés, puis la session. Toute feature qui stocke des données de l'utilisateur doit déclarer le sien.
+- **Lien avec les autres features** : sans dépendance entre elles, via `UserSessionObserver` (`core:common`). À la connexion, le profil des Réglages est pré-rempli avec le compte ; à la déconnexion, les tâches (et leurs rappels), les réglages et le profil sont effacés, puis la session. Toute feature qui stocke des données de l'utilisateur doit déclarer le sien.
 - **Android** : `ui/auth/SessionViewModel.kt` (écran racine), `LoginViewModel.kt` + `LoginScreen.kt` ; déconnexion dans la section « Compte » des Réglages.
 - **iOS** : package SPM `iosApp/Packages/FeatureAuth` : `SessionGate { ... }` enveloppe les onglets de l'app, `LoginView` ; app de démo `AuthDemo`. Le Flow est exposé par `UseCases.observeSession(...)`.
 

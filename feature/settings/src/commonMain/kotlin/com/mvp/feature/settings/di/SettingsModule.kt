@@ -1,9 +1,11 @@
 package com.mvp.feature.settings.di
 
 import com.mvp.core.common.dispatcher.AppDispatchers
+import com.mvp.core.common.domain.notification.NotificationsPreference
 import com.mvp.core.common.domain.session.UserSessionObserver
 import com.mvp.core.database.DatabaseDriverFactory
 import com.mvp.feature.settings.data.db.SettingsDatabase
+import com.mvp.feature.settings.data.notification.SettingsNotificationsPreference
 import com.mvp.feature.settings.data.repository.SettingsRepositoryImpl
 import com.mvp.feature.settings.data.session.SettingsUserSessionObserver
 import com.mvp.feature.settings.data.source.ProfileLocalDataSource
@@ -27,6 +29,8 @@ val settingsModule = module {
     single<SettingsRepository> { SettingsRepositoryImpl(get(), get()) }
     // Prévenu par feature:auth à la connexion et à la déconnexion.
     single { SettingsUserSessionObserver(get(), get()) } bind UserSessionObserver::class
+    // Lu par feature:todo : aucun rappel ne part tant que les notifications sont coupées.
+    single<NotificationsPreference> { SettingsNotificationsPreference(get()) }
 
     // Domain
     factory { ObserveSettingsUseCase(get(), get<AppDispatchers>().io) }

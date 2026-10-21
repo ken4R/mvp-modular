@@ -18,6 +18,9 @@ interface TodoLocalDataSource {
 
     /** Inverse l'état de la tâche en une seule opération ; `null` si elle n'existe pas (ou plus). */
     fun toggle(id: String): Todo?
+
+    /** Pose ou retire le rappel en une seule opération ; `null` si la tâche n'existe pas (ou plus). */
+    fun setReminder(id: String, at: Long?): Todo?
     fun delete(id: String): Boolean
 
     /** Supprime toutes les tâches (déconnexion). */
@@ -34,13 +37,17 @@ internal class InMemoryTodoLocalDataSource(initial: List<Todo> = emptyList()) : 
 
     override fun upsert(todo: Todo) = todos.update { it + (todo.id to todo) }
 
-    override fun toggle(id: String): Todo? {
-        var toggled: Todo? = null
+    override fun toggle(id: String): Todo? = modify(id) { it.copy(isDone = !it.isDone) }
+
+    override fun setReminder(id: String, at: Long?): Todo? = modify(id) { it.copy(reminderAt = at) }
+
+    private fun modify(id: String, transform: (Todo) -> Todo): Todo? {
+        var modified: Todo? = null
         todos.update { current ->
-            toggled = current[id]?.let { it.copy(isDone = !it.isDone) }
-            toggled?.let { current + (id to it) } ?: current
+            modified = current[id]?.let(transform)
+            modified?.let { current + (id to it) } ?: current
         }
-        return toggled
+        return modified
     }
 
     override fun delete(id: String): Boolean {

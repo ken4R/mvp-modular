@@ -10,6 +10,7 @@ import FeatureSettings
 struct iOSApp: App {
     init() {
         KoinIosKt.doInitKoin()
+        TodoReminders.start()
     }
 
     var body: some Scene {

@@ -79,7 +79,7 @@ public struct SettingsView: View {
                         .font(DS.Typography.body)
                         .foregroundColor(Color(argb: colors.onSurface))
                 }
-                Text("La déconnexion efface les tâches, le profil et les réglages de cet appareil.")
+                Text("La déconnexion efface les tâches, leurs rappels, le profil et les réglages de cet appareil.")
                     .font(DS.Typography.caption)
                     .foregroundColor(Color(argb: colors.onSurface))
                 Button("Se déconnecter") { Task { await viewModel.logout() } }

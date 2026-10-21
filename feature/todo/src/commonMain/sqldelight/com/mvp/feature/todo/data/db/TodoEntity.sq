@@ -1,9 +1,11 @@
 -- Une ligne par tâche. L'ordre d'affichage suit l'ordre de création (rowid) :
 -- les mises à jour se font par UPDATE, jamais par REPLACE, pour le conserver.
+-- reminder_at : heure du rappel (epoch ms), NULL sans rappel (ajoutée par la migration 1.sqm).
 CREATE TABLE TodoEntity (
     id TEXT NOT NULL PRIMARY KEY,
     title TEXT NOT NULL,
-    is_done INTEGER NOT NULL DEFAULT 0
+    is_done INTEGER NOT NULL DEFAULT 0,
+    reminder_at INTEGER
 );
 
 selectAll:
@@ -13,10 +15,10 @@ selectById:
 SELECT * FROM TodoEntity WHERE id = ?;
 
 insert:
-INSERT INTO TodoEntity(id, title, is_done) VALUES (?, ?, ?);
+INSERT INTO TodoEntity(id, title, is_done, reminder_at) VALUES (?, ?, ?, ?);
 
 update:
-UPDATE TodoEntity SET title = ?, is_done = ? WHERE id = ?;
+UPDATE TodoEntity SET title = ?, is_done = ?, reminder_at = ? WHERE id = ?;
 
 deleteById:
 DELETE FROM TodoEntity WHERE id = ?;

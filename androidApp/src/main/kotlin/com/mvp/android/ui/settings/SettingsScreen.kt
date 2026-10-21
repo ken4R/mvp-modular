@@ -149,7 +149,7 @@ private fun SettingsContent(
             SectionTitle("Compte")
             state.accountEmail?.let { Text("Connecté avec $it", style = MaterialTheme.typography.bodyLarge) }
             Text(
-                "La déconnexion efface les tâches, le profil et les réglages de cet appareil.",
+                "La déconnexion efface les tâches, leurs rappels, le profil et les réglages de cet appareil.",
                 style = MaterialTheme.typography.bodySmall,
             )
             OutlinedButton(onClick = onLogout, enabled = !state.isLoggingOut) { Text("Se déconnecter") }

@@ -1,5 +1,9 @@
 package com.mvp.feature.todo
 
+import app.cash.sqldelight.db.AfterVersion
+import app.cash.sqldelight.db.QueryResult
+import app.cash.sqldelight.db.SqlDriver
+import app.cash.sqldelight.db.SqlSchema
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.database.testing.createInMemoryDriver
 import com.mvp.feature.todo.data.db.TodoDatabase
@@ -96,13 +100,66 @@ class SqlDelightTodoLocalDataSourceTest {
     }
 
     @Test
-    fun logoutDeletesAllTodos() = scope.runTest {
+    fun reminderSurvivesRestartAndIsKeptByToggle() = scope.runTest {
         val source = newDataSource()
-        source.upsert(Todo("a", "Acheter du pain", isDone = false))
-        source.upsert(Todo("b", "Appeler Paul", isDone = true))
+        source.upsert(Todo("a", "Appeler Paul", isDone = false))
 
-        assertEquals(AppResult.Success(Unit), TodoUserSessionObserver(source).clearUserData())
+        assertEquals(Todo("a", "Appeler Paul", isDone = false, reminderAt = 42L), source.setReminder("a", 42L))
+        source.toggle("a")
+
+        assertEquals(Todo("a", "Appeler Paul", isDone = true, reminderAt = 42L), newDataSource().get("a"))
+        assertEquals(Todo("a", "Appeler Paul", isDone = true), source.setReminder("a", null))
+        assertNull(source.setReminder("inconnue", 42L))
+        assertNull(source.get("inconnue"))
+    }
+
+    @Test
+    fun logoutDeletesAllTodosAndCancelsReminders() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Acheter du pain", isDone = false, reminderAt = 42L))
+        source.upsert(Todo("b", "Appeler Paul", isDone = true))
+        val reminders = FakeReminderScheduler()
+
+        assertEquals(AppResult.Success(Unit), TodoUserSessionObserver(source, reminders).clearUserData())
 
         assertEquals(emptyList(), newDataSource().observe().first())
+        assertEquals(1, reminders.cancelAllCalls)
     }
+
+    @Test
+    fun migrationFromVersion1KeepsTodosWithoutReminder() = scope.runTest {
+        val oldDriver = createInMemoryDriver(SchemaV1)
+        try {
+            oldDriver.execute(null, "INSERT INTO TodoEntity(id, title, is_done) VALUES ('a', 'Ancienne', 1)", 0)
+
+            TodoDatabase.Schema.migrate(oldDriver, oldVersion = 1, newVersion = TodoDatabase.Schema.version)
+            val source = SqlDelightTodoLocalDataSource(TodoDatabase(oldDriver), dispatcher)
+
+            assertEquals(listOf(Todo("a", "Ancienne", isDone = true)), source.observe().first())
+            assertEquals(Todo("a", "Ancienne", isDone = true, reminderAt = 42L), source.setReminder("a", 42L))
+        } finally {
+            oldDriver.close()
+        }
+    }
+}
+
+/** Schéma de `todo.db` avant les rappels (version 1), pour tester la migration. */
+private object SchemaV1 : SqlSchema<QueryResult.Value<Unit>> {
+    override val version: Long = 1
+
+    override fun create(driver: SqlDriver): QueryResult.Value<Unit> {
+        driver.execute(
+            null,
+            "CREATE TABLE TodoEntity (id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, is_done INTEGER NOT NULL DEFAULT 0)",
+            0,
+        )
+        return QueryResult.Unit
+    }
+
+    override fun migrate(
+        driver: SqlDriver,
+        oldVersion: Long,
+        newVersion: Long,
+        vararg callbacks: AfterVersion,
+    ): QueryResult.Value<Unit> = QueryResult.Unit
 }

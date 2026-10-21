@@ -32,6 +32,7 @@ include(":core:network")
 include(":core:database")
 include(":core:database-testing")
 include(":core:securestorage")
+include(":core:notifications")
 
 // Features
 include(":feature:todo")

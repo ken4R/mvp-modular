@@ -64,7 +64,7 @@ internal class UserNotificationsLocalNotificationScheduler(
 
     private suspend fun deliveredIdentifiers(group: String): List<String> = suspendCoroutine { continuation ->
         center.getDeliveredNotificationsWithCompletionHandler { notifications ->
-            val identifiers = notifications.orEmpty().mapNotNull { (it as? UNNotification)?.request.identifier }
+            val identifiers = notifications.orEmpty().mapNotNull { (it as? UNNotification)?.request?.identifier }
             continuation.resume(identifiers.filter { it.startsWith("$group:") })
         }
     }

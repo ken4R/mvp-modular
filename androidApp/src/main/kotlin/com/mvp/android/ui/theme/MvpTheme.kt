@@ -43,6 +43,19 @@ object Spacing {
     val xl = DesignSystem.spacing.xl.dp
 }
 
+/** Accès aux rayons d'angle en dp : `Radius.md`. */
+object Radius {
+    val sm = DesignSystem.radius.sm.dp
+    val md = DesignSystem.radius.md.dp
+    val lg = DesignSystem.radius.lg.dp
+}
+
+/** Accès aux tailles d'éléments en dp : `Sizes.thumbnail`. */
+object Sizes {
+    val thumbnail = DesignSystem.sizes.thumbnail.dp
+    val heroImage = DesignSystem.sizes.heroImage.dp
+}
+
 private fun Long.toColor() = Color(this)
 
 private fun ColorTokens.toColorScheme(dark: Boolean): ColorScheme {

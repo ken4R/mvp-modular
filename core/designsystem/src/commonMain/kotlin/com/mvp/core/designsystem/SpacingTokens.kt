@@ -14,3 +14,11 @@ data class RadiusTokens(
     val md: Float = 8f,
     val lg: Float = 16f,
 )
+
+/** Tailles d'éléments récurrents (images), en dp (Android) / points (iOS). */
+data class SizeTokens(
+    /** Vignette carrée d'une ligne de liste. */
+    val thumbnail: Float = 64f,
+    /** Hauteur de la grande image en tête d'un écran de détail. */
+    val heroImage: Float = 280f,
+)

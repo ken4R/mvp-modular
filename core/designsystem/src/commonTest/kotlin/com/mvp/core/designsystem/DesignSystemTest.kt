@@ -22,6 +22,12 @@ class DesignSystemTest {
     }
 
     @Test
+    fun sizesArePositive() {
+        val sizes = DesignSystem.sizes
+        assertTrue(sizes.thumbnail > 0f && sizes.heroImage > sizes.thumbnail)
+    }
+
+    @Test
     fun colorsAreOpaque() {
         listOf(LightColors, DarkColors).forEach { tokens ->
             listOf(tokens.primary, tokens.background, tokens.surface, tokens.onSurface).forEach {

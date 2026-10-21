@@ -22,6 +22,8 @@ packages:
     path: Packages/FeatureSettings
   FeatureAuth:
     path: Packages/FeatureAuth
+  FeatureCatalog:
+    path: Packages/FeatureCatalog
 
 settingGroups:
   app:
@@ -64,6 +66,7 @@ targets:
       - package: FeatureWeather
       - package: FeatureSettings
       - package: FeatureAuth
+      - package: FeatureCatalog
 
   # Démo de la feature todo, lancée seule avec des données d'exemple.
   TodoDemo:
@@ -136,3 +139,19 @@ targets:
         product: Shared
       - package: FeatureAuth
       - package: DesignSystemUI
+
+  # Démo de la feature catalogue (liste paginée, fiche produit, cache hors ligne).
+  CatalogDemo:
+    type: application
+    platform: iOS
+    sources: [Packages/FeatureCatalog/Demo]
+    settings:
+      groups: [app]
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.demo.catalog
+        INFOPLIST_KEY_CFBundleDisplayName: Catalog Demo
+    dependencies:
+      - target: KotlinShared
+      - package: SharedKMP
+        product: Shared
+      - package: FeatureCatalog

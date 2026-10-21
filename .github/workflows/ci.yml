@@ -58,7 +58,7 @@ jobs:
       - name: Build de l'app iOS et des démos de features (simulateur, sans signature)
         run: |
           cd iosApp
-          for scheme in iosApp TodoDemo WeatherDemo SettingsDemo AuthDemo; do
+          for scheme in iosApp TodoDemo WeatherDemo SettingsDemo AuthDemo CatalogDemo; do
             xcodebuild build \
               -project iosApp.xcodeproj \
               -scheme "$scheme" \

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Météo : appels HTTPS à Open-Meteo (core:network) -->
+    <!-- Appels HTTPS : Open-Meteo (Météo), DummyJSON et ses images (Catalogue) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- Android 13+ : demandée par l'écran Réglages quand on active les notifications -->

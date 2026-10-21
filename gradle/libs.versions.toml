@@ -10,6 +10,8 @@ activity-compose = "1.11.0"
 lifecycle = "2.9.4"
 sqldelight = "2.4.1"
 work = "2.10.1"
+# Coil 3.5+ exige compileSdk 36+ / 37 : 3.4.0 est la dernière version compatible avec AGP 8.13 et compileSdk 36.
+coil = "3.4.0"
 
 android-compileSdk = "36"
 android-targetSdk = "36"
@@ -48,6 +50,8 @@ androidx-activity-compose = { module = "androidx.activity:activity-compose", ver
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-work-runtime = { module = "androidx.work:work-runtime", version.ref = "work" }
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 
 # Utilisés par build-logic (convention plugins)
 android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }

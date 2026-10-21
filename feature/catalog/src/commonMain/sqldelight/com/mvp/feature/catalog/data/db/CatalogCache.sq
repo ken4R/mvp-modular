@@ -1,0 +1,66 @@
+-- Cache hors ligne du catalogue : les pages déjà chargées, dans l'ordre du serveur.
+-- position : rang du produit dans le catalogue (0, 1, 2...), qui donne l'ordre d'affichage.
+CREATE TABLE ProductEntity (
+    id INTEGER NOT NULL PRIMARY KEY,
+    position INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    category TEXT NOT NULL,
+    brand TEXT,
+    price REAL NOT NULL,
+    discount_percent REAL NOT NULL,
+    rating REAL NOT NULL,
+    stock INTEGER NOT NULL,
+    thumbnail_url TEXT
+);
+
+-- Images du détail d'un produit, dans l'ordre du serveur.
+CREATE TABLE ProductImageEntity (
+    product_id INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    PRIMARY KEY (product_id, position)
+);
+
+-- Une seule ligne (id = 0) : nombre total de produits côté serveur, rang de la prochaine page à demander
+-- (next_skip : différent du nombre de lignes si le serveur a renvoyé un produit déjà en cache), et date du
+-- dernier chargement réussi (epoch ms).
+CREATE TABLE CatalogInfoEntity (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 0),
+    total INTEGER NOT NULL,
+    next_skip INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+selectSummaries:
+SELECT id, title, brand, price, discount_percent, rating, thumbnail_url
+FROM ProductEntity
+ORDER BY position;
+
+selectProduct:
+SELECT * FROM ProductEntity WHERE id = ?;
+
+selectImages:
+SELECT url FROM ProductImageEntity WHERE product_id = ? ORDER BY position;
+
+upsertProduct:
+INSERT OR REPLACE INTO ProductEntity(id, position, title, description, category, brand, price, discount_percent, rating, stock, thumbnail_url)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+insertImage:
+INSERT INTO ProductImageEntity(product_id, position, url) VALUES (?, ?, ?);
+
+deleteImages:
+DELETE FROM ProductImageEntity WHERE product_id = ?;
+
+selectInfo:
+SELECT total, next_skip, updated_at FROM CatalogInfoEntity WHERE id = 0;
+
+upsertInfo:
+INSERT OR REPLACE INTO CatalogInfoEntity(id, total, next_skip, updated_at) VALUES (0, ?, ?, ?);
+
+deleteAllProducts:
+DELETE FROM ProductEntity;
+
+deleteAllImages:
+DELETE FROM ProductImageEntity;

@@ -40,6 +40,7 @@ kotlin {
             implementation(projects.core.network)
             implementation(projects.core.database)
             implementation(projects.core.securestorage)
+            implementation(projects.core.notifications)
         }
     }
 }

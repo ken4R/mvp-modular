@@ -1,0 +1,2 @@
+-- Version 1 -> 2 : rappels de tâches.
+ALTER TABLE TodoEntity ADD COLUMN reminder_at INTEGER;

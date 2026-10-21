@@ -6,6 +6,8 @@ public struct TodoListView: View {
     @StateObject private var viewModel = TodoViewModel()
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var inputFocused: Bool
+    /// Tâche dont on choisit le rappel (feuille ouverte).
+    @State private var reminderTodo: Todo?
 
     public init() {}
 
@@ -29,6 +31,11 @@ public struct TodoListView: View {
                     .font(DS.Typography.caption)
                     .foregroundColor(Color(argb: colors.error))
             }
+            if viewModel.showRemindersDisabledHint {
+                Text("Activez les notifications dans Réglages pour recevoir les rappels")
+                    .font(DS.Typography.caption)
+                    .foregroundColor(Color(argb: colors.primary))
+            }
 
             if viewModel.todos.isEmpty {
                 Text("Aucune tâche pour le moment")
@@ -37,10 +44,18 @@ public struct TodoListView: View {
             }
             List {
                 ForEach(viewModel.todos, id: \.id) { todo in
-                    TodoRow(todo: todo, colors: colors) { Task { await viewModel.toggle(todo) } }
-                        .swipeActions {
-                            Button("Supprimer", role: .destructive) { Task { await viewModel.delete(todo) } }
+                    TodoRow(
+                        todo: todo,
+                        colors: colors,
+                        onToggle: { Task { await viewModel.toggle(todo) } },
+                        onReminder: {
+                            viewModel.clearError()
+                            reminderTodo = todo
                         }
+                    )
+                    .swipeActions {
+                        Button("Supprimer", role: .destructive) { Task { await viewModel.delete(todo) } }
+                    }
                 }
             }
             .listStyle(.plain)
@@ -48,6 +63,12 @@ public struct TodoListView: View {
         }
         .padding(DS.Spacing.md)
         .background(Color(argb: colors.background))
+        .sheet(item: Binding(
+            get: { reminderTodo.map(ReminderTarget.init) },
+            set: { reminderTodo = $0?.todo }
+        )) { target in
+            ReminderSheet(todo: target.todo, colors: colors, viewModel: viewModel) { reminderTodo = nil }
+        }
         .onAppear { viewModel.start() }
         .onDisappear { viewModel.stop() }
     }
@@ -60,22 +81,112 @@ public struct TodoListView: View {
     }
 }
 
+/// `Todo` (classe Kotlin) n'est pas `Identifiable` : enveloppe pour `.sheet(item:)`.
+private struct ReminderTarget: Identifiable {
+    let todo: Todo
+    var id: String { todo.id }
+}
+
 private struct TodoRow: View {
     let todo: Todo
     let colors: ColorTokens
     let onToggle: () -> Void
+    let onReminder: () -> Void
 
     var body: some View {
-        Button(action: onToggle) {
-            HStack(spacing: DS.Spacing.sm) {
-                Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
+        HStack(spacing: DS.Spacing.sm) {
+            Button(action: onToggle) {
+                HStack(spacing: DS.Spacing.sm) {
+                    Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(Color(argb: colors.primary))
+                    VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                        Text(todo.title)
+                            .font(DS.Typography.body)
+                            .strikethrough(todo.isDone)
+                            .foregroundColor(Color(argb: colors.onSurface))
+                        if let date = todo.reminderDate {
+                            Text("Rappel le \(date.formatted(date: .abbreviated, time: .shortened))")
+                                .font(DS.Typography.caption)
+                                .foregroundColor(Color(argb: colors.onSurface))
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            // Bouton séparé : dans une ligne de List, deux boutons .borderless / .plain restent indépendants.
+            Button(action: onReminder) {
+                Image(systemName: todo.reminderAt != nil ? "bell.fill" : "bell")
                     .foregroundColor(Color(argb: colors.primary))
-                Text(todo.title)
-                    .font(DS.Typography.body)
-                    .strikethrough(todo.isDone)
-                    .foregroundColor(Color(argb: colors.onSurface))
+            }
+            .buttonStyle(.borderless)
+            .disabled(todo.isDone)
+            .accessibilityLabel("Rappel")
+        }
+    }
+}
+
+/// Choix de la date et de l'heure du rappel, ou retrait du rappel existant.
+private struct ReminderSheet: View {
+    let todo: Todo
+    let colors: ColorTokens
+    @ObservedObject var viewModel: TodoViewModel
+    let onClose: () -> Void
+    @State private var date: Date
+
+    init(todo: Todo, colors: ColorTokens, viewModel: TodoViewModel, onClose: @escaping () -> Void) {
+        self.todo = todo
+        self.colors = colors
+        self.viewModel = viewModel
+        self.onClose = onClose
+        // Part du rappel existant, sinon de l'heure suivante.
+        let nextHour = Calendar.current.nextDate(
+            after: Date(), matching: DateComponents(minute: 0), matchingPolicy: .nextTime
+        ) ?? Date().addingTimeInterval(3600)
+        _date = State(initialValue: todo.reminderDate ?? nextHour)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text(todo.title)
+                        .font(DS.Typography.body)
+                        .foregroundColor(Color(argb: colors.onSurface))
+                    DatePicker("Rappel", selection: $date, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                        .datePickerStyle(.graphical)
+                        .tint(Color(argb: colors.primary))
+                    if let error = viewModel.error {
+                        Text(error)
+                            .font(DS.Typography.caption)
+                            .foregroundColor(Color(argb: colors.error))
+                    }
+                }
+                if todo.reminderAt != nil {
+                    Section {
+                        Button("Retirer le rappel") {
+                            Task { if await viewModel.setReminder(todo, at: nil) { onClose() } }
+                        }
+                        .foregroundColor(Color(argb: colors.error))
+                    }
+                }
+            }
+            .navigationTitle("Rappel")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Annuler", action: onClose)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Enregistrer") {
+                        Task { if await viewModel.setReminder(todo, at: date) { onClose() } }
+                    }
+                }
             }
         }
-        .buttonStyle(.plain)
+        .tint(Color(argb: colors.primary))
+        .presentationDetents([.large])
     }
 }

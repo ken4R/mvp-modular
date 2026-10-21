@@ -15,7 +15,10 @@ import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
+import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
+import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
 import com.mvp.feature.weather.domain.usecase.GetCurrentWeatherUseCase
 import com.mvp.feature.weather.domain.usecase.SearchCitiesUseCase
@@ -47,6 +50,7 @@ object UseCases : KoinComponent {
     fun addTodo(): AddTodoUseCase = get()
     fun toggleTodo(): ToggleTodoUseCase = get()
     fun deleteTodo(): DeleteTodoUseCase = get()
+    fun setTodoReminder(): SetTodoReminderUseCase = get()
 
     fun searchCities(): SearchCitiesUseCase = get()
     fun getCurrentWeather(): GetCurrentWeatherUseCase = get()
@@ -70,6 +74,25 @@ object UseCases : KoinComponent {
             .launchIn(scope)
         return Subscription(job)
     }
+
+    /** `true` si les rappels peuvent partir (réglage Notifications activé). Les callbacks sont appelés sur le main thread. */
+    fun observeRemindersEnabled(onEnabled: (Boolean) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveRemindersEnabledUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onEnabled(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /**
+     * Garde les notifications de rappel alignées sur les tâches et le réglage Notifications.
+     * À appeler une seule fois au lancement de l'app, et à garder pendant toute sa vie.
+     */
+    fun startTodoReminders(): Subscription = Subscription(get<SyncTodoRemindersUseCase>()(NoParams).launchIn(scope))
 
     /** Les callbacks sont appelés sur le main thread. */
     fun observeSettings(onSettings: (UserSettings) -> Unit, onError: (AppError) -> Unit): Subscription {

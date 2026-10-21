@@ -26,6 +26,9 @@ internal class TodoRepositoryImpl(
 
     override suspend fun deleteTodo(id: String): AppResult<Unit> =
         if (local.delete(id)) AppResult.Success(Unit) else AppResult.Failure(AppError.NotFound)
+
+    override suspend fun setReminder(id: String, at: Long?): AppResult<Todo> =
+        local.setReminder(id, at)?.let { AppResult.Success(it) } ?: AppResult.Failure(AppError.NotFound)
 }
 
 @OptIn(ExperimentalUuidApi::class)

@@ -23,18 +23,17 @@ internal class SqlDelightTodoLocalDataSource(
     override fun upsert(todo: Todo) = queries.transaction {
         val isDone = if (todo.isDone) 1L else 0L
         if (queries.selectById(todo.id).executeAsOneOrNull() == null) {
-            queries.insert(todo.id, todo.title, isDone)
+            queries.insert(todo.id, todo.title, isDone, todo.reminderAt)
         } else {
-            queries.update(todo.title, isDone, todo.id)
+            queries.update(todo.title, isDone, todo.reminderAt, todo.id)
         }
     }
 
     // Lecture et écriture dans une même transaction, sans insert : une tâche supprimée entre-temps
     // n'est pas recréée.
-    override fun toggle(id: String): Todo? = queries.transactionWithResult {
-        val todo = queries.selectById(id, ::toTodo).executeAsOneOrNull() ?: return@transactionWithResult null
-        todo.copy(isDone = !todo.isDone).also { queries.update(it.title, if (it.isDone) 1L else 0L, it.id) }
-    }
+    override fun toggle(id: String): Todo? = modify(id) { it.copy(isDone = !it.isDone) }
+
+    override fun setReminder(id: String, at: Long?): Todo? = modify(id) { it.copy(reminderAt = at) }
 
     override fun delete(id: String): Boolean = queries.transactionWithResult {
         val existed = queries.selectById(id).executeAsOneOrNull() != null
@@ -45,6 +44,12 @@ internal class SqlDelightTodoLocalDataSource(
     override fun clear() {
         queries.deleteAll()
     }
+
+    private fun modify(id: String, transform: (Todo) -> Todo): Todo? = queries.transactionWithResult {
+        val todo = queries.selectById(id, ::toTodo).executeAsOneOrNull() ?: return@transactionWithResult null
+        transform(todo).also { queries.update(it.title, if (it.isDone) 1L else 0L, it.reminderAt, it.id) }
+    }
 }
 
-private fun toTodo(id: String, title: String, isDone: Long) = Todo(id = id, title = title, isDone = isDone != 0L)
+private fun toTodo(id: String, title: String, isDone: Long, reminderAt: Long?) =
+    Todo(id = id, title = title, isDone = isDone != 0L, reminderAt = reminderAt)

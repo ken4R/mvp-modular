@@ -9,4 +9,5 @@ interface TodoRepository {
     suspend fun addTodo(title: String): AppResult<Todo>
     suspend fun toggleTodo(id: String): AppResult<Todo>
     suspend fun deleteTodo(id: String): AppResult<Unit>
+    suspend fun setReminder(id: String, at: Long?): AppResult<Todo>
 }

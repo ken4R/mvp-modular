@@ -17,7 +17,7 @@ Une tâche peut recevoir un rappel. La notification ne doit partir que si le ré
 ## Décision
 
 - Nouveau module **`core:notifications`** : `LocalNotificationScheduler.replaceAll(group, notifications)` / `cancelAll(group)`, `expect`/`actual`.
-  - Android : WorkManager (`androidx.work:work-runtime`, seule dépendance ajoutée), un travail unique par rappel, étiqueté par groupe ; le worker poste la notification (canal « Rappels », contenu masqué sur l'écran verrouillé sécurisé) seulement si la permission est accordée. Un tap ouvre l'app.
+  - Android : WorkManager (`androidx.work:work-runtime`, seule dépendance ajoutée), un travail unique par rappel, étiqueté par groupe (et par son heure, pour laisser partir à la réconciliation un rappel échu que la veille ou un redémarrage a retardé) ; le worker poste la notification (canal « Rappels », contenu masqué sur l'écran verrouillé sécurisé) seulement si la permission est accordée. Un tap ouvre l'app.
   - iOS : `UNUserNotificationCenter` depuis Kotlin/Native, identifiants préfixés par le groupe. `cancelAll` retire aussi les notifications déjà affichées. Un délégué Swift (`TodoReminders`) les affiche quand l'app est au premier plan.
 - **`NotificationsPreference`** dans `core:common`, implémenté par `feature:settings`, lu par `feature:todo`.
 - **Réconciliation** : `SyncTodoRemindersUseCase` combine les tâches et le réglage, et remplace les rappels programmés par ceux des tâches non terminées dont l'heure est à venir (aucun si le réglage est coupé). Lancé une fois au démarrage par chaque app. Pas d'état à garder en double, et cocher, supprimer ou couper les notifications annule naturellement le rappel.

@@ -29,9 +29,12 @@ data class TodoUiState(
     val error: String? = null,
     val remindersEnabled: Boolean = true,
 ) {
-    /** Des rappels sont posés mais ne partiront pas : l'écran invite à activer les notifications. */
+    /** Des rappels à venir sont posés mais ne partiront pas : l'écran invite à activer les notifications. */
     val showRemindersDisabledHint: Boolean
-        get() = !remindersEnabled && todos.any { !it.isDone && it.reminderAt != null }
+        get() {
+            val now = System.currentTimeMillis()
+            return !remindersEnabled && todos.any { todo -> !todo.isDone && todo.reminderAt.let { it != null && it > now } }
+        }
 }
 
 class TodoViewModel(

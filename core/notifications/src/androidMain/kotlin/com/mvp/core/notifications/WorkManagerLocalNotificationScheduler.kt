@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 
@@ -20,10 +21,14 @@ internal class WorkManagerLocalNotificationScheduler(
 
     private val workManager get() = WorkManager.getInstance(context)
 
+    // Appelé hors du thread principal (dispatcher io des use cases) : la lecture des travaux peut bloquer.
     override suspend fun replaceAll(group: String, notifications: List<LocalNotification>) {
-        // Les opérations WorkManager s'exécutent dans l'ordre : l'annulation passe avant les nouveaux travaux.
-        workManager.cancelAllWorkByTag(group)
         val currentTime = now()
+        // Échus mais pas encore partis (téléphone éteint, veille) : on les laisse partir. Les autres
+        // sont annulés ; les opérations WorkManager s'exécutent dans l'ordre, avant les nouveaux travaux.
+        workManager.getWorkInfosByTag(group).get()
+            .filterNot { it.state == WorkInfo.State.ENQUEUED && (it.scheduledAt() ?: Long.MAX_VALUE) <= currentTime }
+            .forEach { workManager.cancelWorkById(it.id) }
         notifications.filter { it.atEpochMillis > currentTime }.forEach { notification ->
             val tag = notificationTag(group, notification.id)
             val request = OneTimeWorkRequest.Builder(NotificationWorker::class.java)
@@ -36,6 +41,7 @@ internal class WorkManagerLocalNotificationScheduler(
                         .build(),
                 )
                 .addTag(group)
+                .addTag("$AT_TAG_PREFIX${notification.atEpochMillis}")
                 .build()
             workManager.enqueueUniqueWork(tag, ExistingWorkPolicy.REPLACE, request)
         }
@@ -51,3 +57,9 @@ internal class WorkManagerLocalNotificationScheduler(
 }
 
 internal fun notificationTag(group: String, id: String) = "$group:$id"
+
+/** Heure prévue d'un travail, gardée dans une étiquette « at:<epoch ms> ». */
+private fun WorkInfo.scheduledAt(): Long? =
+    tags.firstOrNull { it.startsWith(AT_TAG_PREFIX) }?.removePrefix(AT_TAG_PREFIX)?.toLongOrNull()
+
+private const val AT_TAG_PREFIX = "at:"

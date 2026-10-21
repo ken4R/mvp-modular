@@ -9,6 +9,7 @@ import platform.UserNotifications.UNNotificationSound
 import platform.UserNotifications.UNTimeIntervalNotificationTrigger
 import platform.UserNotifications.UNUserNotificationCenter
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
 /**
@@ -47,7 +48,10 @@ internal class UserNotificationsLocalNotificationScheduler(
         val trigger = UNTimeIntervalNotificationTrigger.triggerWithTimeInterval(delaySeconds, false)
         val request = UNNotificationRequest.requestWithIdentifier("$group:${notification.id}", content, trigger)
         suspendCoroutine { continuation ->
-            center.addNotificationRequest(request) { _ -> continuation.resume(Unit) }
+            center.addNotificationRequest(request) { error ->
+                // Remonté au use case de synchronisation, qui réessaie à la prochaine émission.
+                if (error == null) continuation.resume(Unit) else continuation.resumeWithException(IllegalStateException(error.localizedDescription))
+            }
         }
     }
 
@@ -60,7 +64,7 @@ internal class UserNotificationsLocalNotificationScheduler(
 
     private suspend fun deliveredIdentifiers(group: String): List<String> = suspendCoroutine { continuation ->
         center.getDeliveredNotificationsWithCompletionHandler { notifications ->
-            val identifiers = notifications.orEmpty().mapNotNull { (it as? UNNotification)?.request?.identifier }
+            val identifiers = notifications.orEmpty().mapNotNull { (it as? UNNotification)?.request.identifier }
             continuation.resume(identifiers.filter { it.startsWith("$group:") })
         }
     }

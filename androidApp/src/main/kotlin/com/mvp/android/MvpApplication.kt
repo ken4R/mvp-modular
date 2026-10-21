@@ -7,8 +7,8 @@ import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
 import com.mvp.shared.di.initKoin
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.launchIn
-import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.android.get
+import org.koin.android.ext.koin.androidContext
 
 class MvpApplication : Application() {
     override fun onCreate() {
@@ -17,7 +17,8 @@ class MvpApplication : Application() {
             androidContext(this@MvpApplication)
             modules(androidAppModule)
         }
-        // Rappels de tâches : alignés sur les tâches et le réglage Notifications tant que l'app vit.
+        // Rappels de tâches : alignés sur les tâches, le réglage Notifications et la session tant que
+        // le processus vit (portée jamais annulée, comme l'Application).
         get<SyncTodoRemindersUseCase>()(NoParams).launchIn(MainScope())
     }
 }

@@ -11,9 +11,12 @@ final class TodoViewModel: ObservableObject {
     private var subscription: Subscription?
     private var remindersSubscription: Subscription?
 
-    /// Des rappels sont posés mais ne partiront pas : la vue invite à activer les notifications.
+    /// Des rappels à venir sont posés mais ne partiront pas : la vue invite à activer les notifications.
     var showRemindersDisabledHint: Bool {
-        !remindersEnabled && todos.contains { !$0.isDone && $0.reminderAt != nil }
+        let now = Date()
+        return !remindersEnabled && todos.contains { todo in
+            !todo.isDone && (todo.reminderDate.map { $0 > now } ?? false)
+        }
     }
 
     func start() {

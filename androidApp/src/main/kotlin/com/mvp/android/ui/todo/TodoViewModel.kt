@@ -90,5 +90,7 @@ private fun AppError.toMessage(): String = when (this) {
     AppError.NotFound -> "Tâche introuvable"
     AppError.Network -> "Problème de connexion"
     AppError.Unauthorized -> "Accès refusé"
+    AppError.PermissionDenied -> "Autorisation refusée"
+    AppError.Unavailable -> "Service indisponible"
     is AppError.Unknown -> message ?: "Erreur inattendue"
 }

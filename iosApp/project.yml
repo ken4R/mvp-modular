@@ -49,6 +49,7 @@ targets:
       groups: [app]
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative sert à afficher la météo là où vous êtes. Elle n'est ni enregistrée ni partagée."
     dependencies:
       - target: KotlinShared
       - package: SharedKMP
@@ -84,6 +85,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.demo.weather
         INFOPLIST_KEY_CFBundleDisplayName: Weather Demo
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative sert à afficher la météo là où vous êtes. Elle n'est ni enregistrée ni partagée."
     dependencies:
       - target: KotlinShared
       - package: SharedKMP

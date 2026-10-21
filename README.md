@@ -26,6 +26,7 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
                                     core:database ← SQLite (SQLDelight), une base par feature
                                     core:securestorage ← Keystore / Keychain (secrets, profil)
                                     core:notifications ← notifications locales programmées
+                                    core:location ← position de l'appareil (approximative)
      (tokens visuels :        ├─ domain : entités, interfaces de repository, use cases
       couleurs, typo,         ├─ data   : implémentations de repository, data sources
       espacements, rayons)    └─ di     : module Koin
@@ -52,6 +53,8 @@ Règles de dépendance :
 
 `core:notifications` ajoute les notifications locales ([ADR 0004](docs/adr/0004-rappels-notifications-locales.md)) : `LocalNotificationScheduler` programme ou annule les notifications d'un groupe (WorkManager sur Android, `UNUserNotificationCenter` sur iOS). Le réglage Notifications est partagé par `NotificationsPreference` (`core:common`), fourni par `feature:settings`.
 
+`core:location` ajoute la position de l'appareil ([ADR 0005](docs/adr/0005-localisation-meteo.md)) : `LocationProvider` (contrat dans `core:common`) donne une position approximative, via `LocationManager` sur Android (sans Google Play Services) et CoreLocation sur iOS. Il échoue avec `AppError.PermissionDenied` si l'utilisateur refuse la localisation, et `AppError.Unavailable` si aucune position n'est obtenue.
+
 `core:network` ajoute le réseau ([ADR 0001](docs/adr/0001-reseau-ktor.md)) : `createHttpClient()` (Ktor, JSON, délais, moteur Android / Darwin), `safeApiCall` (exceptions Ktor → `AppError`) et `networkModule` (un `HttpClient` unique). Les features l'utilisent dans leur couche `data` uniquement.
 
 ## Design system (`core:designsystem`)
@@ -74,10 +77,10 @@ Module de référence pour les prochaines features : ajouter, cocher et supprime
 ## Feature `weather`
 
 Météo actuelle d'une ville, via l'API gratuite [Open-Meteo](https://open-meteo.com) (sans clé). Premier appel réseau du projet.
-- **Use cases** : `SearchCitiesUseCase` (2 caractères minimum, sans appel réseau sinon), `GetCurrentWeatherUseCase` (température, ressenti, humidité, vent, condition).
+- **Use cases** : `SearchCitiesUseCase` (2 caractères minimum, sans appel réseau sinon), `GetCurrentWeatherUseCase` (température, ressenti, humidité, vent, condition), `GetLocalWeatherUseCase` (météo à la position de l'appareil, arrondie à 2 décimales, soit environ 1 km, avant l'appel ; rien n'est enregistré). [Plan](docs/plans/meteo-position.md).
 - **Data** : `OpenMeteoRemoteDataSource` (géocodage + prévisions) derrière `WeatherRemoteDataSource` ; les codes météo WMO sont traduits en `WeatherCondition`. Tests avec un MockEngine Ktor.
-- **iOS** : package SPM `iosApp/Packages/FeatureWeather` (`WeatherViewModel.swift` + `WeatherView.swift`), onglet « Météo » de l'app complète, et app de démo `WeatherDemo` ouverte sur « Paris ».
-- **Android** : pas encore d'écran.
+- **iOS** : package SPM `iosApp/Packages/FeatureWeather` (`WeatherViewModel.swift` + `WeatherView.swift`, bouton « Météo à ma position »), onglet « Météo » de l'app complète, et app de démo `WeatherDemo` ouverte sur « Paris ». La permission « Lorsque l'app est active » est demandée par la logique KMP ; son texte est `NSLocationWhenInUseUsageDescription` dans `iosApp/project.yml`.
+- **Android** : `ui/weather/WeatherViewModel.kt` + `WeatherScreen.kt`, onglet « Météo » entre « Tâches » et « Réglages ». « Météo à ma position » demande la permission de position approximative (`ACCESS_COARSE_LOCATION`) ; après un refus, un bouton ouvre la page de l'app dans les paramètres.
 
 ## Feature `settings`
 
@@ -85,7 +88,7 @@ Page Réglages : profil, notifications, consentements et version de l'app.
 - **Use cases** : `ObserveSettingsUseCase` (Flow), `UpdateProfileUseCase` (nom obligatoire, 50 caractères max ; e-mail facultatif mais valide), `SetNotificationsEnabledUseCase`, `SetConsentUseCase` (mesure d'audience, marketing, personnalisation).
 - **Règles** : au premier lancement, notifications coupées et aucun consentement accordé (opt-in RGPD). Activer les notifications demande d'abord la permission système (iOS, Android 13+) ; si elle est refusée, le réglage reste coupé. Si elle est retirée dans les paramètres système, le réglage se recoupe au retour dans l'app.
 - **Data** : réglages stockés en SQLite (SQLDelight, `settings.db`, table clé / valeur) derrière `SettingsLocalDataSource` ; ils survivent au redémarrage. Le profil (nom, e-mail), donnée personnelle, est dans le stockage chiffré (`SecureProfileLocalDataSource`), pré-rempli à la connexion et effacé à la déconnexion.
-- **Android** : `ui/settings/SettingsViewModel.kt` + `SettingsScreen.kt`, onglet « Réglages » à côté de « Tâches ».
+- **Android** : `ui/settings/SettingsViewModel.kt` + `SettingsScreen.kt`, onglet « Réglages ».
 - **iOS** : package SPM `iosApp/Packages/FeatureSettings` (`SettingsViewModel.swift` + `SettingsView.swift`), onglet « Réglages » de l'app complète, et app de démo `SettingsDemo`. Le Flow est exposé par `UseCases.observeSettings(...)`.
 
 ## Feature `auth`

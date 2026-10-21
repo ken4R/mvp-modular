@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import Shared
 import DesignSystemUI
 
@@ -30,6 +31,13 @@ public struct WeatherView: View {
                     .tint(Color(argb: colors.primary))
             }
 
+            Button(action: locate) {
+                Label("Météo à ma position", systemImage: "location.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(Color(argb: colors.primary))
+
             content(colors)
         }
         .padding(DS.Spacing.md)
@@ -42,7 +50,7 @@ public struct WeatherView: View {
     private func content(_ colors: ColorTokens) -> some View {
         switch viewModel.state {
         case .idle:
-            message("Cherchez une ville pour voir sa météo actuelle.", color: colors.onBackground)
+            message("Cherchez une ville, ou utilisez votre position, pour voir la météo actuelle.", color: colors.onBackground)
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity)
@@ -55,12 +63,18 @@ public struct WeatherView: View {
             }
             .listStyle(.plain)
             .scrollDismissesKeyboard(.immediately)
-        case let .weather(city, weather):
-            WeatherCard(city: city, weather: weather, colors: colors) {
+        case let .weather(place, weather):
+            WeatherCard(place: place, weather: weather, colors: colors) {
                 Task { await viewModel.refresh() }
             }
-        case let .error(text):
-            message(text, color: colors.error)
+        case let .error(text, canOpenSettings):
+            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                message(text, color: colors.error)
+                if canOpenSettings {
+                    Button("Ouvrir Réglages", action: openSettings)
+                        .tint(Color(argb: colors.primary))
+                }
+            }
         }
     }
 
@@ -79,6 +93,17 @@ public struct WeatherView: View {
     private func select(_ city: City) {
         searchFocused = false
         Task { await viewModel.select(city) }
+    }
+
+    private func locate() {
+        searchFocused = false
+        Task { await viewModel.locate() }
+    }
+
+    /// Une fois la localisation refusée, iOS ne redemande plus : seule la page de l'app dans Réglages permet d'autoriser.
+    private func openSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 }
 
@@ -103,7 +128,7 @@ private struct CityRow: View {
 }
 
 private struct WeatherCard: View {
-    let city: City
+    let place: WeatherPlace
     let weather: CurrentWeather
     let colors: ColorTokens
     let onRefresh: () -> Void
@@ -111,10 +136,10 @@ private struct WeatherCard: View {
     var body: some View {
         let appearance = ConditionAppearance(weather.condition, isDay: weather.isDay)
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            Text(city.name)
+            Text(title)
                 .font(DS.Typography.titleMedium)
                 .foregroundColor(Color(argb: colors.onSurface))
-            if let subtitle = city.subtitle {
+            if let subtitle {
                 Text(subtitle)
                     .font(DS.Typography.caption)
                     .foregroundColor(Color(argb: colors.onSurface))
@@ -146,6 +171,20 @@ private struct WeatherCard: View {
             RoundedRectangle(cornerRadius: DS.Radius.lg)
                 .fill(Color(argb: colors.surface))
         )
+    }
+
+    private var title: String {
+        switch place {
+        case let .city(city): return city.name
+        case .myPosition: return "Ma position"
+        }
+    }
+
+    private var subtitle: String? {
+        switch place {
+        case let .city(city): return city.subtitle
+        case .myPosition: return "Position approximative (environ 1 km)"
+        }
     }
 
     private func detail(_ title: String, _ value: String) -> some View {

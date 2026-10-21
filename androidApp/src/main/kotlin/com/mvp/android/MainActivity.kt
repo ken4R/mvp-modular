@@ -29,9 +29,10 @@ import com.mvp.android.ui.auth.SessionViewModel
 import com.mvp.android.ui.settings.SettingsScreen
 import com.mvp.android.ui.theme.MvpTheme
 import com.mvp.android.ui.todo.TodoScreen
+import com.mvp.android.ui.weather.WeatherScreen
 import org.koin.androidx.compose.koinViewModel
 
-private enum class Tab(val label: String) { Todo("Tâches"), Settings("Réglages") }
+private enum class Tab(val label: String) { Todo("Tâches"), Weather("Météo"), Settings("Réglages") }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,6 +78,7 @@ private fun AppTabs() {
         Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
             when (tab) {
                 Tab.Todo -> TodoScreen()
+                Tab.Weather -> WeatherScreen()
                 Tab.Settings -> SettingsScreen()
             }
         }

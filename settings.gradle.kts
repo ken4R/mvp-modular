@@ -33,6 +33,7 @@ include(":core:database")
 include(":core:database-testing")
 include(":core:securestorage")
 include(":core:notifications")
+include(":core:location")
 
 // Features
 include(":feature:todo")

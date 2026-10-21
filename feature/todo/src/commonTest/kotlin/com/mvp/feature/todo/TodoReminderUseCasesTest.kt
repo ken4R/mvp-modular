@@ -102,7 +102,7 @@ class TodoReminderUseCasesTest {
         // Terminée : plus de rappel ; rouverte : il revient.
         toggle("id-0")
         testScheduler.advanceUntilIdle()
-        assertEquals(emptyList(), scheduler.scheduled)
+        assertEquals(emptyList<Todo>(), scheduler.scheduled)
         toggle("id-0")
         testScheduler.advanceUntilIdle()
         assertEquals(listOf("id-0"), scheduler.scheduled.map { it.id })
@@ -111,8 +111,8 @@ class TodoReminderUseCasesTest {
         testScheduler.advanceUntilIdle()
         job.cancel()
 
-        assertEquals(emptyList(), scheduler.scheduled)
-        assertEquals(listOf(0, 1, 0, 1, 0).map { AppResult.Success(it) }, emissions)
+        assertEquals(emptyList<Todo>(), scheduler.scheduled)
+        assertEquals(listOf<AppResult<Int>>(AppResult.Success(0), AppResult.Success(1), AppResult.Success(0), AppResult.Success(1), AppResult.Success(0)), emissions)
     }
 
     @Test
@@ -123,7 +123,7 @@ class TodoReminderUseCasesTest {
 
         val job = launch { sync(NoParams).collect {} }
         testScheduler.advanceUntilIdle()
-        assertEquals(emptyList(), scheduler.scheduled)
+        assertEquals(emptyList<Todo>(), scheduler.scheduled)
 
         notifications.enabled.value = true
         testScheduler.advanceUntilIdle()
@@ -132,7 +132,7 @@ class TodoReminderUseCasesTest {
         notifications.enabled.value = false
         testScheduler.advanceUntilIdle()
         job.cancel()
-        assertEquals(emptyList(), scheduler.scheduled)
+        assertEquals(emptyList<Todo>(), scheduler.scheduled)
     }
 
     @Test
@@ -167,9 +167,9 @@ class TodoReminderUseCasesTest {
         testScheduler.advanceUntilIdle()
         job.cancel()
 
-        assertEquals(emptyList(), scheduler.scheduled)
+        assertEquals(emptyList<Todo>(), scheduler.scheduled)
         assertEquals(1, scheduler.cancelAllCalls)
-        assertEquals(listOf(AppResult.Success(1), AppResult.Success(0)), emissions)
+        assertEquals(listOf<AppResult<Int>>(AppResult.Success(1), AppResult.Success(0)), emissions)
     }
 
     @Test

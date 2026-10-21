@@ -27,6 +27,6 @@ interface CatalogRepository {
     /** Produit en cache, ou `null` s'il n'y est pas. */
     suspend fun cachedProduct(id: Long): Product?
 
-    /** Produit lu sur le serveur (puis gardé en cache s'il y était déjà). */
+    /** Produit lu sur le serveur. */
     suspend fun fetchProduct(id: Long): AppResult<Product>
 }

@@ -104,7 +104,10 @@ private fun CatalogListView(
                         Text(state.refreshError, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
                         TextButton(onClick = onRefresh) { Text("Réessayer") }
                     }
-                    else -> Text("Aucun produit pour le moment.", style = MaterialTheme.typography.bodyLarge)
+                    else -> Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        Text("Aucun produit pour le moment.", style = MaterialTheme.typography.bodyLarge)
+                        TextButton(onClick = onRefresh) { Text("Actualiser") }
+                    }
                 }
             }
         }
@@ -132,8 +135,9 @@ private fun ProductList(
                             TextButton(onClick = onRetryLoadMore) { Text("Réessayer") }
                         }
                     } else {
-                        // Le pied de liste n'est composé qu'en arrivant en bas : c'est lui qui demande la page suivante.
-                        LaunchedEffect(state.products.size) { onLoadMore() }
+                        // Le pied de liste n'est composé qu'en arrivant en bas : c'est lui qui demande la page suivante,
+                        // et la redemande après chaque page ou actualisation s'il reste visible.
+                        LaunchedEffect(state.products.size, state.isRefreshing) { onLoadMore() }
                         CircularProgressIndicator()
                     }
                 }

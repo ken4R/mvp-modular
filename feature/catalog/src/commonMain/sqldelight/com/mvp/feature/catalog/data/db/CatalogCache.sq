@@ -22,10 +22,13 @@ CREATE TABLE ProductImageEntity (
     PRIMARY KEY (product_id, position)
 );
 
--- Une seule ligne (id = 0) : nombre total de produits côté serveur et date du dernier chargement réussi (epoch ms).
+-- Une seule ligne (id = 0) : nombre total de produits côté serveur, rang de la prochaine page à demander
+-- (next_skip : différent du nombre de lignes si le serveur a renvoyé un produit déjà en cache), et date du
+-- dernier chargement réussi (epoch ms).
 CREATE TABLE CatalogInfoEntity (
     id INTEGER NOT NULL PRIMARY KEY CHECK (id = 0),
     total INTEGER NOT NULL,
+    next_skip INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
 );
 
@@ -34,17 +37,11 @@ SELECT id, title, brand, price, discount_percent, rating, thumbnail_url
 FROM ProductEntity
 ORDER BY position;
 
-countProducts:
-SELECT count(*) FROM ProductEntity;
-
 selectProduct:
 SELECT * FROM ProductEntity WHERE id = ?;
 
 selectImages:
 SELECT url FROM ProductImageEntity WHERE product_id = ? ORDER BY position;
-
-selectPosition:
-SELECT position FROM ProductEntity WHERE id = ?;
 
 upsertProduct:
 INSERT OR REPLACE INTO ProductEntity(id, position, title, description, category, brand, price, discount_percent, rating, stock, thumbnail_url)
@@ -57,10 +54,10 @@ deleteImages:
 DELETE FROM ProductImageEntity WHERE product_id = ?;
 
 selectInfo:
-SELECT total, updated_at FROM CatalogInfoEntity WHERE id = 0;
+SELECT total, next_skip, updated_at FROM CatalogInfoEntity WHERE id = 0;
 
 upsertInfo:
-INSERT OR REPLACE INTO CatalogInfoEntity(id, total, updated_at) VALUES (0, ?, ?);
+INSERT OR REPLACE INTO CatalogInfoEntity(id, total, next_skip, updated_at) VALUES (0, ?, ?, ?);
 
 deleteAllProducts:
 DELETE FROM ProductEntity;

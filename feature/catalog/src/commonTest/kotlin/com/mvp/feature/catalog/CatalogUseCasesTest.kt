@@ -25,6 +25,7 @@ import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -69,7 +70,7 @@ class CatalogUseCasesTest {
     fun catalogIsEmptyBeforeFirstLoad() = scope.runTest {
         val catalog = catalog()
 
-        assertEquals(Catalog(emptyList(), total = 0, updatedAt = null), catalog)
+        assertEquals(Catalog(emptyList(), total = 0, loadedCount = 0, updatedAt = null), catalog)
         assertTrue(catalog.hasMore)
     }
 
@@ -103,6 +104,50 @@ class CatalogUseCasesTest {
         assertEquals(listOf(1L, 2L, 3L), catalog.products.map { it.id })
         assertFalse(catalog.hasMore)
         assertEquals("2", requests.last().url.parameters["skip"])
+    }
+
+    @Test
+    fun loadMoreOnEmptyCacheLoadsFirstPage() = scope.runTest {
+        handler = { respondJson(page(ids = 1..2, total = 5)) }
+
+        assertEquals(AppResult.Success(Unit), loadMore(NoParams))
+
+        assertEquals(listOf(1L, 2L), catalog().products.map { it.id })
+        assertEquals("0", requests.single().url.parameters["skip"])
+    }
+
+    @Test
+    fun productAlreadyCachedDoesNotStallPagination() = scope.runTest {
+        handler = { respondJson(page(ids = 1..2, total = 5)) }
+        refresh(NoParams)
+        // Le catalogue s'est décalé : la page suivante recommence par un produit déjà en cache.
+        handler = { respondJson(page(ids = 2..3, total = 5)) }
+        loadMore(NoParams)
+        handler = { respondJson(page(ids = 4..4, total = 5)) }
+
+        loadMore(NoParams)
+
+        assertEquals(listOf("0", "2", "4"), requests.map { it.url.parameters["skip"] })
+        val catalog = catalog()
+        assertEquals(listOf(1L, 2L, 3L, 4L), catalog.products.map { it.id })
+        assertFalse(catalog.hasMore)
+    }
+
+    @Test
+    fun concurrentRefreshAndLoadMoreDoNotDuplicateProducts() = scope.runTest {
+        handler = { request ->
+            val skip = request.url.parameters["skip"]!!.toInt()
+            respondJson(page(ids = (skip + 1)..(skip + 2), total = 6))
+        }
+
+        val first = async { refresh(NoParams) }
+        val second = async { loadMore(NoParams) }
+        first.await()
+        second.await()
+
+        val ids = catalog().products.map { it.id }
+        assertEquals(ids.distinct(), ids)
+        assertEquals(ids.sorted(), ids)
     }
 
     @Test

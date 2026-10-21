@@ -16,8 +16,9 @@ final class CatalogViewModel: ObservableObject {
     @Published private(set) var loadMoreError: String?
 
     private var subscription: Subscription?
+    private var didRefreshOnce = false
 
-    /// Affiche le cache tout de suite, puis recharge la première page en arrière-plan (une seule fois).
+    /// Affiche le cache tout de suite, puis recharge la première page en arrière-plan (au premier affichage seulement).
     func start() {
         guard subscription == nil else { return }
         subscription = UseCases.shared.observeCatalog(
@@ -28,11 +29,14 @@ final class CatalogViewModel: ObservableObject {
             },
             onError: { _ in }
         )
+        guard !didRefreshOnce else { return }
+        didRefreshOnce = true
         Task { await refresh() }
     }
 
-    deinit {
+    func stop() {
         subscription?.cancel()
+        subscription = nil
     }
 
     func refresh() async {

@@ -24,36 +24,36 @@ internal class CatalogLocalDataSource(
 
     fun observe(): Flow<Catalog> = combine(
         queries.selectSummaries(::toSummary).asFlow().mapToList(dispatcher),
-        queries.selectInfo { total, updatedAt -> total to updatedAt }.asFlow().mapToOneOrNull(dispatcher),
+        queries.selectInfo(::CatalogInfo).asFlow().mapToOneOrNull(dispatcher),
     ) { products, info ->
-        Catalog(products = products, total = info?.first?.toInt() ?: 0, updatedAt = info?.second)
+        Catalog(
+            products = products,
+            total = info?.total?.toInt() ?: 0,
+            loadedCount = info?.nextSkip?.toInt() ?: 0,
+            updatedAt = info?.updatedAt,
+        )
     }.distinctUntilChanged()
 
-    fun count(): Int = queries.countProducts().executeAsOne().toInt()
+    /** Rang de la prochaine page à demander au serveur. */
+    fun nextSkip(): Int = queries.selectInfo(::CatalogInfo).executeAsOneOrNull()?.nextSkip?.toInt() ?: 0
 
     /** Remplace tout le cache par la première page (actualisation). */
-    fun replaceAll(products: List<Product>, total: Int, updatedAt: Long) = queries.transaction {
+    fun replaceAll(products: List<Product>, total: Int, nextSkip: Int, updatedAt: Long) = queries.transaction {
         queries.deleteAllImages()
         queries.deleteAllProducts()
         insertAll(products, startPosition = 0)
-        queries.upsertInfo(total.toLong(), updatedAt)
+        queries.upsertInfo(total.toLong(), nextSkip.toLong(), updatedAt)
     }
 
     /** Ajoute une page à la suite des produits déjà en cache. */
-    fun append(products: List<Product>, startPosition: Int, total: Int, updatedAt: Long) = queries.transaction {
+    fun append(products: List<Product>, startPosition: Int, total: Int, nextSkip: Int, updatedAt: Long) = queries.transaction {
         insertAll(products, startPosition)
-        queries.upsertInfo(total.toLong(), updatedAt)
+        queries.upsertInfo(total.toLong(), nextSkip.toLong(), updatedAt)
     }
 
     fun product(id: Long): Product? = queries.transactionWithResult {
         queries.selectProduct(id, ::toProduct).executeAsOneOrNull()
             ?.copy(imageUrls = queries.selectImages(id).executeAsList())
-    }
-
-    /** Met à jour un produit déjà en cache, à la même place ; ne fait rien s'il n'y est pas. */
-    fun updateIfCached(product: Product) = queries.transaction {
-        val position = queries.selectPosition(product.id).executeAsOneOrNull() ?: return@transaction
-        insert(product, position)
     }
 
     private fun insertAll(products: List<Product>, startPosition: Int) =
@@ -67,6 +67,8 @@ internal class CatalogLocalDataSource(
         imageUrls.forEachIndexed { index, url -> queries.insertImage(id, index.toLong(), url) }
     }
 }
+
+private data class CatalogInfo(val total: Long, val nextSkip: Long, val updatedAt: Long)
 
 private fun toSummary(
     id: Long,

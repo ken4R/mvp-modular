@@ -22,6 +22,7 @@ public struct CatalogView: View {
         }
         .tint(Color(argb: colors.primary))
         .onAppear { viewModel.start() }
+        .onDisappear { viewModel.stop() }
     }
 
     @ViewBuilder
@@ -39,8 +40,11 @@ public struct CatalogView: View {
             }
             .padding(DS.Spacing.md)
         } else {
-            message("Aucun produit pour le moment.", color: colors.onBackground)
-                .padding(DS.Spacing.md)
+            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                message("Aucun produit pour le moment.", color: colors.onBackground)
+                Button("Actualiser") { Task { await viewModel.refresh() } }
+            }
+            .padding(DS.Spacing.md)
         }
     }
 
@@ -59,8 +63,8 @@ public struct CatalogView: View {
             }
             if viewModel.hasMore {
                 footer(colors)
-                    // Nouvel identifiant à chaque page : le pied réapparaît, et redemande la suite, s'il reste visible.
-                    .id(viewModel.products.count)
+                    // Nouvel identifiant à chaque page ou actualisation : le pied réapparaît, et redemande la suite, s'il reste visible.
+                    .id("\(viewModel.products.count)-\(viewModel.isRefreshing)")
             }
         }
         .listStyle(.plain)

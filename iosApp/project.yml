@@ -45,13 +45,17 @@ targets:
     type: application
     platform: iOS
     sources: [iosApp]
+    # Clés sans équivalent INFOPLIST_KEY_ : XcodeGen écrit ce plist, Xcode le fusionne avec l'Info.plist généré.
+    # NSLocationDefaultAccuracyReduced propose la position approximative par défaut (équivalent d'ACCESS_COARSE_LOCATION).
+    info:
+      path: Generated/iosApp-Info.plist
+      properties:
+        NSLocationDefaultAccuracyReduced: true
     settings:
       groups: [app]
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative (environ 1 km) est envoyée au service météo Open-Meteo pour afficher la météo là où vous êtes. Elle n'est pas enregistrée."
-        # Propose la position approximative par défaut dans la demande d'autorisation (équivalent d'ACCESS_COARSE_LOCATION).
-        INFOPLIST_KEY_NSLocationDefaultAccuracyReduced: YES
     dependencies:
       - target: KotlinShared
       - package: SharedKMP
@@ -82,14 +86,18 @@ targets:
     type: application
     platform: iOS
     sources: [Packages/FeatureWeather/Demo]
+    # Clés sans équivalent INFOPLIST_KEY_ : XcodeGen écrit ce plist, Xcode le fusionne avec l'Info.plist généré.
+    # NSLocationDefaultAccuracyReduced propose la position approximative par défaut (équivalent d'ACCESS_COARSE_LOCATION).
+    info:
+      path: Generated/WeatherDemo-Info.plist
+      properties:
+        NSLocationDefaultAccuracyReduced: true
     settings:
       groups: [app]
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.demo.weather
         INFOPLIST_KEY_CFBundleDisplayName: Weather Demo
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative (environ 1 km) est envoyée au service météo Open-Meteo pour afficher la météo là où vous êtes. Elle n'est pas enregistrée."
-        # Propose la position approximative par défaut dans la demande d'autorisation (équivalent d'ACCESS_COARSE_LOCATION).
-        INFOPLIST_KEY_NSLocationDefaultAccuracyReduced: YES
     dependencies:
       - target: KotlinShared
       - package: SharedKMP

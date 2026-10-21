@@ -11,6 +11,7 @@ local.properties
 
 # Xcode (projet généré par XcodeGen)
 iosApp/iosApp.xcodeproj/
+iosApp/Generated/
 xcuserdata/
 DerivedData/
 

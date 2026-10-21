@@ -117,21 +117,22 @@ class SettingsViewModel(
     fun onNotificationPermissionDenied() =
         _state.update { it.copy(error = "Autorisez les notifications dans les paramètres Android") }
 
-    /** Activation : appelé avec le résultat de l'authentification système demandée par l'écran. */
-    fun onAppLockAuthResult(result: DeviceAuthResult) {
-        when (result) {
-            DeviceAuthResult.Success -> viewModelScope.launch {
-                setAppLockEnabled(true).onSuccess { clearError() }.onFailure(::showError)
+    /**
+     * Activer comme couper le verrou demande une authentification système réussie : quelqu'un qui
+     * trouve l'app ouverte ne peut pas le retirer. Appelé avec le résultat de cette authentification.
+     */
+    fun onAppLockAuthResult(enabled: Boolean, result: DeviceAuthResult) {
+        // Plus aucun code sur l'appareil : le retirer demandait déjà l'ancien code, on laisse couper le verrou.
+        val allowed = result == DeviceAuthResult.Success || (!enabled && result == DeviceAuthResult.Unavailable)
+        when {
+            allowed -> viewModelScope.launch {
+                setAppLockEnabled(enabled).onSuccess { clearError() }.onFailure(::showError)
             }
-            DeviceAuthResult.Failed -> Unit
-            DeviceAuthResult.Unavailable -> _state.update {
+            result == DeviceAuthResult.Failed -> Unit
+            else -> _state.update {
                 it.copy(error = "Configurez une empreinte, un visage ou un code de verrouillage dans les paramètres Android")
             }
         }
-    }
-
-    fun onAppLockDisabled() = viewModelScope.launch {
-        setAppLockEnabled(false).onSuccess { clearError() }.onFailure(::showError)
     }
 
     fun onConsentChange(type: ConsentType, granted: Boolean) = viewModelScope.launch {

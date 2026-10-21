@@ -124,6 +124,8 @@ final class AppLockViewModel: ObservableObject {
     /// L'app passe en arrière-plan : il faudra se ré-authentifier au retour.
     func lock() {
         autoPromptPending = true
+        // Masqué tout de suite, sans attendre le use case : rien ne réapparaît si l'app est suspendue entre-temps.
+        if enabled { state = .locked }
         Task { _ = try? await UseCases.shared.lockApp().invoke(params: NoParams.shared) }
     }
 
@@ -134,7 +136,11 @@ final class AppLockViewModel: ObservableObject {
         switch await DeviceAuthenticator.authenticate(reason: "Déverrouiller l'app pour accéder à vos données") {
         case .success:
             let result = try? await UseCases.shared.unlockApp().invoke(params: NoParams.shared)
-            if result == nil || result is AppResultFailure { message = "Déverrouillage impossible, réessayez" }
+            if result == nil || result is AppResultFailure {
+                message = "Déverrouillage impossible, réessayez"
+            } else {
+                apply(locked: false)
+            }
         case .failed:
             message = nil
         case .unavailable:

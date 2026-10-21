@@ -63,12 +63,14 @@ fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
         }
     }
 
-    // Activer le verrou demande d'abord une authentification réussie : on vérifie qu'elle marche sur l'appareil.
-    val authenticateForAppLock = rememberDeviceAuthentication(
-        title = "Activer le déverrouillage biométrique",
-        onResult = viewModel::onAppLockAuthResult,
-    )
-    val onAppLockChange: (Boolean) -> Unit = { enabled -> if (enabled) authenticateForAppLock() else viewModel.onAppLockDisabled() }
+    // Changer le verrou demande d'abord une authentification réussie (activer : on vérifie aussi qu'elle marche).
+    val authenticateToEnable = rememberDeviceAuthentication(title = "Activer le déverrouillage biométrique") {
+        viewModel.onAppLockAuthResult(enabled = true, result = it)
+    }
+    val authenticateToDisable = rememberDeviceAuthentication(title = "Couper le déverrouillage biométrique") {
+        viewModel.onAppLockAuthResult(enabled = false, result = it)
+    }
+    val onAppLockChange: (Boolean) -> Unit = { enabled -> if (enabled) authenticateToEnable() else authenticateToDisable() }
 
     // L'utilisateur peut couper les notifications dans les paramètres système pendant que l'app est en arrière-plan.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {

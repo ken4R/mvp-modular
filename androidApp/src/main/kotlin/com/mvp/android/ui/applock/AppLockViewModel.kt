@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.result.onFailure
+import com.mvp.core.common.domain.result.onSuccess
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.feature.auth.domain.usecase.LogoutUseCase
 import com.mvp.feature.settings.domain.usecase.LockAppUseCase
@@ -19,7 +20,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class AppLockUiState(
-    /** Masqué tant que l'état n'est pas connu : rien ne s'affiche avant la première lecture. */
+    /** Rien ne s'affiche (ni contenu ni écran verrouillé) avant la première lecture de l'état. */
+    val loaded: Boolean = false,
     val locked: Boolean = true,
     /** Réglage activé : l'app est aussi masquée dans l'écran des apps récentes. */
     val enabled: Boolean = false,
@@ -39,12 +41,15 @@ class AppLockViewModel(
     private val _state = MutableStateFlow(AppLockUiState())
     val state: StateFlow<AppLockUiState> = _state.asStateFlow()
 
+    /** Une seule ouverture automatique du prompt par verrouillage : après une annulation, c'est le bouton. */
+    private var autoPromptPending = true
+
     init {
         observeAppLock(NoParams)
             .onEach { result ->
                 // Erreur de lecture : on reste verrouillé, la déconnexion reste possible.
                 val locked = (result as? AppResult.Success)?.data ?: true
-                _state.update { it.copy(locked = locked, message = if (locked) it.message else null) }
+                _state.update { it.copy(loaded = true, locked = locked, message = if (locked) it.message else null) }
             }
             .launchIn(viewModelScope)
         observeSettings(NoParams)
@@ -54,13 +59,21 @@ class AppLockViewModel(
 
     /** L'app passe en arrière-plan (hors rotation) : il faudra se ré-authentifier. */
     fun onBackground() {
+        autoPromptPending = true
+        // Masqué tout de suite, sans attendre le use case : rien ne réapparaît si le process est gelé entre-temps.
+        _state.update { if (it.enabled) it.copy(locked = true) else it }
         viewModelScope.launch { lockApp(NoParams) }
     }
+
+    /** `true` une seule fois par verrouillage : l'écran verrouillé ouvre alors le prompt tout seul. */
+    fun consumeAutoPrompt(): Boolean = autoPromptPending.also { autoPromptPending = false }
 
     fun onAuthResult(result: DeviceAuthResult) {
         when (result) {
             DeviceAuthResult.Success -> viewModelScope.launch {
-                unlockApp(NoParams).onFailure { _state.update { it.copy(message = "Déverrouillage impossible, réessayez") } }
+                unlockApp(NoParams)
+                    .onSuccess { _state.update { it.copy(locked = false, message = null) } }
+                    .onFailure { _state.update { it.copy(message = "Déverrouillage impossible, réessayez") } }
             }
             DeviceAuthResult.Failed -> _state.update { it.copy(message = null) }
             DeviceAuthResult.Unavailable -> _state.update {

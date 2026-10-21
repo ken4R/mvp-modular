@@ -10,18 +10,24 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.mvp.android.ui.theme.Spacing
 
 /** Remplace tout le contenu de l'app tant qu'elle est verrouillée. Le prompt système s'ouvre tout seul. */
 @Composable
-fun LockScreen(state: AppLockUiState, onAuthResult: (DeviceAuthResult) -> Unit, onLogout: () -> Unit) {
+fun LockScreen(
+    state: AppLockUiState,
+    consumeAutoPrompt: () -> Boolean,
+    onAuthResult: (DeviceAuthResult) -> Unit,
+    onLogout: () -> Unit,
+) {
     val authenticate = rememberDeviceAuthentication(title = "Déverrouiller MVP Modular", onResult = onAuthResult)
-    // Une seule ouverture automatique par verrouillage : après une annulation, c'est le bouton.
-    LaunchedEffect(Unit) { authenticate() }
+    // Au premier plan seulement, et une fois par verrouillage (pas à chaque rotation) : ensuite, c'est le bouton.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { if (consumeAutoPrompt()) authenticate() }
 
     Scaffold { padding ->
         Column(

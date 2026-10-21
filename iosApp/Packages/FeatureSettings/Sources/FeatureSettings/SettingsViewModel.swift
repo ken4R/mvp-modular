@@ -91,16 +91,20 @@ final class SettingsViewModel: ObservableObject {
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
-    /// Activer demande d'abord Face ID / Touch ID (ou le code) : on vérifie que ça marche sur l'appareil.
+    /// Activer comme couper demande Face ID / Touch ID (ou le code) : quelqu'un qui trouve l'app ouverte
+    /// ne peut pas retirer le verrou, et à l'activation on vérifie que ça marche sur l'appareil.
     func setAppLock(_ enabled: Bool) async {
-        if enabled {
-            switch await DeviceAuthenticator.authenticate(reason: "Activer le déverrouillage de l'app par \(DeviceAuthenticator.methodName)") {
-            case .success: break
-            case .failed: return
-            case .unavailable:
-                error = "Configurez Face ID, Touch ID ou un code dans Réglages iOS"
-                return
-            }
+        let reason = enabled
+            ? "Activer le déverrouillage de l'app par \(DeviceAuthenticator.methodName)"
+            : "Couper le déverrouillage de l'app"
+        switch await DeviceAuthenticator.authenticate(reason: reason) {
+        case .success: break
+        case .failed: return
+        // Plus aucun code sur l'iPhone : le retirer demandait déjà l'ancien code, on laisse couper le verrou.
+        case .unavailable where !enabled: break
+        case .unavailable:
+            error = "Configurez Face ID, Touch ID ou un code dans Réglages iOS"
+            return
         }
         let result = try? await UseCases.shared.setAppLockEnabled().invoke(params: KotlinBoolean(bool: enabled))
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }

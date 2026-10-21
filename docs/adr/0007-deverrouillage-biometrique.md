@@ -26,11 +26,14 @@ Règles :
 - **Verrouillée à chaque lancement et à chaque passage en arrière-plan**, sans délai de grâce. L'état « déverrouillé » ne vit qu'en mémoire (`AppLockRepositoryImpl`) ; une rotation Android ne verrouille pas.
 - Tant que l'app est verrouillée, **le contenu n'est pas construit** (Compose / SwiftUI) ; avant la première lecture de l'état, l'écran est vide.
 - **Authentification système uniquement** : biométrie forte ou code de l'appareil. iOS : `LAPolicy.deviceOwnerAuthentication`. Android 11+ : `android.hardware.biometrics.BiometricPrompt` avec `BIOMETRIC_STRONG | DEVICE_CREDENTIAL` ; Android 8 à 10 : écran de confirmation du verrouillage de l'appareil (`KeyguardManager`). On évite `androidx.biometric` : sa version stable demande une `FragmentActivity` et, avant Android 9, un thème AppCompat que l'app n'a pas.
-- **Repli** : si aucun code ni biométrie n'est configuré (retirés après l'activation), l'écran verrouillé le dit et propose « Se déconnecter », qui efface les données de l'appareil puis ramène à la connexion.
+- **Activer comme couper** le réglage demande une authentification réussie : quelqu'un qui trouve l'app ouverte ne peut pas retirer le verrou.
+- **Repli** : si aucun code ni biométrie n'est configuré (retirés après l'activation), l'écran verrouillé le dit. « Se déconnecter » y est toujours proposé : il efface les données de l'appareil puis ramène à la connexion, sans rien montrer (une personne qui tient le téléphone peut donc effacer les données, pas les lire).
 - **Aperçu dans le sélecteur d'apps masqué** quand le verrou est activé : iOS recouvre l'app dès que la scène n'est plus active ; Android 13+ coupe la capture des apps récentes, avant Android 13 `FLAG_SECURE` (qui bloque aussi les captures d'écran).
 
 ## Conséquences
 
 - Simple, sans changement de `core:securestorage` ni de `feature:auth`, et les rappels continuent de marcher.
 - Limite connue : sur un appareil rooté / jailbreaké, ou avec un outil d'instrumentation, la barrière d'interface peut être contournée, et la base SQLite des tâches n'est pas chiffrée par l'app. Avant de brancher un vrai serveur, lier le jeton à la biométrie (option 2), en gardant pour les rappels une simple date d'expiration lisible sans authentification.
+- Le contenu étant retiré à chaque verrouillage, l'onglet affiché et une saisie en cours sont perdus au retour. Un délai de grâce (par exemple 30 s) pourra être ajouté si c'est gênant.
+- Android 8 à 10 : l'écran de confirmation du système accepte le code, et parfois une biométrie moins sûre selon le constructeur. Android 11+ impose la biométrie de classe forte.
 - Le réglage ne protège pas ce qu'iOS / Android affichent hors de l'app (contenu des notifications de rappel sur l'écran verrouillé).

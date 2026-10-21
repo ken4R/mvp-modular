@@ -11,8 +11,8 @@ enum DeviceAuthResult {
 /// La vérification est faite par iOS (LocalAuthentication) ; l'app ne reçoit que le résultat.
 enum DeviceAuthenticator {
 
-    /// Nom à afficher, selon le capteur de l'appareil.
-    static var methodName: String {
+    /// Nom à afficher, selon le capteur de l'appareil (lu une fois).
+    static let methodName: String = {
         let context = LAContext()
         _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
         switch context.biometryType {
@@ -20,7 +20,7 @@ enum DeviceAuthenticator {
         case .touchID: return "Touch ID"
         default: return "le code de l'iPhone"
         }
-    }
+    }()
 
     @MainActor
     static func authenticate(reason: String) async -> DeviceAuthResult {

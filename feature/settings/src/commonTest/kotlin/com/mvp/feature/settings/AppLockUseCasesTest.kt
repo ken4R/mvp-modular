@@ -80,6 +80,16 @@ class AppLockUseCasesTest {
     }
 
     @Test
+    fun enablingAfterGoingToBackgroundKeepsTheAppOpen() = scope.runTest {
+        // Android 8-10 : l'écran de confirmation du code fait passer l'app en arrière-plan avant l'activation.
+        lock()
+
+        setEnabled(true)
+
+        assertFalse(locked())
+    }
+
+    @Test
     fun disablingRemovesTheLock() = scope.runTest {
         setEnabled(true)
         lock()

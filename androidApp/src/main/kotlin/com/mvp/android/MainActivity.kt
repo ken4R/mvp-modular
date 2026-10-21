@@ -61,8 +61,10 @@ class MainActivity : ComponentActivity() {
                     SessionUiState.Loading -> Blank()
                     SessionUiState.LoggedOut -> LoginScreen()
                     // Verrou Face ID / empreinte : rien de l'app n'est composé tant qu'il n'est pas levé.
-                    is SessionUiState.LoggedIn -> if (appLock.locked) {
-                        LockScreen(appLock, appLockViewModel::onAuthResult, appLockViewModel::onLogout)
+                    is SessionUiState.LoggedIn -> if (!appLock.loaded) {
+                        Blank()
+                    } else if (appLock.locked) {
+                        LockScreen(appLock, appLockViewModel::consumeAutoPrompt, appLockViewModel::onAuthResult, appLockViewModel::onLogout)
                     } else {
                         // Les ViewModels des onglets sont liés à la session : neufs à chaque connexion.
                         CompositionLocalProvider(LocalViewModelStoreOwner provides sessionViewModel.screens) {

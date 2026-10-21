@@ -11,6 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -40,11 +41,17 @@ fun rememberDeviceAuthentication(title: String, onResult: (DeviceAuthResult) -> 
     val credentialLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         currentOnResult(if (result.resultCode == Activity.RESULT_OK) DeviceAuthResult.Success else DeviceAuthResult.Failed)
     }
+    // Prompt en cours, fermé si l'écran qui l'a ouvert disparaît (verrou levé ailleurs, déconnexion).
+    val pending = remember { arrayOfNulls<CancellationSignal>(1) }
+    DisposableEffect(Unit) { onDispose { pending[0]?.cancel() } }
     return remember(context, title) {
         {
             when {
                 !isDeviceAuthenticationAvailable(context) -> currentOnResult(DeviceAuthResult.Unavailable)
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> showBiometricPrompt(context, title) { currentOnResult(it) }
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
+                    pending[0]?.cancel()
+                    pending[0] = showBiometricPrompt(context, title) { currentOnResult(it) }
+                }
                 else -> {
                     @Suppress("DEPRECATION") // seule API disponible avant Android 11
                     val intent = context.getSystemService(KeyguardManager::class.java)?.createConfirmDeviceCredentialIntent(title, null)
@@ -56,13 +63,14 @@ fun rememberDeviceAuthentication(title: String, onResult: (DeviceAuthResult) -> 
 }
 
 @RequiresApi(Build.VERSION_CODES.R)
-private fun showBiometricPrompt(context: Context, title: String, onResult: (DeviceAuthResult) -> Unit) {
+private fun showBiometricPrompt(context: Context, title: String, onResult: (DeviceAuthResult) -> Unit): CancellationSignal {
+    val cancellation = CancellationSignal()
     val prompt = BiometricPrompt.Builder(context)
         .setTitle(title)
         .setAllowedAuthenticators(ALLOWED_AUTHENTICATORS)
         .build()
     prompt.authenticate(
-        CancellationSignal(),
+        cancellation,
         context.mainExecutor,
         object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = onResult(DeviceAuthResult.Success)
@@ -72,6 +80,7 @@ private fun showBiometricPrompt(context: Context, title: String, onResult: (Devi
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) = onResult(DeviceAuthResult.Failed)
         },
     )
+    return cancellation
 }
 
 private const val ALLOWED_AUTHENTICATORS =

@@ -52,6 +52,7 @@ internal class SqlDelightSettingsLocalDataSource(
 private const val KEY_LEGACY_DISPLAY_NAME = "profile.display_name"
 private const val KEY_LEGACY_EMAIL = "profile.email"
 private const val KEY_NOTIFICATIONS = "notifications.enabled"
+private const val KEY_APP_LOCK = "app_lock.enabled"
 private fun consentKey(type: ConsentType) = "consent.${type.name}"
 
 private fun Map<String, String>.toSettings(): UserSettings {
@@ -62,10 +63,12 @@ private fun Map<String, String>.toSettings(): UserSettings {
         consents = defaults.consents.map { default ->
             Consent(default.type, this[consentKey(default.type)]?.toBooleanStrictOrNull() ?: default.granted)
         },
+        appLockEnabled = this[KEY_APP_LOCK]?.toBooleanStrictOrNull() ?: defaults.appLockEnabled,
     )
 }
 
 private fun UserSettings.toEntries(): List<Pair<String, String>> = buildList {
     add(KEY_NOTIFICATIONS to notificationsEnabled.toString())
     consents.forEach { add(consentKey(it.type) to it.granted.toString()) }
+    add(KEY_APP_LOCK to appLockEnabled.toString())
 }

@@ -12,13 +12,16 @@ data class UserSettings(
     val profile: UserProfile,
     val notificationsEnabled: Boolean,
     val consents: List<Consent>,
+    /** Face ID / Touch ID / empreinte (ou code de l'appareil) demandé avant d'afficher l'app. */
+    val appLockEnabled: Boolean = false,
 ) {
     companion object {
-        /** Réglages au premier lancement : profil vide, notifications coupées, aucun consentement. */
+        /** Réglages au premier lancement : profil vide, notifications coupées, aucun consentement, pas de verrou. */
         fun initial(): UserSettings = UserSettings(
             profile = UserProfile(displayName = "", email = ""),
             notificationsEnabled = false,
             consents = ConsentType.entries.map { Consent(it, granted = false) },
+            appLockEnabled = false,
         )
     }
 }

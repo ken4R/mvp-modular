@@ -34,4 +34,8 @@ internal class SettingsRepositoryImpl(
             settings.copy(consents = settings.consents.filterNot { it.type == consent.type } + consent)
         }
     }
+
+    override suspend fun setAppLockEnabled(enabled: Boolean): AppResult<Unit> = safeCall {
+        local.update { it.copy(appLockEnabled = enabled) }
+    }
 }

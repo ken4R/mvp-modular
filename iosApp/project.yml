@@ -57,6 +57,7 @@ targets:
       groups: [app]
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios
+        INFOPLIST_KEY_NSFaceIDUsageDescription: "Face ID protège l'accès à l'app si vous activez le déverrouillage dans Réglages."
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative (environ 1 km) est envoyée au service météo Open-Meteo pour afficher la météo là où vous êtes. Elle n'est pas enregistrée."
     dependencies:
       - target: KotlinShared
@@ -107,7 +108,7 @@ targets:
         product: Shared
       - package: FeatureWeather
 
-  # Démo de la feature réglages (profil, notifications, consentements).
+  # Démo de la feature réglages (profil, notifications, verrou Face ID, consentements).
   SettingsDemo:
     type: application
     platform: iOS
@@ -117,6 +118,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.demo.settings
         INFOPLIST_KEY_CFBundleDisplayName: Settings Demo
+        INFOPLIST_KEY_NSFaceIDUsageDescription: "Face ID protège l'accès à l'app si vous activez le déverrouillage dans Réglages."
     dependencies:
       - target: KotlinShared
       - package: SharedKMP

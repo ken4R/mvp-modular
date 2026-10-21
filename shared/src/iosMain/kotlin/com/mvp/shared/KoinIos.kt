@@ -13,9 +13,13 @@ import com.mvp.feature.catalog.domain.usecase.LoadMoreProductsUseCase
 import com.mvp.feature.catalog.domain.usecase.ObserveCatalogUseCase
 import com.mvp.feature.catalog.domain.usecase.RefreshCatalogUseCase
 import com.mvp.feature.settings.domain.model.UserSettings
+import com.mvp.feature.settings.domain.usecase.LockAppUseCase
+import com.mvp.feature.settings.domain.usecase.ObserveAppLockUseCase
 import com.mvp.feature.settings.domain.usecase.ObserveSettingsUseCase
+import com.mvp.feature.settings.domain.usecase.SetAppLockEnabledUseCase
 import com.mvp.feature.settings.domain.usecase.SetConsentUseCase
 import com.mvp.feature.settings.domain.usecase.SetNotificationsEnabledUseCase
+import com.mvp.feature.settings.domain.usecase.UnlockAppUseCase
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
@@ -65,6 +69,9 @@ object UseCases : KoinComponent {
     fun updateProfile(): UpdateProfileUseCase = get()
     fun setNotificationsEnabled(): SetNotificationsEnabledUseCase = get()
     fun setConsent(): SetConsentUseCase = get()
+    fun setAppLockEnabled(): SetAppLockEnabledUseCase = get()
+    fun lockApp(): LockAppUseCase = get()
+    fun unlockApp(): UnlockAppUseCase = get()
 
     fun login(): LoginUseCase = get()
     fun logout(): LogoutUseCase = get()
@@ -111,6 +118,19 @@ object UseCases : KoinComponent {
             .onEach { result ->
                 when (result) {
                     is AppResult.Success -> onSettings(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /** `true` : afficher l'écran de déverrouillage (Face ID / Touch ID). Les callbacks sont appelés sur le main thread. */
+    fun observeAppLock(onLocked: (Boolean) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveAppLockUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onLocked(result.data)
                     is AppResult.Failure -> onError(result.error)
                 }
             }

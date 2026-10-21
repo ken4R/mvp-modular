@@ -41,6 +41,7 @@ class SqlDelightSettingsLocalDataSourceTest {
                 profile = UserProfile(displayName = "Youssef", email = "y@example.com"),
                 notificationsEnabled = true,
                 consents = settings.consents.map { if (it.type == ConsentType.Marketing) it.copy(granted = true) else it },
+                appLockEnabled = true,
             )
         }
 
@@ -49,6 +50,7 @@ class SqlDelightSettingsLocalDataSourceTest {
         // Le profil n'est plus écrit en clair dans la base : il est dans le stockage chiffré.
         assertEquals(UserSettings.initial().profile, restored.profile)
         assertEquals(true, restored.notificationsEnabled)
+        assertEquals(true, restored.appLockEnabled)
         assertEquals(
             listOf(
                 Consent(ConsentType.Analytics, granted = false),

@@ -9,6 +9,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var email: String = "" { didSet { profileMessage = nil } }
     @Published private(set) var profileMessage: String?
     @Published private(set) var notificationsEnabled = false
+    @Published private(set) var appLockEnabled = false
     @Published private(set) var consents: [Consent] = []
     @Published private(set) var accountEmail: String?
     @Published private(set) var isLoggingOut = false
@@ -90,6 +91,25 @@ final class SettingsViewModel: ObservableObject {
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
+    /// Activer comme couper demande Face ID / Touch ID (ou le code) : quelqu'un qui trouve l'app ouverte
+    /// ne peut pas retirer le verrou, et à l'activation on vérifie que ça marche sur l'appareil.
+    func setAppLock(_ enabled: Bool) async {
+        let reason = enabled
+            ? "Activer le déverrouillage de l'app par \(DeviceAuthenticator.methodName)"
+            : "Couper le déverrouillage de l'app"
+        switch await DeviceAuthenticator.authenticate(reason: reason) {
+        case .success: break
+        case .failed: return
+        // Plus aucun code sur l'iPhone : le retirer demandait déjà l'ancien code, on laisse couper le verrou.
+        case .unavailable where !enabled: break
+        case .unavailable:
+            error = "Configurez Face ID, Touch ID ou un code dans Réglages iOS"
+            return
+        }
+        let result = try? await UseCases.shared.setAppLockEnabled().invoke(params: KotlinBoolean(bool: enabled))
+        if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
+    }
+
     func setConsent(_ type: ConsentType, granted: Bool) async {
         let result = try? await UseCases.shared.setConsent().invoke(params: Consent(type: type, granted: granted))
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
@@ -102,6 +122,7 @@ final class SettingsViewModel: ObservableObject {
             profileLoaded = true
         }
         notificationsEnabled = settings.notificationsEnabled
+        appLockEnabled = settings.appLockEnabled
         consents = settings.consents
     }
 }

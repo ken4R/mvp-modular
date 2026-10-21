@@ -7,12 +7,14 @@ import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.result.onFailure
 import com.mvp.core.common.domain.result.onSuccess
 import com.mvp.core.common.domain.usecase.NoParams
+import com.mvp.android.ui.applock.DeviceAuthResult
 import com.mvp.feature.auth.domain.usecase.LogoutUseCase
 import com.mvp.feature.auth.domain.usecase.ObserveSessionUseCase
 import com.mvp.feature.settings.domain.model.Consent
 import com.mvp.feature.settings.domain.model.ConsentType
 import com.mvp.feature.settings.domain.model.UserProfile
 import com.mvp.feature.settings.domain.usecase.ObserveSettingsUseCase
+import com.mvp.feature.settings.domain.usecase.SetAppLockEnabledUseCase
 import com.mvp.feature.settings.domain.usecase.SetConsentUseCase
 import com.mvp.feature.settings.domain.usecase.SetNotificationsEnabledUseCase
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
@@ -29,6 +31,7 @@ data class SettingsUiState(
     val emailInput: String = "",
     val profileMessage: String? = null,
     val notificationsEnabled: Boolean = false,
+    val appLockEnabled: Boolean = false,
     val consents: List<Consent> = emptyList(),
     val accountEmail: String? = null,
     val isLoggingOut: Boolean = false,
@@ -41,6 +44,7 @@ class SettingsViewModel(
     private val updateProfile: UpdateProfileUseCase,
     private val setNotificationsEnabled: SetNotificationsEnabledUseCase,
     private val setConsent: SetConsentUseCase,
+    private val setAppLockEnabled: SetAppLockEnabledUseCase,
     private val logout: LogoutUseCase,
 ) : ViewModel() {
 
@@ -63,7 +67,11 @@ class SettingsViewModel(
                             nameInput = settings.profile.displayName,
                             emailInput = settings.profile.email,
                         )
-                        withProfile.copy(notificationsEnabled = settings.notificationsEnabled, consents = settings.consents)
+                        withProfile.copy(
+                            notificationsEnabled = settings.notificationsEnabled,
+                            appLockEnabled = settings.appLockEnabled,
+                            consents = settings.consents,
+                        )
                     }
                     is AppResult.Failure -> showError(result.error)
                 }
@@ -108,6 +116,24 @@ class SettingsViewModel(
 
     fun onNotificationPermissionDenied() =
         _state.update { it.copy(error = "Autorisez les notifications dans les paramètres Android") }
+
+    /**
+     * Activer comme couper le verrou demande une authentification système réussie : quelqu'un qui
+     * trouve l'app ouverte ne peut pas le retirer. Appelé avec le résultat de cette authentification.
+     */
+    fun onAppLockAuthResult(enabled: Boolean, result: DeviceAuthResult) {
+        // Plus aucun code sur l'appareil : le retirer demandait déjà l'ancien code, on laisse couper le verrou.
+        val allowed = result == DeviceAuthResult.Success || (!enabled && result == DeviceAuthResult.Unavailable)
+        when {
+            allowed -> viewModelScope.launch {
+                setAppLockEnabled(enabled).onSuccess { clearError() }.onFailure(::showError)
+            }
+            result == DeviceAuthResult.Failed -> Unit
+            else -> _state.update {
+                it.copy(error = "Configurez une empreinte, un visage ou un code de verrouillage dans les paramètres Android")
+            }
+        }
+    }
 
     fun onConsentChange(type: ConsentType, granted: Boolean) = viewModelScope.launch {
         setConsent(Consent(type, granted)).onSuccess { clearError() }.onFailure(::showError)

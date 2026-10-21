@@ -35,6 +35,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mvp.android.ui.applock.rememberDeviceAuthentication
 import com.mvp.android.ui.theme.Spacing
 import com.mvp.feature.settings.domain.model.ConsentType
 import org.koin.androidx.compose.koinViewModel
@@ -62,6 +63,15 @@ fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
         }
     }
 
+    // Changer le verrou demande d'abord une authentification réussie (activer : on vérifie aussi qu'elle marche).
+    val authenticateToEnable = rememberDeviceAuthentication(title = "Activer le déverrouillage biométrique") {
+        viewModel.onAppLockAuthResult(enabled = true, result = it)
+    }
+    val authenticateToDisable = rememberDeviceAuthentication(title = "Couper le déverrouillage biométrique") {
+        viewModel.onAppLockAuthResult(enabled = false, result = it)
+    }
+    val onAppLockChange: (Boolean) -> Unit = { enabled -> if (enabled) authenticateToEnable() else authenticateToDisable() }
+
     // L'utilisateur peut couper les notifications dans les paramètres système pendant que l'app est en arrière-plan.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.onSystemNotificationsChecked(NotificationManagerCompat.from(context).areNotificationsEnabled())
@@ -74,6 +84,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
         onEmailChange = viewModel::onEmailChange,
         onSaveProfile = { viewModel.onSaveProfile() },
         onNotificationsChange = onNotificationsChange,
+        onAppLockChange = onAppLockChange,
         onConsentChange = { type, granted -> viewModel.onConsentChange(type, granted) },
         onLogout = viewModel::onLogout,
     )
@@ -87,6 +98,7 @@ private fun SettingsContent(
     onEmailChange: (String) -> Unit,
     onSaveProfile: () -> Unit,
     onNotificationsChange: (Boolean) -> Unit,
+    onAppLockChange: (Boolean) -> Unit,
     onConsentChange: (ConsentType, Boolean) -> Unit,
     onLogout: () -> Unit,
 ) {
@@ -131,6 +143,15 @@ private fun SettingsContent(
                 subtitle = null,
                 checked = state.notificationsEnabled,
                 onCheckedChange = onNotificationsChange,
+            )
+
+            HorizontalDivider()
+            SectionTitle("Sécurité")
+            SwitchRow(
+                title = "Déverrouillage biométrique",
+                subtitle = "Empreinte, visage ou code de l'appareil à l'ouverture et au retour dans l'app",
+                checked = state.appLockEnabled,
+                onCheckedChange = onAppLockChange,
             )
 
             HorizontalDivider()

@@ -90,6 +90,7 @@ Page Réglages : profil, notifications, consentements et version de l'app.
 - **Data** : réglages stockés en SQLite (SQLDelight, `settings.db`, table clé / valeur) derrière `SettingsLocalDataSource` ; ils survivent au redémarrage. Le profil (nom, e-mail), donnée personnelle, est dans le stockage chiffré (`SecureProfileLocalDataSource`), pré-rempli à la connexion et effacé à la déconnexion.
 - **Android** : `ui/settings/SettingsViewModel.kt` + `SettingsScreen.kt`, onglet « Réglages ».
 - **iOS** : package SPM `iosApp/Packages/FeatureSettings` (`SettingsViewModel.swift` + `SettingsView.swift`), onglet « Réglages » de l'app complète, et app de démo `SettingsDemo`. Le Flow est exposé par `UseCases.observeSettings(...)`.
+- **Verrou Face ID / empreinte** ([plan](docs/plans/deverrouillage-biometrique.md), [ADR 0007](docs/adr/0007-deverrouillage-biometrique.md)) : réglage « Sécurité », coupé par défaut, effacé à la déconnexion. `SetAppLockEnabledUseCase`, `ObserveAppLockUseCase`, `LockAppUseCase` (passage en arrière-plan), `UnlockAppUseCase` (après une authentification système réussie). Une fois activé, l'app demande Face ID / Touch ID / empreinte, avec repli sur le code de l'appareil, à chaque lancement et à chaque retour au premier plan ; « Se déconnecter » reste possible depuis l'écran verrouillé. Android : `ui/applock/` (BiometricPrompt système, sans androidx.biometric), écran masqué dans les apps récentes. iOS : `AppLockGate` (package `FeatureSettings`), LocalAuthentication.
 
 ## Feature `auth`
 

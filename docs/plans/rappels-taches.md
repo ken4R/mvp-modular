@@ -2,12 +2,12 @@
 
 Objectif : une tâche peut recevoir un rappel (date et heure) ; une notification locale part à cette heure, sur Android et iOS. Aucun rappel ne part tant que le réglage Notifications est coupé, ni pour une tâche terminée. Les rappels sont annulés à la déconnexion. `feature:todo` et `feature:settings` ne dépendent pas l'une de l'autre. Choix techniques : [ADR 0004](../adr/0004-rappels-notifications-locales.md).
 
-1. **`core:common`** : `NotificationsPreference` (contrat « les notifications de l'app sont-elles activées ? »).
+1. **`core:common`** : `NotificationsPreference` (contrat « les notifications de l'app sont-elles activées ? ») et `SessionExpiry` (fin de la session, fournie par `feature:auth`).
 2. **`core:notifications`** (nouveau) : `LocalNotificationScheduler` (`replaceAll` / `cancelAll` par groupe) ; WorkManager + `NotificationManager` sur Android, `UNUserNotificationCenter` sur iOS ; `notificationsModule` (`expect`/`actual`).
 3. **`feature:settings`** : `SettingsNotificationsPreference` (lit le réglage Notifications), lié dans Koin. Test.
 4. **`feature:todo`** :
    - `Todo.reminderAt` (epoch ms, `null` sans rappel), colonne `reminder_at` et migration `1.sqm` de `todo.db`.
-   - `SetTodoReminderUseCase` (date future obligatoire, `null` retire le rappel), `ObserveRemindersEnabledUseCase`, `SyncTodoRemindersUseCase` (programme les rappels à venir des tâches non terminées quand les notifications sont activées, les annule sinon).
+   - `SetTodoReminderUseCase` (date future obligatoire, `null` retire le rappel), `ObserveRemindersEnabledUseCase`, `SyncTodoRemindersUseCase` (programme les rappels à venir des tâches non terminées, avant la fin de session, quand les notifications sont activées ; aucun sinon ; tout annuler sans session).
    - `ReminderScheduler` (domain) implémenté par `NotificationReminderScheduler` (data, sur `core:notifications`).
    - `TodoUserSessionObserver` annule aussi les rappels à la déconnexion.
    - Tests : use cases, persistance du rappel, migration v1 → v2, déconnexion.

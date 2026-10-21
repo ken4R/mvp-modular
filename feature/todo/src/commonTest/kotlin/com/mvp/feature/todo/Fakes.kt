@@ -1,6 +1,7 @@
 package com.mvp.feature.todo
 
 import com.mvp.core.common.domain.notification.NotificationsPreference
+import com.mvp.core.common.domain.session.SessionExpiry
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.reminder.ReminderScheduler
 import kotlinx.coroutines.flow.Flow
@@ -29,4 +30,10 @@ class FakeReminderScheduler : ReminderScheduler {
 class FakeNotificationsPreference(enabled: Boolean) : NotificationsPreference {
     val enabled = MutableStateFlow(enabled)
     override fun observeNotificationsEnabled(): Flow<Boolean> = enabled
+}
+
+/** Session pilotée par le test : `null` = déconnecté. */
+class FakeSessionExpiry(expiresAt: Long?) : SessionExpiry {
+    val expiresAt = MutableStateFlow(expiresAt)
+    override fun observeExpiresAt(): Flow<Long?> = expiresAt
 }

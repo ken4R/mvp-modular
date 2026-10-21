@@ -31,12 +31,13 @@ class TodoReminderUseCasesTest {
     private val repository = TodoRepositoryImpl(InMemoryTodoLocalDataSource(), idGenerator = { "id-${nextId++}" })
     private val scheduler = FakeReminderScheduler()
     private val notifications = FakeNotificationsPreference(enabled = true)
+    private val session = FakeSessionExpiry(expiresAt = now + 7 * DAY)
 
     private val add = AddTodoUseCase(repository, dispatcher)
     private val toggle = ToggleTodoUseCase(repository, dispatcher)
     private val delete = DeleteTodoUseCase(repository, dispatcher)
     private val setReminder = SetTodoReminderUseCase(repository, { now }, dispatcher)
-    private val sync = SyncTodoRemindersUseCase(repository, notifications, scheduler, { now }, dispatcher)
+    private val sync = SyncTodoRemindersUseCase(repository, notifications, session, scheduler, { now }, dispatcher)
 
     @Test
     fun futureReminderIsSavedOnTheTodo() = scope.runTest {
@@ -135,6 +136,43 @@ class TodoReminderUseCasesTest {
     }
 
     @Test
+    fun remindersAfterSessionEndAreNotScheduled() = scope.runTest {
+        add("Avant la fin de session")
+        add("Après la fin de session")
+        setReminder(TodoReminder("id-0", at = now + DAY))
+        setReminder(TodoReminder("id-1", at = now + 8 * DAY))
+
+        val job = launch { sync(NoParams).collect {} }
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("id-0"), scheduler.scheduled.map { it.id })
+
+        // Reconnexion : la nouvelle session couvre le second rappel.
+        session.expiresAt.value = now + 14 * DAY
+        testScheduler.advanceUntilIdle()
+        job.cancel()
+        assertEquals(listOf("id-0", "id-1"), scheduler.scheduled.map { it.id })
+    }
+
+    @Test
+    fun everythingIsCancelledWithoutSession() = scope.runTest {
+        add("Appeler Paul")
+        setReminder(TodoReminder("id-0", at = now + DAY))
+        val emissions = mutableListOf<AppResult<Int>>()
+        val job = launch { sync(NoParams).collect { emissions += it } }
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("id-0"), scheduler.scheduled.map { it.id })
+
+        // Session expirée (relue au lancement) : les tâches restent, mais aucun rappel ne doit s'afficher.
+        session.expiresAt.value = null
+        testScheduler.advanceUntilIdle()
+        job.cancel()
+
+        assertEquals(emptyList(), scheduler.scheduled)
+        assertEquals(1, scheduler.cancelAllCalls)
+        assertEquals(listOf(AppResult.Success(1), AppResult.Success(0)), emissions)
+    }
+
+    @Test
     fun schedulerFailureIsReportedWithoutStoppingSync() = scope.runTest {
         add("Appeler Paul")
         scheduler.failure = IllegalStateException("indisponible")
@@ -160,5 +198,9 @@ class TodoReminderUseCasesTest {
         notifications.enabled.value = false
 
         assertEquals(AppResult.Success(false), observe(NoParams).first())
+    }
+
+    private companion object {
+        const val DAY = 24 * 60 * 60 * 1000L
     }
 }

@@ -1,7 +1,9 @@
 package com.mvp.feature.auth.di
 
 import com.mvp.core.common.dispatcher.AppDispatchers
+import com.mvp.core.common.domain.session.SessionExpiry
 import com.mvp.feature.auth.data.repository.AuthRepositoryImpl
+import com.mvp.feature.auth.data.session.AuthSessionExpiry
 import com.mvp.feature.auth.data.source.AuthRemoteDataSource
 import com.mvp.feature.auth.data.source.FakeAuthRemoteDataSource
 import com.mvp.feature.auth.data.source.SecureSessionLocalDataSource
@@ -17,6 +19,8 @@ val authModule = module {
     single<AuthRemoteDataSource> { FakeAuthRemoteDataSource() }
     single<SessionLocalDataSource> { SecureSessionLocalDataSource(get()) }
     single<AuthRepository> { AuthRepositoryImpl(get(), get()) }
+    // Lu par feature:todo : aucun rappel ne part hors d'une session valide.
+    single<SessionExpiry> { AuthSessionExpiry(get()) }
 
     // Domain : les features à prévenir sont toutes celles qui déclarent un UserSessionObserver.
     factory { ObserveSessionUseCase(get(), get<AppDispatchers>().io) }

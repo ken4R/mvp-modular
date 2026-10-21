@@ -41,7 +41,7 @@ val todoModule = module {
     factory { ToggleTodoUseCase(get(), get<AppDispatchers>().io) }
     factory { DeleteTodoUseCase(get(), get<AppDispatchers>().io) }
     factory { SetTodoReminderUseCase(get(), systemNow, get<AppDispatchers>().io) }
-    // NotificationsPreference est fourni par feature:settings, sans dépendance directe entre les deux.
+    // NotificationsPreference vient de feature:settings, SessionExpiry de feature:auth : sans dépendance directe.
     factory { ObserveRemindersEnabledUseCase(get(), get<AppDispatchers>().io) }
-    factory { SyncTodoRemindersUseCase(get(), get(), get(), systemNow, get<AppDispatchers>().io) }
+    factory { SyncTodoRemindersUseCase(get(), get(), get(), get(), systemNow, get<AppDispatchers>().io) }
 }

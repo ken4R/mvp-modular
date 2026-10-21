@@ -8,6 +8,7 @@ package com.mvp.core.designsystem
 object DesignSystem {
     val spacing = SpacingTokens()
     val radius = RadiusTokens()
+    val sizes = SizeTokens()
     val typography = TypographyTokens()
 
     fun colors(darkTheme: Boolean): ColorTokens = if (darkTheme) DarkColors else LightColors

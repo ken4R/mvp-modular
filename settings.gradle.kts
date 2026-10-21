@@ -40,4 +40,5 @@ include(":feature:todo")
 include(":feature:weather")
 include(":feature:settings")
 include(":feature:auth")
+include(":feature:catalog")
 

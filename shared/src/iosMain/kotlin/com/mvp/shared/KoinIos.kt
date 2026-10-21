@@ -7,6 +7,11 @@ import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.feature.auth.domain.usecase.LoginUseCase
 import com.mvp.feature.auth.domain.usecase.LogoutUseCase
 import com.mvp.feature.auth.domain.usecase.ObserveSessionUseCase
+import com.mvp.feature.catalog.domain.model.Catalog
+import com.mvp.feature.catalog.domain.usecase.GetProductUseCase
+import com.mvp.feature.catalog.domain.usecase.LoadMoreProductsUseCase
+import com.mvp.feature.catalog.domain.usecase.ObserveCatalogUseCase
+import com.mvp.feature.catalog.domain.usecase.RefreshCatalogUseCase
 import com.mvp.feature.settings.domain.model.UserSettings
 import com.mvp.feature.settings.domain.usecase.ObserveSettingsUseCase
 import com.mvp.feature.settings.domain.usecase.SetConsentUseCase
@@ -64,6 +69,10 @@ object UseCases : KoinComponent {
     fun login(): LoginUseCase = get()
     fun logout(): LogoutUseCase = get()
 
+    fun refreshCatalog(): RefreshCatalogUseCase = get()
+    fun loadMoreProducts(): LoadMoreProductsUseCase = get()
+    fun getProduct(): GetProductUseCase = get()
+
     /** Les callbacks sont appelés sur le main thread. */
     fun observeTodos(onTodos: (List<Todo>) -> Unit, onError: (AppError) -> Unit): Subscription {
         val job = get<ObserveTodosUseCase>()(NoParams)
@@ -115,6 +124,19 @@ object UseCases : KoinComponent {
             .onEach { result ->
                 when (result) {
                     is AppResult.Success -> onAccount(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /** Catalogue en cache (disponible hors ligne). Les callbacks sont appelés sur le main thread. */
+    fun observeCatalog(onCatalog: (Catalog) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveCatalogUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onCatalog(result.data)
                     is AppResult.Failure -> onError(result.error)
                 }
             }

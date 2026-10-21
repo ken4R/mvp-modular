@@ -14,7 +14,7 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
                        │                (framework iOS "Shared", initKoin, coordination)
                        │
                        ▼
-         feature:todo        feature:weather          feature:settings   feature:auth
+         feature:todo        feature:weather          feature:settings   feature:auth   feature:catalog
          (modèle à copier)   (réseau : Open-Meteo)                       (connexion, session)
          ├─ domain : entités, interfaces de repository, use cases
          ├─ data   : repository, data sources (SQLite / HTTP)
@@ -100,6 +100,14 @@ Connexion devant l'app : sans session, seul l'écran de connexion est accessible
 - **Android** : `ui/auth/SessionViewModel.kt` (écran racine), `LoginViewModel.kt` + `LoginScreen.kt` ; déconnexion dans la section « Compte » des Réglages.
 - **iOS** : package SPM `iosApp/Packages/FeatureAuth` : `SessionGate { ... }` enveloppe les onglets de l'app, `LoginView` ; app de démo `AuthDemo`. Le Flow est exposé par `UseCases.observeSession(...)`.
 
+## Feature `catalog`
+
+Catalogue de produits : liste paginée avec images, fiche détail, consultable hors ligne. Données de démonstration de [DummyJSON](https://dummyjson.com) (sans clé). [Plan](docs/plans/catalogue.md), [ADR 0006](docs/adr/0006-catalogue-cache-images.md).
+- **Use cases** : `ObserveCatalogUseCase` (le cache, en Flow), `RefreshCatalogUseCase` (première page, remplace le cache), `LoadMoreProductsUseCase` (20 produits de plus, aucun appel quand tout est chargé), `GetProductUseCase` (le cache d'abord, le serveur sinon).
+- **Data** : `DummyJsonRemoteDataSource` et cache SQLDelight `catalog.db` (produits, images, total, date du dernier chargement). Seules les images en HTTPS sont gardées. Catalogue public : pas de `UserSessionObserver`, le cache survit à la déconnexion.
+- **iOS** : package SPM `iosApp/Packages/FeatureCatalog` (`CatalogView` dans une `NavigationStack`, `ProductDetailView`, `ImageLoader` avec cache disque), onglet « Catalogue », app de démo `CatalogDemo`.
+- **Android** : `ui/catalog/CatalogViewModel.kt` + `CatalogScreen.kt`, onglet « Catalogue » entre « Météo » et « Réglages » ; images avec Coil 3 (module réseau Ktor).
+
 ## iOS : une feature = un package SPM
 
 ```
@@ -114,7 +122,8 @@ iosApp/
    │  └─ Demo/TodoDemoApp.swift ← app de démo : la feature seule, avec données d'exemple
    ├─ FeatureWeather/           ← même structure, démo WeatherDemo
    ├─ FeatureSettings/          ← même structure, démo SettingsDemo
-   └─ FeatureAuth/              ← écran de connexion + SessionGate, démo AuthDemo
+   ├─ FeatureAuth/              ← écran de connexion + SessionGate, démo AuthDemo
+   └─ FeatureCatalog/           ← liste paginée + fiche + cache d'images, démo CatalogDemo
 ```
 
 - Une feature iOS dépend uniquement de `SharedKMP` (la logique) et de `DesignSystemUI` (le visuel), jamais d'une autre feature.
@@ -146,7 +155,7 @@ Le plugin de convention `mvp.kmp.library` (`build-logic/`) configure les cibles 
 
 - **Tests KMP** : `./gradlew allTests`
 - **Android** : ouvrir le dossier dans Android Studio, lancer `androidApp`.
-- **iOS** : `scripts/build-ios-framework.sh && cd iosApp && xcodegen && open iosApp.xcodeproj`, puis choisir le scheme `iosApp` (app complète : connexion, puis onglets Tâches, Météo et Réglages) ou une démo de feature (`TodoDemo`, `WeatherDemo`, `SettingsDemo`, `AuthDemo`). Le script doit tourner une première fois avant d'ouvrir Xcode, car les packages SPM ont besoin du XCFramework Kotlin ; ensuite la cible `KotlinShared` le relance à chaque build.
+- **iOS** : `scripts/build-ios-framework.sh && cd iosApp && xcodegen && open iosApp.xcodeproj`, puis choisir le scheme `iosApp` (app complète : connexion, puis onglets Tâches, Météo, Catalogue et Réglages) ou une démo de feature (`TodoDemo`, `WeatherDemo`, `SettingsDemo`, `AuthDemo`, `CatalogDemo`). Le script doit tourner une première fois avant d'ouvrir Xcode, car les packages SPM ont besoin du XCFramework Kotlin ; ensuite la cible `KotlinShared` le relance à chaque build.
 
 ## Environnement cloud (Claude Code)
 

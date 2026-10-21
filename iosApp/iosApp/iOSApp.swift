@@ -3,6 +3,7 @@ import Shared
 import FeatureAuth
 import FeatureTodo
 import FeatureWeather
+import FeatureCatalog
 import FeatureSettings
 
 /// App complète : initialise la logique KMP et assemble les features, derrière l'écran de connexion.
@@ -21,6 +22,8 @@ struct iOSApp: App {
                         .tabItem { Label("Tâches", systemImage: "checklist") }
                     WeatherView()
                         .tabItem { Label("Météo", systemImage: "cloud.sun") }
+                    CatalogView()
+                        .tabItem { Label("Catalogue", systemImage: "bag") }
                     SettingsView()
                         .tabItem { Label("Réglages", systemImage: "gearshape") }
                 }

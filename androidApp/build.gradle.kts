@@ -41,5 +41,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
+    // Images du catalogue : chargement, cache mémoire + disque (hors ligne). Le réseau passe par Ktor,
+    // avec le moteur Android déjà utilisé par core:network (pas d'OkHttp, voir libs.versions.toml).
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.ktor3)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

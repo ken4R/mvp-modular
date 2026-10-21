@@ -26,13 +26,14 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.mvp.android.ui.auth.LoginScreen
 import com.mvp.android.ui.auth.SessionUiState
 import com.mvp.android.ui.auth.SessionViewModel
+import com.mvp.android.ui.catalog.CatalogScreen
 import com.mvp.android.ui.settings.SettingsScreen
 import com.mvp.android.ui.theme.MvpTheme
 import com.mvp.android.ui.todo.TodoScreen
 import com.mvp.android.ui.weather.WeatherScreen
 import org.koin.androidx.compose.koinViewModel
 
-private enum class Tab(val label: String) { Todo("Tâches"), Weather("Météo"), Settings("Réglages") }
+private enum class Tab(val label: String) { Todo("Tâches"), Weather("Météo"), Catalog("Catalogue"), Settings("Réglages") }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,6 +80,7 @@ private fun AppTabs() {
             when (tab) {
                 Tab.Todo -> TodoScreen()
                 Tab.Weather -> WeatherScreen()
+                Tab.Catalog -> CatalogScreen()
                 Tab.Settings -> SettingsScreen()
             }
         }

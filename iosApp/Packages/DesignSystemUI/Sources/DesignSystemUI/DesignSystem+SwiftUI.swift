@@ -24,6 +24,11 @@ public enum DS {
         public static var lg: CGFloat { CGFloat(tokens.radius.lg) }
     }
 
+    public enum Size {
+        public static var thumbnail: CGFloat { CGFloat(tokens.sizes.thumbnail) }
+        public static var heroImage: CGFloat { CGFloat(tokens.sizes.heroImage) }
+    }
+
     public enum Typography {
         public static var titleLarge: Font { tokens.typography.titleLarge.font }
         public static var titleMedium: Font { tokens.typography.titleMedium.font }

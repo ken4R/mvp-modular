@@ -59,6 +59,21 @@ public struct SettingsView: View {
             }
             .listRowBackground(Color(argb: colors.surface))
 
+            Section(header: header("Sécurité", colors)) {
+                Toggle(isOn: Binding(
+                    get: { viewModel.appLockEnabled },
+                    set: { enabled in Task { await viewModel.setAppLock(enabled) } }
+                )) {
+                    rowText(
+                        "Déverrouiller avec \(DeviceAuthenticator.methodName)",
+                        subtitle: "Demandé à l'ouverture et au retour dans l'app",
+                        colors
+                    )
+                }
+                .tint(Color(argb: colors.primary))
+            }
+            .listRowBackground(Color(argb: colors.surface))
+
             Section(header: header("Consentements", colors)) {
                 ForEach(viewModel.consents, id: \.type.name) { consent in
                     let texts = ConsentTexts(consent.type)

@@ -1,5 +1,6 @@
 package com.mvp.android.di
 
+import com.mvp.android.ui.applock.AppLockViewModel
 import com.mvp.android.ui.auth.LoginViewModel
 import com.mvp.android.ui.auth.SessionViewModel
 import com.mvp.android.ui.catalog.CatalogViewModel
@@ -17,4 +18,5 @@ val androidAppModule = module {
     viewModelOf(::SettingsViewModel)
     viewModelOf(::SessionViewModel)
     viewModelOf(::LoginViewModel)
+    viewModelOf(::AppLockViewModel)
 }

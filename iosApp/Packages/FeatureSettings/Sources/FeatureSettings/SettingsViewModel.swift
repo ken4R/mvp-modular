@@ -9,6 +9,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var email: String = "" { didSet { profileMessage = nil } }
     @Published private(set) var profileMessage: String?
     @Published private(set) var notificationsEnabled = false
+    @Published private(set) var appLockEnabled = false
     @Published private(set) var consents: [Consent] = []
     @Published private(set) var accountEmail: String?
     @Published private(set) var isLoggingOut = false
@@ -90,6 +91,21 @@ final class SettingsViewModel: ObservableObject {
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
+    /// Activer demande d'abord Face ID / Touch ID (ou le code) : on vérifie que ça marche sur l'appareil.
+    func setAppLock(_ enabled: Bool) async {
+        if enabled {
+            switch await DeviceAuthenticator.authenticate(reason: "Activer le déverrouillage de l'app par \(DeviceAuthenticator.methodName)") {
+            case .success: break
+            case .failed: return
+            case .unavailable:
+                error = "Configurez Face ID, Touch ID ou un code dans Réglages iOS"
+                return
+            }
+        }
+        let result = try? await UseCases.shared.setAppLockEnabled().invoke(params: KotlinBoolean(bool: enabled))
+        if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
+    }
+
     func setConsent(_ type: ConsentType, granted: Bool) async {
         let result = try? await UseCases.shared.setConsent().invoke(params: Consent(type: type, granted: granted))
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
@@ -102,6 +118,7 @@ final class SettingsViewModel: ObservableObject {
             profileLoaded = true
         }
         notificationsEnabled = settings.notificationsEnabled
+        appLockEnabled = settings.appLockEnabled
         consents = settings.consents
     }
 }

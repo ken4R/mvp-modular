@@ -12,7 +12,10 @@ struct SettingsDemoApp: App {
 
     var body: some Scene {
         WindowGroup {
-            SettingsView()
+            // Verrou Face ID / Touch ID : s'active depuis la section Sécurité.
+            AppLockGate {
+                SettingsView()
+            }
         }
     }
 }

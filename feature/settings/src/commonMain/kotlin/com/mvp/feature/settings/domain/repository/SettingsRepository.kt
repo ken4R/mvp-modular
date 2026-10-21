@@ -11,4 +11,5 @@ interface SettingsRepository {
     suspend fun updateProfile(profile: UserProfile): AppResult<UserProfile>
     suspend fun setNotificationsEnabled(enabled: Boolean): AppResult<Unit>
     suspend fun setConsent(consent: Consent): AppResult<Unit>
+    suspend fun setAppLockEnabled(enabled: Boolean): AppResult<Unit>
 }

@@ -6,16 +6,22 @@ import com.mvp.core.common.domain.session.UserSessionObserver
 import com.mvp.core.database.DatabaseDriverFactory
 import com.mvp.feature.settings.data.db.SettingsDatabase
 import com.mvp.feature.settings.data.notification.SettingsNotificationsPreference
+import com.mvp.feature.settings.data.repository.AppLockRepositoryImpl
 import com.mvp.feature.settings.data.repository.SettingsRepositoryImpl
 import com.mvp.feature.settings.data.session.SettingsUserSessionObserver
 import com.mvp.feature.settings.data.source.ProfileLocalDataSource
 import com.mvp.feature.settings.data.source.SecureProfileLocalDataSource
 import com.mvp.feature.settings.data.source.SettingsLocalDataSource
 import com.mvp.feature.settings.data.source.SqlDelightSettingsLocalDataSource
+import com.mvp.feature.settings.domain.repository.AppLockRepository
 import com.mvp.feature.settings.domain.repository.SettingsRepository
+import com.mvp.feature.settings.domain.usecase.LockAppUseCase
+import com.mvp.feature.settings.domain.usecase.ObserveAppLockUseCase
 import com.mvp.feature.settings.domain.usecase.ObserveSettingsUseCase
+import com.mvp.feature.settings.domain.usecase.SetAppLockEnabledUseCase
 import com.mvp.feature.settings.domain.usecase.SetConsentUseCase
 import com.mvp.feature.settings.domain.usecase.SetNotificationsEnabledUseCase
+import com.mvp.feature.settings.domain.usecase.UnlockAppUseCase
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
 import org.koin.dsl.bind
 import org.koin.dsl.module
@@ -27,6 +33,8 @@ val settingsModule = module {
     // Profil : stockage chiffré (core:securestorage), les autres réglages restent en SQLite.
     single<ProfileLocalDataSource> { SecureProfileLocalDataSource(get(), legacy = get()) }
     single<SettingsRepository> { SettingsRepositoryImpl(get(), get()) }
+    // Un seul état de verrou pour toute l'app (single) : verrouillée à chaque lancement.
+    single<AppLockRepository> { AppLockRepositoryImpl(get()) }
     // Prévenu par feature:auth à la connexion et à la déconnexion.
     single { SettingsUserSessionObserver(get(), get()) } bind UserSessionObserver::class
     // Lu par feature:todo : aucun rappel ne part tant que les notifications sont coupées.
@@ -37,4 +45,8 @@ val settingsModule = module {
     factory { UpdateProfileUseCase(get(), get<AppDispatchers>().io) }
     factory { SetNotificationsEnabledUseCase(get(), get<AppDispatchers>().io) }
     factory { SetConsentUseCase(get(), get<AppDispatchers>().io) }
+    factory { ObserveAppLockUseCase(get(), get<AppDispatchers>().io) }
+    factory { SetAppLockEnabledUseCase(get(), get(), get<AppDispatchers>().io) }
+    factory { LockAppUseCase(get(), get<AppDispatchers>().io) }
+    factory { UnlockAppUseCase(get(), get<AppDispatchers>().io) }
 }

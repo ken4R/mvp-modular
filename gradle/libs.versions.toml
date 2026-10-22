@@ -12,6 +12,13 @@ sqldelight = "2.4.1"
 work = "2.10.1"
 # Coil 3.5+ exige compileSdk 36+ / 37 : 3.4.0 est la dernière version compatible avec AGP 8.13 et compileSdk 36.
 coil = "3.4.0"
+# Compose Multiplatform (écran partagé, ADR 0010). 1.9.3 tire Jetpack Compose 1.9.4 (compose-bom donne 1.9.1) :
+# l'app Android reste en Compose 1.9.x, compatible compileSdk 36. 1.10+ (Compose 1.10/1.11) attendra la montée d'AGP / compileSdk.
+# Pas de plugin org.jetbrains.compose : le compilateur est le plugin Kotlin compose-compiler, les dépendances sont listées ici.
+compose-multiplatform = "1.9.3"
+compose-multiplatform-material3 = "1.9.0"
+# ViewModel multiplatform de JetBrains : s'appuie sur androidx.lifecycle 2.9.4 sur Android (= lifecycle ci-dessus).
+jetbrains-lifecycle = "2.9.6"
 
 android-compileSdk = "36"
 android-targetSdk = "36"
@@ -52,6 +59,13 @@ androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-ru
 androidx-work-runtime = { module = "androidx.work:work-runtime", version.ref = "work" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
+
+# Compose Multiplatform : sur Android, ces artefacts renvoient vers androidx.compose.*
+compose-mp-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
+compose-mp-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
+compose-mp-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
+compose-mp-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-multiplatform-material3" }
+jetbrains-lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "jetbrains-lifecycle" }
 
 # Utilisés par build-logic (convention plugins)
 android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }

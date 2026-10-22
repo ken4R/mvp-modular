@@ -23,8 +23,8 @@ esac
 
 case "$rel" in
   # Couleurs en dur dans l'UI : tout passe par core:designsystem (MvpTheme / DS).
-  androidApp/src/main/*/ui/theme/*) ;;  # MvpTheme convertit les tokens : seul endroit autorisé
-  androidApp/src/main/*.kt)
+  androidApp/src/main/*/ui/theme/*|feature/*/src/*/ui/theme/*) ;;  # MvpTheme / SharedMvpTheme convertissent les tokens
+  androidApp/src/main/*.kt|feature/*/src/*/ui/*.kt)  # feature/*/ui : écrans Compose Multiplatform (ADR 0010)
     hits=$(grep -nE 'Color\(0x|Color\.(Red|Blue|Green|Black|White|Gray|Yellow|Cyan|Magenta)\b' "$file")
     [ -n "$hits" ] && problems+=("$rel : couleur en dur, utiliser MaterialTheme.colorScheme (MvpTheme) ou ajouter un token dans core:designsystem.
 $hits")

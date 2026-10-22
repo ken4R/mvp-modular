@@ -44,11 +44,15 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
-/** [focusRequest] : tâche demandée par un lien, à mettre en évidence ; [onFocusRequestHandled] une fois prise en compte. */
+/**
+ * [focusRequest] : tâche demandée par un lien, à mettre en évidence ; [onFocusRequestHandled] une fois prise en compte.
+ * [onOpenComposeMultiplatform] : affiche un bouton vers la version Compose Multiplatform de l'écran (ADR 0010).
+ */
 @Composable
 fun TodoScreen(
     focusRequest: String? = null,
     onFocusRequestHandled: () -> Unit = {},
+    onOpenComposeMultiplatform: (() -> Unit)? = null,
     viewModel: TodoViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -69,6 +73,7 @@ fun TodoScreen(
     TodoContent(
         state = state,
         listState = listState,
+        onOpenComposeMultiplatform = onOpenComposeMultiplatform,
         onInputChange = viewModel::onInputChange,
         onAdd = { viewModel.onAdd() },
         onToggle = { viewModel.onToggle(it) },
@@ -82,6 +87,7 @@ fun TodoScreen(
 private fun TodoContent(
     state: TodoUiState,
     listState: LazyListState,
+    onOpenComposeMultiplatform: (() -> Unit)?,
     onInputChange: (String) -> Unit,
     onAdd: () -> Unit,
     onToggle: (String) -> Unit,
@@ -94,7 +100,10 @@ private fun TodoContent(
             modifier = Modifier.fillMaxSize().padding(padding).padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Text("Mes tâches", style = MaterialTheme.typography.headlineSmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Mes tâches", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                onOpenComposeMultiplatform?.let { TextButton(onClick = it) { Text("Version Compose MP") } }
+            }
 
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 OutlinedTextField(

@@ -28,6 +28,8 @@ jobs:
         run: ./gradlew testDebugUnitTest --continue
       - name: Build de l'app Android
         run: ./gradlew :androidApp:assembleDebug
+      - name: Taille de l'APK debug (suivi du poids, ADR 0010)
+        run: ls -l androidApp/build/outputs/apk/debug/*.apk
 
   ios:
     name: iOS + tests KMP
@@ -58,7 +60,7 @@ jobs:
       - name: Build de l'app iOS et des démos de features (simulateur, sans signature)
         run: |
           cd iosApp
-          for scheme in iosApp TodoDemo WeatherDemo SettingsDemo AuthDemo CatalogDemo; do
+          for scheme in iosApp TodoDemo WeatherDemo SettingsDemo AuthDemo CatalogDemo TodoComposeDemo; do
             xcodebuild build \
               -project iosApp.xcodeproj \
               -scheme "$scheme" \
@@ -71,3 +73,16 @@ jobs:
           plist=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app/Info.plist' | head -1)
           /usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$plist"
           /usr/libexec/PlistBuddy -c 'Print :NSLocationDefaultAccuracyReduced' "$plist"
+      - name: Clé exigée par Compose Multiplatform dans l'Info.plist des apps qui l'affichent
+        run: |
+          for app in iosApp TodoComposeDemo; do
+            plist=$(find ~/Library/Developer/Xcode/DerivedData -path "*/Debug-iphonesimulator/$app.app/Info.plist" | head -1)
+            /usr/libexec/PlistBuddy -c 'Print :CADisableMinimumFrameDurationOnPhone' "$plist"
+          done
+      - name: Taille du framework Kotlin et de l'app iOS (suivi du poids, ADR 0010)
+        run: |
+          # Binaire release pour iPhone (arm64) : la taille qui compte pour l'utilisateur.
+          ./gradlew :shared:linkReleaseFrameworkIosArm64
+          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app' -type d | head -1)
+          du -sk "$app" "$app/Frameworks/Shared.framework"
+          ls -l shared/build/bin/iosArm64/releaseFramework/Shared.framework/Shared

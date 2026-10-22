@@ -42,6 +42,9 @@ kotlin {
             api(projects.feature.settings)
             api(projects.feature.auth)
             api(projects.feature.catalog)
+            // Écran Compose Multiplatform (ADR 0010) : api pour que l'app Android l'affiche ; pas exporté vers
+            // Swift (les @Composable n'y servent à rien), iOS passe par ComposeScreens (iosMain).
+            api(projects.feature.todoCompose)
             // Non exporté : les types Ktor n'ont pas à apparaître côté Swift.
             implementation(projects.core.network)
             implementation(projects.core.database)

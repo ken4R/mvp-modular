@@ -16,6 +16,7 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
                        ▼
          feature:todo        feature:weather          feature:settings   feature:auth   feature:catalog
          (modèle à copier)   (réseau : Open-Meteo)                       (connexion, session)
+         feature:todo-compose ← écran Tâches en Compose Multiplatform (UI partagée, ADR 0010)
          ├─ domain : entités, interfaces de repository, use cases
          ├─ data   : repository, data sources (SQLite / HTTP)
          └─ di     : module Koin
@@ -38,6 +39,7 @@ Règles de dépendance :
 - `domain` ne dépend de rien d'autre (pas de data, pas de plateforme).
 - `data` implémente les interfaces du `domain`.
 - Les apps ne parlent qu'aux **use cases** exposés par `shared`.
+- Exception : un module UI Compose Multiplatform (`feature:todo-compose`, [ADR 0010](docs/adr/0010-ecran-compose-multiplatform.md)) dépend de sa feature et son écran est affiché par l'app Android via `shared` ; il ne contient que de l'UI et un ViewModel.
 - `shared` est le seul module connu des apps : il assemble tous les modules KMP (`sharedModules` dans `KoinInit.kt`) et les exporte vers iOS.
 
 ## Briques fournies par `core:common`
@@ -115,6 +117,14 @@ Catalogue de produits : liste paginée avec images, fiche détail, consultable h
 - **iOS** : package SPM `iosApp/Packages/FeatureCatalog` (`CatalogView` dans une `NavigationStack`, `ProductDetailView`, `ImageLoader` avec cache disque), onglet « Catalogue », app de démo `CatalogDemo`.
 - **Android** : `ui/catalog/CatalogViewModel.kt` + `CatalogScreen.kt`, onglet « Catalogue » entre « Météo » et « Réglages » ; images avec Coil 3 (module réseau Ktor).
 
+## Écran en Compose Multiplatform (`feature:todo-compose`)
+
+Expérience de comparaison ([ADR 0010](docs/adr/0010-ecran-compose-multiplatform.md), [plan](docs/plans/ecran-compose-multiplatform.md)) : l'écran Tâches écrit **une seule fois** en Compose Multiplatform, UI comprise, à côté des écrans natifs qui restent la référence.
+- **Module** : `TodoComposeScreen` (Material 3), `TodoComposeViewModel` (ViewModel `androidx.lifecycle` multiplatform), thème `SharedMvpTheme` construit depuis `core:designsystem`. Mêmes use cases que l'écran natif (`feature:todo`), donc mêmes données. Liste, ajout, case à cocher, suppression, rappel affiché ; le choix d'un rappel et les liens profonds restent dans l'écran natif.
+- **Android** : bouton « Version Compose MP » de l'écran Tâches ; retour par « Fermer » ou le bouton retour.
+- **iOS** : même bouton dans l'écran SwiftUI ; la version Compose prend sa place dans l'onglet (pas de feuille : elle passerait au-dessus du verrou et du cache d'aperçu), retour par « Fermer ». Package SPM `iosApp/Packages/FeatureTodoCompose` (`TodoComposeView`, enveloppe `UIViewControllerRepresentable` de `ComposeScreens.todo(...)`) et app de démo `TodoComposeDemo`, à comparer à `TodoDemo`. Compose Multiplatform exige `CADisableMinimumFrameDurationOnPhone` dans l'Info.plist (`project.yml`).
+- **Version** : Compose Multiplatform 1.9.3, sur Jetpack Compose 1.9 comme le reste de l'app Android, sans le plugin Gradle `org.jetbrains.compose`.
+
 ## iOS : une feature = un package SPM
 
 ```
@@ -130,7 +140,8 @@ iosApp/
    ├─ FeatureWeather/           ← même structure, démo WeatherDemo
    ├─ FeatureSettings/          ← même structure, démo SettingsDemo
    ├─ FeatureAuth/              ← écran de connexion + SessionGate, démo AuthDemo
-   └─ FeatureCatalog/           ← liste paginée + fiche + cache d'images, démo CatalogDemo
+   ├─ FeatureCatalog/           ← liste paginée + fiche + cache d'images, démo CatalogDemo
+   └─ FeatureTodoCompose/       ← écran Tâches en Compose Multiplatform (UIViewController), démo TodoComposeDemo
 ```
 
 - Une feature iOS dépend uniquement de `SharedKMP` (la logique) et de `DesignSystemUI` (le visuel), jamais d'une autre feature.
@@ -162,7 +173,7 @@ Le plugin de convention `mvp.kmp.library` (`build-logic/`) configure les cibles 
 
 - **Tests KMP** : `./gradlew allTests`
 - **Android** : ouvrir le dossier dans Android Studio, lancer `androidApp`.
-- **iOS** : `scripts/build-ios-framework.sh && cd iosApp && xcodegen && open iosApp.xcodeproj`, puis choisir le scheme `iosApp` (app complète : connexion, puis onglets Tâches, Météo, Catalogue et Réglages) ou une démo de feature (`TodoDemo`, `WeatherDemo`, `SettingsDemo`, `AuthDemo`, `CatalogDemo`). Le script doit tourner une première fois avant d'ouvrir Xcode, car les packages SPM ont besoin du XCFramework Kotlin ; ensuite la cible `KotlinShared` le relance à chaque build.
+- **iOS** : `scripts/build-ios-framework.sh && cd iosApp && xcodegen && open iosApp.xcodeproj`, puis choisir le scheme `iosApp` (app complète : connexion, puis onglets Tâches, Météo, Catalogue et Réglages) ou une démo de feature (`TodoDemo`, `WeatherDemo`, `SettingsDemo`, `AuthDemo`, `CatalogDemo`, `TodoComposeDemo`). Le script doit tourner une première fois avant d'ouvrir Xcode, car les packages SPM ont besoin du XCFramework Kotlin ; ensuite la cible `KotlinShared` le relance à chaque build.
 
 ## Environnement cloud (Claude Code)
 

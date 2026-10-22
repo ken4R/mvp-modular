@@ -93,6 +93,21 @@ class TodoWidgetUseCaseTest {
     }
 
     @Test
+    fun widgetIsEmptiedWhenTheSessionEndsWhileObserved() = scope.runTest {
+        add("Appeler Paul")
+        val states = mutableListOf<TodoWidgetState>()
+        val job = launch { widget(NoParams).collect { states += (it as AppResult.Success).data } }
+        testScheduler.advanceTimeBy(DAY - 1)
+        testScheduler.runCurrent()
+        assertIs<TodoWidgetState.Tasks>(states.single())
+
+        testScheduler.advanceTimeBy(2)
+        testScheduler.runCurrent()
+        job.cancel()
+        assertEquals(TodoWidgetState.SignedOut, states.last())
+    }
+
+    @Test
     fun nothingIsShownWhileTheAppLockIsOn() = scope.runTest {
         add("Appeler Paul")
         appLock.enabled.value = true
@@ -105,14 +120,14 @@ class TodoWidgetUseCaseTest {
         add("Appeler Paul")
         val states = mutableListOf<TodoWidgetState>()
         val job = launch { widget(NoParams).collect { states += (it as AppResult.Success).data } }
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
 
         appLock.enabled.value = true
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         appLock.enabled.value = false
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         session.expiresAt.value = null
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         job.cancel()
 
         val tasks = TodoWidgetState.Tasks(

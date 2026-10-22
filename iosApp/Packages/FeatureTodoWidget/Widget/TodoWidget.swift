@@ -97,6 +97,8 @@ struct TodoWidgetView: View {
                 row(item)
             }
         }
+        // Compteur, titres et heures masqués sur l'écran verrouillé (mode En veille) tant que l'iPhone l'est.
+        .privacySensitive()
     }
 
     @ViewBuilder
@@ -105,8 +107,6 @@ struct TodoWidgetView: View {
             Text(item.title)
                 .font(.subheadline)
                 .lineLimit(1)
-                // Masqué sur l'écran verrouillé (mode En veille) tant que l'iPhone n'est pas déverrouillé.
-                .privacySensitive()
             if family != .systemSmall, let at = item.reminderAt {
                 Text(at, format: .dateTime.day().month().hour().minute())
                     .font(.caption2)

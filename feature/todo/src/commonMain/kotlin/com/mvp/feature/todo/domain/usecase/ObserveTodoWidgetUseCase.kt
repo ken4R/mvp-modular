@@ -12,10 +12,13 @@ import com.mvp.feature.todo.domain.model.TodoWidgetItem
 import com.mvp.feature.todo.domain.model.TodoWidgetState
 import com.mvp.feature.todo.domain.repository.TodoRepository
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.transformLatest
 
 /**
  * Contenu du widget Tâches, recalculé à chaque changement des tâches, de la session ou du réglage Sécurité.
@@ -31,6 +34,7 @@ class ObserveTodoWidgetUseCase(
     dispatcher: CoroutineDispatcher,
 ) : FlowUseCase<NoParams, TodoWidgetState>(dispatcher) {
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun execute(params: NoParams): Flow<AppResult<TodoWidgetState>> =
         combine(session.observeExpiresAt(), appLock.observeAppLockEnabled(), repository.observeTodos()) { expiresAt, locked, todos ->
             when {
@@ -39,6 +43,15 @@ class ObserveTodoWidgetUseCase(
                 else -> tasks(todos, expiresAt)
             }
         }
+            .distinctUntilChanged()
+            // Rien ne réémet quand la session expire : on vide le widget nous-mêmes à son échéance.
+            .transformLatest { state ->
+                emit(state)
+                if (state is TodoWidgetState.Tasks) {
+                    delay(state.visibleUntil - now())
+                    emit(TodoWidgetState.SignedOut)
+                }
+            }
             .distinctUntilChanged()
             .map { AppResult.Success(it) }
 

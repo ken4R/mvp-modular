@@ -36,9 +36,11 @@ Partage des données avec l'extension iOS :
   - extension `TodoWidgetExtension` (`project.yml`), petit et moyen formats, qui ne lie **que** `TodoWidgetData` (vérifié par la CI) ;
   - fichier dans `Library/Caches` du conteneur de l'App Group `group.com.mvp.ios`, exclu des sauvegardes, protection `completeUntilFirstUserAuthentication` (lisible après le premier déverrouillage de l'appareil, comme la session dans le Keychain), écriture atomique. S'il ne peut être écrit, il est supprimé ;
   - la timeline ajoute une entrée sans tâche à `visibleUntil` : à la fin de session, le widget se vide sans que l'app soit rouverte ;
-  - titres marqués `privacySensitive()` : masqués en mode En veille tant que l'iPhone est verrouillé ;
+  - liste (compteur, titres, heures) marquée `privacySensitive()` : masquée en mode En veille tant que l'iPhone est verrouillé ;
   - la galerie des widgets montre un exemple fictif, jamais les vraies tâches ;
   - l'extension ne charge pas `DesignSystemUI` (qui dépend du framework Kotlin) : la couleur principale est recopiée depuis les tokens dans le fichier, le reste utilise les styles système (`.headline`, `.secondary`, marges par défaut du widget), sans valeur en dur.
+- **Pendant la déconnexion**, la session est encore valide et les features sont effacées dans un ordre non garanti (et l'une peut échouer) : `feature:settings` garde donc le réglage Sécurité jusqu'à la fin de la déconnexion (`onLogout`), sinon le widget aurait pu montrer les tâches un instant, verrou coupé. Un autre compte qui se connecte repart sans verrou (`onLogin`).
+- **Fin de session** : le use case émet lui-même `SignedOut` à `visibleUntil` (rien d'autre ne réémet quand la session expire).
 - Le widget ne fait que **lire** : pas de case à cocher interactive (elle demanderait d'écrire dans la base depuis l'extension iOS).
 
 ## Conséquences
@@ -48,4 +50,6 @@ Partage des données avec l'extension iOS :
 - iOS : un **App Group** demande un compte Apple Developer payant pour installer sur un vrai iPhone. Sans lui (simulateur sans signature, CI), `containerURL` peut être `nil` : le widget dit d'ouvrir l'app.
 - Android : les titres affichés sont tenus par le lanceur, comme pour tout widget. Pas d'écran verrouillé concerné (Android ne propose plus de widgets sur l'écran verrouillé des téléphones).
 - Glance 1.1.1 ajouté (`androidx.glance:glance-appwidget`, compileSdk 34+).
+- iOS : le petit format peut aussi s'afficher sur le bureau d'un Mac (widgets de l'iPhone) ou dans CarPlay, hors du verrouillage de l'iPhone. Accepté pour le prototype (verrou coupé = l'utilisateur accepte de voir ses tâches hors de l'app) ; à restreindre avec `disfavoredLocations` (iOS 17+) avant une vraie distribution.
+- Android : le receiver est exporté (exigé par le lanceur). Il ne porte aujourd'hui que des `actionStartActivity` ; une action qui modifie des données (`actionRunCallback`, case à cocher) devra être revue, car une autre app pourrait la déclencher.
 - Un second widget (météo, ou tâches interactives sur iOS 17 avec App Intents) réutiliserait le même schéma : état calculé dans KMP, recopié pour l'extension iOS.

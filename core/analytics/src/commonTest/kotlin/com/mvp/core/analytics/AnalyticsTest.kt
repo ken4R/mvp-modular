@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -40,6 +41,7 @@ class AnalyticsTest {
         sentEvents = sink.observeSent(),
         now = { clock },
         newSessionId = { "session-${sessions++}" },
+        scope = scope.backgroundScope,
         batchSize = 3,
         maxPending = 5,
     )
@@ -84,6 +86,7 @@ class AnalyticsTest {
     fun fullBatchIsSentWithoutWaiting() = scope.runTest {
         consent.granted = true
         repeat(3) { track(AnalyticsEvent.TaskAdded) }
+        runCurrent()
 
         assertEquals(3, journal().sent.size)
         assertEquals(emptyList(), journal().pending)
@@ -102,6 +105,43 @@ class AnalyticsTest {
         track(AnalyticsEvent.TaskCompleted)
         flush(NoParams)
         assertEquals(listOf("session-1"), journal().sent.map { it.sessionId })
+    }
+
+    @Test
+    fun revokingAlsoResetsTheTool() = scope.runTest {
+        consent.granted = true
+        track(AnalyticsEvent.TaskAdded)
+        flush(NoParams)
+
+        repository.onAnalyticsConsentRevoked()
+
+        assertEquals(AnalyticsJournal(pending = emptyList(), sent = emptyList()), journal())
+    }
+
+    @Test
+    fun eventReadAsConsentedJustBeforeARevocationIsDropped() = scope.runTest {
+        consent.granted = true
+        consent.duringCheck = {
+            consent.granted = false
+            repository.onAnalyticsConsentRevoked()
+        }
+
+        track(AnalyticsEvent.TaskAdded)
+
+        // Le consentement a été lu « accordé », mais le retrait est passé avant la mise en file.
+        consent.granted = true
+        flush(NoParams)
+        assertEquals(AnalyticsJournal(pending = emptyList(), sent = emptyList()), journal())
+    }
+
+    @Test
+    fun eventReadBeforeALogoutDoesNotReachTheNextAccount() = scope.runTest {
+        consent.granted = true
+        consent.duringCheck = { AnalyticsUserSessionObserver(repository).clearUserData() }
+
+        track(AnalyticsEvent.TaskAdded)
+
+        assertEquals(emptyList(), journal().pending)
     }
 
     @Test
@@ -174,7 +214,15 @@ class AnalyticsTest {
 
 private class FakeAnalyticsConsent : AnalyticsConsent {
     var granted = false
-    override suspend fun isGranted(): Boolean = granted
+
+    /** Appelé pendant la lecture du consentement : simule un retrait qui arrive à ce moment-là. */
+    var duringCheck: (suspend () -> Unit)? = null
+
+    override suspend fun isGranted(): Boolean {
+        val wasGranted = granted
+        duringCheck?.let { duringCheck = null; it() }
+        return wasGranted
+    }
 }
 
 /** Journal de debug dont l'envoi peut échouer, comme un vrai outil injoignable. */

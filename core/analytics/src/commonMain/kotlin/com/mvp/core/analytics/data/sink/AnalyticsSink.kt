@@ -15,7 +15,10 @@ interface AnalyticsSink {
     /** Envoie un lot ; lève une exception en cas d'échec (le lot reste alors en attente). */
     suspend fun send(batch: List<TrackedEvent>)
 
-    /** Oublie ce que l'outil garde sur l'appareil (identifiants, cache) : appelé à la déconnexion. */
+    /**
+     * Oublie ce que l'outil garde sur l'appareil (identifiants, cache, événements non envoyés) : appelé au
+     * retrait du consentement et à la déconnexion. Avec un vrai SDK : son opt-out / reset.
+     */
     suspend fun reset()
 }
 

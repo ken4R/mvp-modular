@@ -12,6 +12,8 @@ import com.mvp.core.common.dispatcher.AppDispatchers
 import com.mvp.core.common.domain.analytics.AnalyticsConsentObserver
 import com.mvp.core.common.domain.analytics.AnalyticsTracker
 import com.mvp.core.common.domain.session.UserSessionObserver
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import org.koin.dsl.bind
 import org.koin.dsl.binds
 import org.koin.dsl.module
@@ -37,6 +39,7 @@ val analyticsModule = module {
             sentEvents = get<DebugAnalyticsSink>().observeSent(),
             now = systemNow,
             newSessionId = randomSessionId,
+            scope = CoroutineScope(SupervisorJob() + get<AppDispatchers>().default),
         )
     } binds arrayOf(AnalyticsRepository::class, AnalyticsTracker::class, AnalyticsConsentObserver::class)
     // Prévenu par feature:auth : la mesure est remise à zéro à la déconnexion.

@@ -17,7 +17,7 @@ Objectif : un module de suivi d'événements qui n'envoie rien sans l'accord don
 - Sans consentement : changer d'onglet, ajouter et cocher une tâche, taper « Événement test » : le journal reste vide.
 - Activer « Mesure d'audience » : la ligne affiche « Accepté le <date> (texte v1) ». Changer d'onglet, ajouter une tâche, la cocher : les événements `screen_viewed screen=…`, `task_added`, `task_completed` apparaissent « En attente », sans le titre de la tâche.
 - « Envoyer maintenant » : ils passent dans « Envoyés ». Au 10e événement en attente, l'envoi part seul. Mettre l'app en arrière-plan puis revenir : la file est envoyée.
-- Avoir des événements en attente puis couper « Mesure d'audience » : « En attente » passe à 0 tout de suite, la ligne affiche « Refusé le <date> (texte v1) ». Plus rien ne s'ajoute ensuite.
+- Avoir des événements en attente puis couper « Mesure d'audience » : le journal se vide tout de suite (en attente et envoyés, comme un outil qui oublie l'appareil), la ligne affiche « Refusé le <date> (texte v1) ». Plus rien ne s'ajoute ensuite.
 - Fermer et relancer l'app : la date du choix est conservée ; les événements en attente non envoyés ont disparu (mémoire seulement).
 - Se déconnecter puis se reconnecter : consentement revenu à « Pas encore choisi », journal vide.
 - Mise à jour depuis une version précédente avec « Mesure d'audience » déjà activé : après la mise à jour, il est coupé et redemandé (l'ancien accord n'était pas daté).

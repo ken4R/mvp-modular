@@ -7,11 +7,13 @@ import com.mvp.core.analytics.domain.repository.AnalyticsRepository
 import com.mvp.core.common.domain.analytics.AnalyticsConsent
 import com.mvp.core.common.domain.analytics.AnalyticsConsentObserver
 import com.mvp.core.common.domain.analytics.AnalyticsEvent
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.concurrent.Volatile
@@ -30,6 +32,8 @@ internal class QueuedAnalyticsRepository(
     private val sentEvents: Flow<List<TrackedEvent>>,
     private val now: () -> Long,
     private val newSessionId: () -> String,
+    /** Portée de l'app : l'envoi d'un lot plein part sans faire attendre l'action de l'utilisateur. */
+    private val scope: CoroutineScope,
     private val batchSize: Int = DEFAULT_BATCH_SIZE,
     private val maxPending: Int = DEFAULT_MAX_PENDING,
 ) : AnalyticsRepository, AnalyticsConsentObserver {
@@ -41,13 +45,22 @@ internal class QueuedAnalyticsRepository(
     @Volatile
     private var sessionId = newSessionId()
 
+    /**
+     * Augmente à chaque retrait du consentement et à chaque déconnexion (sous [enqueuing]) : un événement
+     * dont le consentement a été lu avant n'entre pas dans la file, même s'il arrive juste après.
+     */
+    @Volatile
+    private var epoch = 0L
+
     // Protégé par [enqueuing].
     private var nextId = 0L
 
     override suspend fun track(event: AnalyticsEvent) {
         try {
+            val readAt = epoch
             if (!consent.isGranted()) return
             val size = enqueuing.withLock {
+                if (epoch != readAt) return
                 val tracked = TrackedEvent(
                     id = nextId++,
                     name = event.name,
@@ -58,7 +71,7 @@ internal class QueuedAnalyticsRepository(
                 // File bornée : au-delà, les plus anciens sont abandonnés (outil injoignable longtemps).
                 pending.updateAndGet { (it + tracked).takeLast(maxPending) }.size
             }
-            if (size >= batchSize) flush()
+            if (size >= batchSize) scope.launch { runCatchingNonCancellation { flush() } }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Throwable) {
@@ -83,16 +96,31 @@ internal class QueuedAnalyticsRepository(
     override fun observeJournal(): Flow<AnalyticsJournal> =
         combine(pending, sentEvents) { pending, sent -> AnalyticsJournal(pending = pending.reversed(), sent = sent) }
 
-    override suspend fun onAnalyticsConsentRevoked() {
-        pending.value = emptyList()
-        sessionId = newSessionId()
-    }
+    /** Retrait : file abandonnée, nouvelle session, et l'outil oublie ce qu'il garde sur l'appareil. */
+    override suspend fun onAnalyticsConsentRevoked() = forget()
 
     /** Déconnexion : rien de la session de mesure ne passe au compte suivant. */
-    suspend fun clear() {
-        pending.value = emptyList()
-        sessionId = newSessionId()
-        sink.reset()
+    suspend fun clear() = forget()
+
+    private suspend fun forget() {
+        enqueuing.withLock {
+            epoch++
+            pending.value = emptyList()
+            sessionId = newSessionId()
+        }
+        // Attend la fin d'un envoi déjà commencé : le retrait n'est confirmé qu'une fois plus rien en cours.
+        // Un échec de l'outil ne fait pas échouer le retrait : la file est déjà vidée.
+        sending.withLock { runCatchingNonCancellation { sink.reset() } }
+    }
+
+    private suspend fun runCatchingNonCancellation(block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Throwable) {
+            // Gardé pour le prochain envoi (lot) ou sans effet (remise à zéro de l'outil).
+        }
     }
 
     companion object {

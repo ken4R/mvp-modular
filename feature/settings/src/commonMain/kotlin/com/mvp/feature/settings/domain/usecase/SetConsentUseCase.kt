@@ -9,6 +9,7 @@ import com.mvp.feature.settings.domain.model.ConsentTexts
 import com.mvp.feature.settings.domain.model.ConsentType
 import com.mvp.feature.settings.domain.repository.SettingsRepository
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Accorde ou retire un consentement. Règles métier : chaque choix est daté et lié à la version du
@@ -30,9 +31,18 @@ class SetConsentUseCase(
             textVersion = ConsentTexts.of(params.type).version,
         )
         val result = repository.setConsent(consent)
-        // Même si l'enregistrement échoue : l'utilisateur a demandé l'arrêt, la file est vidée.
+        // Même si l'enregistrement échoue : l'utilisateur a demandé l'arrêt, la file est vidée. Le consentement
+        // reste alors « accordé » en base (l'écran affiche l'erreur et l'interrupteur reste activé) : à refaire.
         if (params.type == ConsentType.Analytics && !params.granted) {
-            analyticsObservers.forEach { it.onAnalyticsConsentRevoked() }
+            analyticsObservers.forEach { observer ->
+                // Un observateur en échec n'empêche pas de prévenir les autres, ni ne change le résultat.
+                try {
+                    observer.onAnalyticsConsentRevoked()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Throwable) {
+                }
+            }
         }
         return result
     }

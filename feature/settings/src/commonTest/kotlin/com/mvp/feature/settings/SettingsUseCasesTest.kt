@@ -137,6 +137,20 @@ class SettingsUseCasesTest {
     }
 
     @Test
+    fun failingObserverDoesNotStopTheOthersNorTheRevocation() = scope.runTest {
+        val after = RecordingAnalyticsConsentObserver()
+        val failing = object : AnalyticsConsentObserver {
+            override suspend fun onAnalyticsConsentRevoked() = error("outil injoignable")
+        }
+        val setConsent = SetConsentUseCase(repository, listOf(failing, after), now = { clock }, dispatcher)
+
+        val result = setConsent(ConsentChoice(ConsentType.Analytics, granted = false))
+
+        assertEquals(AppResult.Success(Unit), result)
+        assertEquals(1, after.calls)
+    }
+
+    @Test
     fun analyticsConsentFollowsTheChoice() = scope.runTest {
         val analyticsConsent = SettingsAnalyticsConsent(local)
         assertFalse(analyticsConsent.isGranted())

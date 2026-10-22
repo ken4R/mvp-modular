@@ -15,12 +15,23 @@
         android:allowBackup="false"
         android:label="MVP Modular"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <!-- singleTask : un lien ouvert depuis une autre app revient à l'activité existante (onNewIntent)
+             au lieu d'en empiler une seconde dans la tâche de l'app appelante. -->
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Liens profonds mvpmodular://… (format dans core:deeplink, DeepLinks ; ADR 0008).
+                 Pas d'App Links vérifiés tant que l'app n'a pas de domaine. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="mvpmodular" />
             </intent-filter>
         </activity>
     </application>

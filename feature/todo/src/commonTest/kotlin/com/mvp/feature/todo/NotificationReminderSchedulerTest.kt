@@ -35,7 +35,9 @@ class NotificationReminderSchedulerTest {
 
         assertEquals(
             listOf(
-                "todo-reminders" to listOf(LocalNotification(id = "a", title = "Rappel", body = "Appeler Paul", atEpochMillis = 42L)),
+                "todo-reminders" to listOf(
+                    LocalNotification(id = "a", title = "Rappel", body = "Appeler Paul", atEpochMillis = 42L, deepLink = "mvpmodular://tasks/a"),
+                ),
                 "todo-reminders" to null,
             ),
             notifications.calls,

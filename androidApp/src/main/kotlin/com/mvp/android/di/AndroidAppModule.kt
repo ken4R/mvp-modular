@@ -4,6 +4,7 @@ import com.mvp.android.ui.applock.AppLockViewModel
 import com.mvp.android.ui.auth.LoginViewModel
 import com.mvp.android.ui.auth.SessionViewModel
 import com.mvp.android.ui.catalog.CatalogViewModel
+import com.mvp.android.ui.deeplink.DeepLinkViewModel
 import com.mvp.android.ui.settings.SettingsViewModel
 import com.mvp.android.ui.todo.TodoViewModel
 import com.mvp.android.ui.weather.WeatherViewModel
@@ -19,4 +20,5 @@ val androidAppModule = module {
     viewModelOf(::SessionViewModel)
     viewModelOf(::LoginViewModel)
     viewModelOf(::AppLockViewModel)
+    viewModelOf(::DeepLinkViewModel)
 }

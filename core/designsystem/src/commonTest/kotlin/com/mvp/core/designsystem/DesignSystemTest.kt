@@ -30,7 +30,7 @@ class DesignSystemTest {
     @Test
     fun colorsAreOpaque() {
         listOf(LightColors, DarkColors).forEach { tokens ->
-            listOf(tokens.primary, tokens.background, tokens.surface, tokens.onSurface).forEach {
+            listOf(tokens.primary, tokens.background, tokens.surface, tokens.onSurface, tokens.highlight).forEach {
                 assertTrue(it ushr 24 == 0xFFL, "couleur non opaque : ${it.toString(16)}")
             }
         }

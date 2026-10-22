@@ -9,6 +9,7 @@ kotlin {
             api(projects.core.common)
             implementation(projects.core.database)
             implementation(projects.core.notifications)
+            implementation(projects.core.deeplink)
         }
         commonTest.dependencies {
             implementation(projects.core.databaseTesting)

@@ -28,6 +28,10 @@ data class TodoUiState(
     val input: String = "",
     val error: String? = null,
     val remindersEnabled: Boolean = true,
+    /** `true` une fois la liste lue : avant, une tâche demandée par un lien ne peut pas être dite absente. */
+    val loaded: Boolean = false,
+    /** Tâche ouverte par un lien : la liste défile jusqu'à elle et la met en évidence quelques secondes. */
+    val focusedTodoId: String? = null,
 ) {
     /** Des rappels à venir sont posés mais ne partiront pas : l'écran invite à activer les notifications. */
     val showRemindersDisabledHint: Boolean
@@ -53,7 +57,10 @@ class TodoViewModel(
         observeTodos(NoParams)
             .onEach { result ->
                 when (result) {
-                    is AppResult.Success -> _state.update { it.copy(todos = result.data) }
+                    is AppResult.Success -> {
+                        _state.update { it.copy(todos = result.data, loaded = true) }
+                        checkFocus()
+                    }
                     is AppResult.Failure -> showError(result.error)
                 }
             }
@@ -61,6 +68,24 @@ class TodoViewModel(
         observeRemindersEnabled(NoParams)
             .onEach { result -> if (result is AppResult.Success) _state.update { it.copy(remindersEnabled = result.data) } }
             .launchIn(viewModelScope)
+    }
+
+    /** Un lien demande la tâche [id] : mise en évidence si elle existe, message sinon. */
+    fun focus(id: String) {
+        _state.update { it.copy(focusedTodoId = id) }
+        checkFocus()
+    }
+
+    fun clearFocus() = _state.update { it.copy(focusedTodoId = null) }
+
+    /** Tâche demandée absente (supprimée, ou d'un autre compte) : l'écran reste sur la liste et le dit. */
+    private fun checkFocus() = _state.update { state ->
+        val id = state.focusedTodoId
+        if (state.loaded && id != null && state.todos.none { it.id == id }) {
+            state.copy(focusedTodoId = null, error = MISSING_TODO)
+        } else {
+            state
+        }
     }
 
     fun onInputChange(value: String) = _state.update { it.copy(input = value, error = null) }
@@ -73,7 +98,11 @@ class TodoViewModel(
 
     fun onToggle(id: String) = viewModelScope.launch { toggleTodo(id).onFailure(::showError) }
 
-    fun onDelete(id: String) = viewModelScope.launch { deleteTodo(id).onFailure(::showError) }
+    fun onDelete(id: String) = viewModelScope.launch {
+        // La tâche supprimée n'est plus « absente » d'un lien : pas de message à son sujet.
+        if (_state.value.focusedTodoId == id) clearFocus()
+        deleteTodo(id).onFailure(::showError)
+    }
 
     /** [at] : heure choisie (epoch ms), `null` pour retirer le rappel. */
     fun onSetReminder(id: String, at: Long?) = viewModelScope.launch {
@@ -83,6 +112,10 @@ class TodoViewModel(
     }
 
     private fun showError(error: AppError) = _state.update { it.copy(error = error.toMessage()) }
+
+    private companion object {
+        const val MISSING_TODO = "Cette tâche n'existe plus"
+    }
 }
 
 private fun AppError.toMessage(): String = when (this) {

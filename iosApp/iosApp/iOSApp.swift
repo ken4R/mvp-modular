@@ -2,8 +2,6 @@ import SwiftUI
 import Shared
 import FeatureAuth
 import FeatureTodo
-import FeatureWeather
-import FeatureCatalog
 import FeatureSettings
 
 /// App complète : initialise la logique KMP et assemble les features, derrière l'écran de connexion.
@@ -19,16 +17,14 @@ struct iOSApp: App {
             SessionGate {
                 // Face ID / Touch ID, si activé dans Réglages : rien n'est affiché avant.
                 AppLockGate {
-                    TabView {
-                        TodoListView()
-                            .tabItem { Label("Tâches", systemImage: "checklist") }
-                        WeatherView()
-                            .tabItem { Label("Météo", systemImage: "cloud.sun") }
-                        CatalogView()
-                            .tabItem { Label("Catalogue", systemImage: "bag") }
-                        SettingsView()
-                            .tabItem { Label("Réglages", systemImage: "gearshape") }
-                    }
+                    AppTabsView()
+                }
+            }
+            // Liens mvpmodular://… (schéma déclaré dans project.yml) : reçus même déconnecté ou verrouillé,
+            // ils attendent dans KMP que les onglets soient affichés.
+            .onOpenURL { url in
+                Task { @MainActor in
+                    _ = try? await UseCases.shared.openDeepLink().invoke(params: url.absoluteString as NSString)
                 }
             }
         }

@@ -6,12 +6,18 @@ import DesignSystemUI
 public struct CatalogView: View {
     @StateObject private var viewModel = CatalogViewModel()
     @Environment(\.colorScheme) private var colorScheme
+    /// Fiches ouvertes (identifiants de produit), de la liste vers la dernière ouverte.
+    @State private var path: [Int64] = []
+    /// Produit demandé par un lien profond : sa fiche s'ouvre, puis la demande est remise à `nil`.
+    @Binding private var productRequest: Int64?
 
-    public init() {}
+    public init(productRequest: Binding<Int64?> = .constant(nil)) {
+        _productRequest = productRequest
+    }
 
     public var body: some View {
         let colors = DS.colors(colorScheme)
-        NavigationStack {
+        NavigationStack(path: $path) {
             content(colors)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(Color(argb: colors.background))
@@ -21,8 +27,19 @@ public struct CatalogView: View {
                 }
         }
         .tint(Color(argb: colors.primary))
-        .onAppear { viewModel.start() }
+        .onAppear {
+            viewModel.start()
+            takeProductRequest()
+        }
+        .onChange(of: productRequest) { _ in takeProductRequest() }
         .onDisappear { viewModel.stop() }
+    }
+
+    /// Produit inconnu : la fiche affiche « Produit introuvable. », le retour mène à la liste.
+    private func takeProductRequest() {
+        guard let id = productRequest else { return }
+        productRequest = nil
+        path = [id]
     }
 
     @ViewBuilder

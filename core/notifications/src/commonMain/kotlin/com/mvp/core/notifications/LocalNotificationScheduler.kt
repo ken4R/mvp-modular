@@ -1,11 +1,15 @@
 package com.mvp.core.notifications
 
-/** Notification à afficher à [atEpochMillis]. [id] est unique dans son groupe. */
+/**
+ * Notification à afficher à [atEpochMillis]. [id] est unique dans son groupe.
+ * [deepLink] : lien ouvert par un tap sur la notification (`null` : l'app s'ouvre simplement).
+ */
 data class LocalNotification(
     val id: String,
     val title: String,
     val body: String,
     val atEpochMillis: Long,
+    val deepLink: String? = null,
 )
 
 /**

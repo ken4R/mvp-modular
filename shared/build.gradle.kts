@@ -20,6 +20,7 @@ kotlin {
             linkerOpts("-lsqlite3")
             export(projects.core.common)
             export(projects.core.designsystem)
+            export(projects.core.deeplink)
             export(projects.feature.todo)
             export(projects.feature.weather)
             export(projects.feature.settings)
@@ -33,6 +34,7 @@ kotlin {
         commonMain.dependencies {
             api(projects.core.common)
             api(projects.core.designsystem)
+            api(projects.core.deeplink)
             api(projects.feature.todo)
             api(projects.feature.weather)
             api(projects.feature.settings)

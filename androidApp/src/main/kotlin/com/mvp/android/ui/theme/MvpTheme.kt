@@ -71,6 +71,8 @@ private fun ColorTokens.toColorScheme(dark: Boolean): ColorScheme {
         onSurface = onSurface.toColor(),
         error = error.toColor(),
         onError = onError.toColor(),
+        primaryContainer = highlight.toColor(),
+        onPrimaryContainer = onSurface.toColor(),
     )
 }
 

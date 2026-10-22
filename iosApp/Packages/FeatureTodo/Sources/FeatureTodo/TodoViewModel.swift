@@ -7,9 +7,15 @@ final class TodoViewModel: ObservableObject {
     @Published var input: String = ""
     @Published private(set) var error: String?
     @Published private(set) var remindersEnabled = true
+    /// Tâche ouverte par un lien : la liste défile jusqu'à elle et la met en évidence quelques secondes.
+    @Published private(set) var focusedTodoId: String?
 
     private var subscription: Subscription?
     private var remindersSubscription: Subscription?
+    /// `true` une fois la liste lue : avant, une tâche demandée par un lien ne peut pas être dite absente.
+    private var loaded = false
+    private var requestedFocus: String?
+    private var focusTask: Task<Void, Never>?
 
     /// Des rappels à venir sont posés mais ne partiront pas : la vue invite à activer les notifications.
     var showRemindersDisabledHint: Bool {
@@ -22,7 +28,11 @@ final class TodoViewModel: ObservableObject {
     func start() {
         guard subscription == nil else { return }
         subscription = UseCases.shared.observeTodos(
-            onTodos: { [weak self] todos in self?.todos = todos },
+            onTodos: { [weak self] todos in
+                self?.todos = todos
+                self?.loaded = true
+                self?.applyFocus()
+            },
             onError: { [weak self] error in self?.error = error.userMessage }
         )
         remindersSubscription = UseCases.shared.observeRemindersEnabled(
@@ -37,6 +47,31 @@ final class TodoViewModel: ObservableObject {
         remindersSubscription?.cancel()
         remindersSubscription = nil
     }
+
+    /// Un lien demande la tâche `id` : mise en évidence si elle existe, message sinon.
+    func focus(_ id: String) {
+        requestedFocus = id
+        applyFocus()
+    }
+
+    private func applyFocus() {
+        guard loaded, let id = requestedFocus else { return }
+        requestedFocus = nil
+        guard todos.contains(where: { $0.id == id }) else {
+            // Supprimée, ou d'un autre compte : l'écran reste sur la liste et le dit.
+            error = "Cette tâche n'existe plus"
+            return
+        }
+        focusedTodoId = id
+        focusTask?.cancel()
+        focusTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: Self.focusDuration)
+            if !Task.isCancelled { self?.focusedTodoId = nil }
+        }
+    }
+
+    /// Durée de la mise en évidence, en nanosecondes (3 s).
+    private static let focusDuration: UInt64 = 3_000_000_000
 
     func add() async {
         let result = try? await UseCases.shared.addTodo().invoke(params: input as NSString)

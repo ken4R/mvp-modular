@@ -4,6 +4,10 @@ import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.session.UserAccount
 import com.mvp.core.common.domain.usecase.NoParams
+import com.mvp.core.deeplink.domain.model.DeepLink
+import com.mvp.core.deeplink.domain.usecase.ConsumeDeepLinkUseCase
+import com.mvp.core.deeplink.domain.usecase.ObservePendingDeepLinkUseCase
+import com.mvp.core.deeplink.domain.usecase.OpenDeepLinkUseCase
 import com.mvp.feature.auth.domain.usecase.LoginUseCase
 import com.mvp.feature.auth.domain.usecase.LogoutUseCase
 import com.mvp.feature.auth.domain.usecase.ObserveSessionUseCase
@@ -79,6 +83,22 @@ object UseCases : KoinComponent {
     fun refreshCatalog(): RefreshCatalogUseCase = get()
     fun loadMoreProducts(): LoadMoreProductsUseCase = get()
     fun getProduct(): GetProductUseCase = get()
+
+    fun openDeepLink(): OpenDeepLinkUseCase = get()
+    fun consumeDeepLink(): ConsumeDeepLinkUseCase = get()
+
+    /** Lien profond en attente d'affichage, ou `null`. Les callbacks sont appelés sur le main thread. */
+    fun observePendingDeepLink(onLink: (DeepLink?) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObservePendingDeepLinkUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onLink(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
 
     /** Les callbacks sont appelés sur le main thread. */
     fun observeTodos(onTodos: (List<Todo>) -> Unit, onError: (AppError) -> Unit): Subscription {

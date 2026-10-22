@@ -48,9 +48,19 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 
+/** [productRequest] : produit demandé par un lien, dont la fiche s'ouvre ; [onProductRequestHandled] une fois ouverte. */
 @Composable
-fun CatalogScreen(viewModel: CatalogViewModel = koinViewModel()) {
+fun CatalogScreen(
+    productRequest: Long? = null,
+    onProductRequestHandled: () -> Unit = {},
+    viewModel: CatalogViewModel = koinViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(productRequest) {
+        // Produit inconnu : la fiche affiche « Produit introuvable. », le retour mène à la liste.
+        productRequest?.let(viewModel::openProduct)
+        onProductRequestHandled()
+    }
     val detail = state.detail
     if (detail != null) {
         // Retour système : revient à la liste, à la même position.

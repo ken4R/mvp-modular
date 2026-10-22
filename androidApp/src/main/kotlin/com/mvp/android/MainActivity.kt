@@ -1,5 +1,6 @@
 package com.mvp.android
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -22,6 +23,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -33,10 +35,12 @@ import com.mvp.android.ui.auth.LoginScreen
 import com.mvp.android.ui.auth.SessionUiState
 import com.mvp.android.ui.auth.SessionViewModel
 import com.mvp.android.ui.catalog.CatalogScreen
+import com.mvp.android.ui.deeplink.DeepLinkViewModel
 import com.mvp.android.ui.settings.SettingsScreen
 import com.mvp.android.ui.theme.MvpTheme
 import com.mvp.android.ui.todo.TodoScreen
 import com.mvp.android.ui.weather.WeatherScreen
+import com.mvp.core.deeplink.domain.model.DeepLink
 import org.koin.androidx.compose.koinViewModel
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -45,9 +49,12 @@ private enum class Tab(val label: String) { Todo("Tâches"), Weather("Météo"),
 class MainActivity : ComponentActivity() {
 
     private val appLockViewModel: AppLockViewModel by viewModel()
+    private val deepLinkViewModel: DeepLinkViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Après une rotation, l'intent de départ est le même : son lien a déjà été pris en compte.
+        if (savedInstanceState == null) handleDeepLink(intent)
         enableEdgeToEdge()
         setContent {
             MvpTheme {
@@ -68,12 +75,29 @@ class MainActivity : ComponentActivity() {
                     } else {
                         // Les ViewModels des onglets sont liés à la session : neufs à chaque connexion.
                         CompositionLocalProvider(LocalViewModelStoreOwner provides sessionViewModel.screens) {
-                            AppTabs()
+                            AppTabs(deepLinkViewModel)
                         }
                     }
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleDeepLink(intent)
+    }
+
+    /**
+     * Lien externe ou tap sur un rappel : la destination est mise en attente dans KMP, et les onglets
+     * l'affichent dès qu'ils sont visibles. Rouvrir l'app depuis les apps récentes redonne l'intent
+     * d'origine : son lien n'est pas rejoué.
+     */
+    private fun handleDeepLink(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_VIEW) return
+        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
+        intent.data?.toString()?.let(deepLinkViewModel::open)
     }
 
     override fun onStop() {
@@ -99,9 +123,30 @@ class MainActivity : ComponentActivity() {
 private fun Blank() = Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
 
 @Composable
-private fun AppTabs() {
+private fun AppTabs(deepLinks: DeepLinkViewModel) {
     // Revient sur « Tâches » à chaque nouvelle connexion.
     var tab by rememberSaveable { mutableStateOf(Tab.Todo) }
+    // Tâche ou produit demandé par le dernier lien, transmis à l'écran de l'onglet qui l'affiche.
+    var todoRequest by remember { mutableStateOf<String?>(null) }
+    var productRequest by remember { mutableStateOf<Long?>(null) }
+    val pendingLink by deepLinks.pending.collectAsStateWithLifecycle()
+    // Ces onglets ne sont composés qu'une fois connecté et déverrouillé : un lien reçu avant attend jusque-là.
+    LaunchedEffect(pendingLink) {
+        val link = pendingLink ?: return@LaunchedEffect
+        when (link) {
+            is DeepLink.Tasks -> {
+                tab = Tab.Todo
+                todoRequest = link.todoId
+            }
+            DeepLink.Weather -> tab = Tab.Weather
+            is DeepLink.Catalog -> {
+                tab = Tab.Catalog
+                productRequest = link.productId
+            }
+            DeepLink.Settings -> tab = Tab.Settings
+        }
+        deepLinks.consume(link)
+    }
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -119,9 +164,9 @@ private fun AppTabs() {
         // Les écrans ont leur propre Scaffold : on leur évite de réappliquer les insets déjà gérés ici.
         Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
             when (tab) {
-                Tab.Todo -> TodoScreen()
+                Tab.Todo -> TodoScreen(focusRequest = todoRequest, onFocusRequestHandled = { todoRequest = null })
                 Tab.Weather -> WeatherScreen()
-                Tab.Catalog -> CatalogScreen()
+                Tab.Catalog -> CatalogScreen(productRequest = productRequest, onProductRequestHandled = { productRequest = null })
                 Tab.Settings -> SettingsScreen()
             }
         }

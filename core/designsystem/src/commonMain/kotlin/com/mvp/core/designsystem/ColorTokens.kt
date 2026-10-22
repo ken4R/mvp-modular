@@ -16,11 +16,15 @@ data class ColorTokens(
     val onSurface: Long,
     val error: Long,
     val onError: Long,
+    /** Fond d'un élément mis en évidence (par exemple la tâche ouverte par un lien), texte en [onSurface]. */
+    val highlight: Long,
 )
 
 internal object Palette {
     const val Blue600 = 0xFF1E5EFFL
     const val Blue300 = 0xFF8AAEFFL
+    const val Blue50 = 0xFFE6EEFFL
+    const val Blue900 = 0xFF1C2B4DL
     const val Teal600 = 0xFF00897BL
     const val Teal300 = 0xFF4DB6ACL
     const val Red600 = 0xFFD32F2FL
@@ -43,6 +47,7 @@ val LightColors = ColorTokens(
     onSurface = Palette.Grey900,
     error = Palette.Red600,
     onError = Palette.White,
+    highlight = Palette.Blue50,
 )
 
 val DarkColors = ColorTokens(
@@ -56,4 +61,5 @@ val DarkColors = ColorTokens(
     onSurface = Palette.Grey50,
     error = Palette.Red300,
     onError = Palette.Black,
+    highlight = Palette.Blue900,
 )

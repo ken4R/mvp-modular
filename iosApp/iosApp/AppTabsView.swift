@@ -1,0 +1,83 @@
+import SwiftUI
+import Shared
+import FeatureTodo
+import FeatureWeather
+import FeatureCatalog
+import FeatureSettings
+
+/// Onglets de l'app complète, et navigation des liens profonds.
+/// Construite seulement une fois connecté et déverrouillé (SessionGate, AppLockGate) :
+/// un lien reçu avant attend dans KMP, puis s'affiche ici.
+struct AppTabsView: View {
+    private enum Tab: Hashable { case todo, weather, catalog, settings }
+
+    @StateObject private var router = DeepLinkRouter()
+    @State private var tab: Tab = .todo
+    /// Tâche ou produit demandé par le dernier lien, remis à `nil` par l'écran qui l'affiche.
+    @State private var todoRequest: String?
+    @State private var productRequest: Int64?
+
+    var body: some View {
+        TabView(selection: $tab) {
+            TodoListView(focusRequest: $todoRequest)
+                .tabItem { Label("Tâches", systemImage: "checklist") }
+                .tag(Tab.todo)
+            WeatherView()
+                .tabItem { Label("Météo", systemImage: "cloud.sun") }
+                .tag(Tab.weather)
+            CatalogView(productRequest: $productRequest)
+                .tabItem { Label("Catalogue", systemImage: "bag") }
+                .tag(Tab.catalog)
+            SettingsView()
+                .tabItem { Label("Réglages", systemImage: "gearshape") }
+                .tag(Tab.settings)
+        }
+        .onAppear { router.start() }
+        .onDisappear { router.stop() }
+        .onReceive(router.$link) { link in
+            if let link { show(link) }
+        }
+    }
+
+    private func show(_ link: DeepLink) {
+        switch link {
+        case let tasks as DeepLinkTasks:
+            tab = .todo
+            todoRequest = tasks.todoId
+        case is DeepLinkWeather:
+            tab = .weather
+        case let catalog as DeepLinkCatalog:
+            tab = .catalog
+            productRequest = catalog.productId?.int64Value
+        case is DeepLinkSettings:
+            tab = .settings
+        default:
+            tab = .todo
+        }
+        router.consume(link)
+    }
+}
+
+/// Lien en attente (KMP), observé tant que les onglets sont affichés.
+@MainActor
+private final class DeepLinkRouter: ObservableObject {
+    @Published private(set) var link: DeepLink?
+    private var subscription: Subscription?
+
+    func start() {
+        guard subscription == nil else { return }
+        subscription = UseCases.shared.observePendingDeepLink(
+            onLink: { [weak self] link in self?.link = link },
+            onError: { _ in }
+        )
+    }
+
+    func stop() {
+        subscription?.cancel()
+        subscription = nil
+    }
+
+    func consume(_ link: DeepLink) {
+        Task { _ = try? await UseCases.shared.consumeDeepLink().invoke(params: link) }
+    }
+}

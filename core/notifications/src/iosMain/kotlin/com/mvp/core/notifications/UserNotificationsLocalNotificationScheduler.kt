@@ -43,6 +43,8 @@ internal class UserNotificationsLocalNotificationScheduler(
             setTitle(notification.title)
             setBody(notification.body)
             setSound(UNNotificationSound.defaultSound)
+            // Lu par le délégué des notifications de l'app au tap (clé DEEP_LINK_KEY).
+            notification.deepLink?.let { setUserInfo(mapOf<Any?, Any?>(DEEP_LINK_KEY to it)) }
         }
         val delaySeconds = (notification.atEpochMillis - currentTime) / 1000.0
         val trigger = UNTimeIntervalNotificationTrigger.triggerWithTimeInterval(delaySeconds, false)
@@ -73,3 +75,6 @@ internal class UserNotificationsLocalNotificationScheduler(
         const val MAX_PENDING = 64
     }
 }
+
+/** Clé du lien profond dans `userInfo` d'une notification ; l'app iOS lit la même clé, "deepLink". */
+internal const val DEEP_LINK_KEY = "deepLink"

@@ -53,6 +53,11 @@ targets:
       path: Generated/iosApp-Info.plist
       properties:
         NSLocationDefaultAccuracyReduced: true
+        # Liens profonds mvpmodular://… (format dans core:deeplink, ADR 0008). Pas encore de liens universels :
+        # il faudrait un domaine qui serve apple-app-site-association.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.mvp.ios.deeplink
+            CFBundleURLSchemes: [mvpmodular]
     settings:
       groups: [app]
       base:

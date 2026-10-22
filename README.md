@@ -27,6 +27,7 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
                                     core:securestorage ← Keystore / Keychain (secrets, profil)
                                     core:notifications ← notifications locales programmées
                                     core:location ← position de l'appareil (approximative)
+                                    core:deeplink ← liens profonds mvpmodular://…
      (tokens visuels :        ├─ domain : entités, interfaces de repository, use cases
       couleurs, typo,         ├─ data   : implémentations de repository, data sources
       espacements, rayons)    └─ di     : module Koin
@@ -54,6 +55,8 @@ Règles de dépendance :
 `core:notifications` ajoute les notifications locales ([ADR 0004](docs/adr/0004-rappels-notifications-locales.md)) : `LocalNotificationScheduler` programme ou annule les notifications d'un groupe (WorkManager sur Android, `UNUserNotificationCenter` sur iOS). Le réglage Notifications est partagé par `NotificationsPreference` (`core:common`), fourni par `feature:settings`.
 
 `core:location` ajoute la position de l'appareil ([ADR 0005](docs/adr/0005-localisation-meteo.md)) : `LocationProvider` (contrat dans `core:common`) donne une position approximative, via `LocationManager` sur Android (sans Google Play Services) et CoreLocation sur iOS. Il échoue avec `AppError.PermissionDenied` si l'utilisateur refuse la localisation, et `AppError.Unavailable` si aucune position n'est obtenue.
+
+`core:deeplink` ajoute les liens profonds ([ADR 0008](docs/adr/0008-liens-profonds.md), [plan](docs/plans/liens-profonds.md)) : `DeepLinks` lit et écrit les liens `mvpmodular://tasks[/<id>]`, `weather`, `catalog[/products/<id>]` et `settings` en une destination typée `DeepLink`. `OpenDeepLinkUseCase` met le lien reçu en attente (un lien non reconnu mène à l'onglet Tâches), `ObservePendingDeepLinkUseCase` le donne à la navigation de l'app, qui l'affiche une fois connectée et déverrouillée puis appelle `ConsumeDeepLinkUseCase`. Le lien en attente est oublié à la déconnexion. Un tap sur un rappel ouvre la tâche par ce même chemin.
 
 `core:network` ajoute le réseau ([ADR 0001](docs/adr/0001-reseau-ktor.md)) : `createHttpClient()` (Ktor, JSON, délais, moteur Android / Darwin), `safeApiCall` (exceptions Ktor → `AppError`) et `networkModule` (un `HttpClient` unique). Les features l'utilisent dans leur couche `data` uniquement.
 

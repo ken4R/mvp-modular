@@ -80,6 +80,17 @@ class TodoComposeViewModelTest {
     }
 
     @Test
+    fun titleOverEightyCharactersIsRefused() = runTest(dispatcher) {
+        val viewModel = viewModel()
+
+        viewModel.onInputChange("a".repeat(81))
+        viewModel.onAdd()
+
+        assertEquals("80 caractères maximum", viewModel.state.value.error)
+        assertTrue(viewModel.state.value.todos.isEmpty())
+    }
+
+    @Test
     fun toggledTodoMovesAfterOpenOnesAndDeleteRemovesIt() = runTest(dispatcher) {
         val viewModel = viewModel()
         listOf("Un", "Deux").forEach {

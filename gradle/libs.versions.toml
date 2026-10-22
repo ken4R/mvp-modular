@@ -12,8 +12,8 @@ sqldelight = "2.4.1"
 work = "2.10.1"
 # Coil 3.5+ exige compileSdk 36+ / 37 : 3.4.0 est la dernière version compatible avec AGP 8.13 et compileSdk 36.
 coil = "3.4.0"
-# Compose Multiplatform (écran partagé, ADR 0010). 1.9.x s'appuie sur Jetpack Compose 1.9, comme compose-bom :
-# l'app Android garde la même version de Compose. 1.10+ (Compose 1.10/1.11) attendra la montée d'AGP / compileSdk.
+# Compose Multiplatform (écran partagé, ADR 0010). 1.9.3 tire Jetpack Compose 1.9.4 (compose-bom donne 1.9.1) :
+# l'app Android reste en Compose 1.9.x, compatible compileSdk 36. 1.10+ (Compose 1.10/1.11) attendra la montée d'AGP / compileSdk.
 # Pas de plugin org.jetbrains.compose : le compilateur est le plugin Kotlin compose-compiler, les dépendances sont listées ici.
 compose-multiplatform = "1.9.3"
 compose-multiplatform-material3 = "1.9.0"

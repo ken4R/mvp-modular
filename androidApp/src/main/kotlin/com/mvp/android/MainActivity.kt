@@ -151,11 +151,11 @@ private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel)
     // Ces onglets ne sont composés qu'une fois connecté et déverrouillé : un lien reçu avant attend jusque-là.
     LaunchedEffect(pendingLink) {
         val link = pendingLink ?: return@LaunchedEffect
+        // Comme sur iOS, tout lien referme la version Compose (la mise en évidence n'existe que dans l'écran natif).
+        showComposeMultiplatformTodo = false
         when (link) {
             is DeepLink.Tasks -> {
                 tab = Tab.Todo
-                // La mise en évidence d'une tâche n'existe que dans l'écran natif.
-                showComposeMultiplatformTodo = false
                 todoRequest = link.todoId
             }
             DeepLink.Weather -> tab = Tab.Weather

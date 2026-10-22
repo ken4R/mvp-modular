@@ -39,6 +39,7 @@ Règles de dépendance :
 - `domain` ne dépend de rien d'autre (pas de data, pas de plateforme).
 - `data` implémente les interfaces du `domain`.
 - Les apps ne parlent qu'aux **use cases** exposés par `shared`.
+- Exception : un module UI Compose Multiplatform (`feature:todo-compose`, [ADR 0010](docs/adr/0010-ecran-compose-multiplatform.md)) dépend de sa feature et son écran est affiché par l'app Android via `shared` ; il ne contient que de l'UI et un ViewModel.
 - `shared` est le seul module connu des apps : il assemble tous les modules KMP (`sharedModules` dans `KoinInit.kt`) et les exporte vers iOS.
 
 ## Briques fournies par `core:common`

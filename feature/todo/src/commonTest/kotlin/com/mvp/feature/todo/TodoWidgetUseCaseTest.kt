@@ -125,7 +125,7 @@ class TodoWidgetUseCaseTest {
     }
 
     @Test
-    fun repositoryErrorIsReportedAsFailure() = scope.runTest {
+    fun sourceErrorIsReportedAsFailure() = scope.runTest {
         val failing = ObserveTodoWidgetUseCase(
             repository = repository,
             session = FakeSessionExpiry(expiresAt = now + DAY),

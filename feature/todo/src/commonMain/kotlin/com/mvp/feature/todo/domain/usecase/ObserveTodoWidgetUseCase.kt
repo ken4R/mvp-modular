@@ -65,7 +65,7 @@ class ObserveTodoWidgetUseCase(
     }
 
     companion object {
-        /** Le plus grand widget (moyen) affiche au plus 5 lignes : inutile d'en préparer davantage. */
+        /** Le widget Android (liste défilante) en montre au plus 5, le widget iOS 3 ou 4 selon sa taille. */
         const val MAX_ITEMS = 5
     }
 }

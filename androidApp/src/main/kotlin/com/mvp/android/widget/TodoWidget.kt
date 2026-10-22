@@ -5,6 +5,9 @@ import android.content.Intent
 import android.net.Uri
 import android.text.format.DateUtils
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.LocalContext
@@ -37,6 +40,7 @@ import com.mvp.feature.todo.domain.model.TodoWidgetItem
 import com.mvp.feature.todo.domain.model.TodoWidgetState
 import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -50,9 +54,14 @@ class TodoWidget : GlanceAppWidget(), KoinComponent {
     private val observeWidget: ObserveTodoWidgetUseCase by inject()
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        // Lu à chaque mise à jour : TodoWidgetUpdater en relance une à chaque changement. Erreur : rien d'affiché.
-        val state = (observeWidget(NoParams).first() as? AppResult.Success)?.data
-        provideContent { TodoWidgetContent(state) }
+        val states = observeWidget(NoParams).map { (it as? AppResult.Success)?.data }
+        // Premier état lu avant d'afficher, puis suivi tant que la session Glance reste ouverte : un updateAll
+        // reçu pendant ce temps ne rappelle pas provideGlance. Erreur : rien d'affiché.
+        val initial = states.first()
+        provideContent {
+            val state by remember { states }.collectAsState(initial)
+            TodoWidgetContent(state)
+        }
     }
 }
 

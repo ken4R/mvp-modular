@@ -56,7 +56,7 @@ struct AppTabsView: View {
     }
 
     private func track(_ tab: Tab) {
-        let event = AnalyticsEventScreenViewed(screen: tab.analyticsScreen)
+        let event = AnalyticsEvent.ScreenViewed(screen: tab.analyticsScreen)
         Task { _ = try? await UseCases.shared.trackEvent().invoke(params: event) }
     }
 

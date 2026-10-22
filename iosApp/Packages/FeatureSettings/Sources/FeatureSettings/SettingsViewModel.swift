@@ -129,7 +129,7 @@ final class SettingsViewModel: ObservableObject {
 
     /// Journal de mesure (debug) : un événement de test, ignoré sans consentement comme les autres.
     func sendTestEvent() async {
-        _ = try? await UseCases.shared.trackEvent().invoke(params: AnalyticsEventDebugTest.shared)
+        _ = try? await UseCases.shared.trackEvent().invoke(params: AnalyticsEvent.DebugTest.shared)
     }
 
     func flushAnalytics() async {

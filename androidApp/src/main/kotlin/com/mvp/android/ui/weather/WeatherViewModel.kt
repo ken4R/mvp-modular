@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.result.onFailure
 import com.mvp.core.common.domain.result.onSuccess
+import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.usecase.NoParams
+import com.mvp.core.connectivity.domain.usecase.ObserveConnectivityUseCase
 import com.mvp.feature.weather.domain.model.City
 import com.mvp.feature.weather.domain.model.CurrentWeather
 import com.mvp.feature.weather.domain.usecase.GetCurrentWeatherUseCase
@@ -15,6 +17,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -37,12 +41,15 @@ sealed interface WeatherContent {
 data class WeatherUiState(
     val query: String = "",
     val content: WeatherContent = WeatherContent.Idle,
+    /** Hors ligne : bandeau en haut de l'écran, la recherche et la météo attendent le réseau (ADR 0012). */
+    val isOnline: Boolean = true,
 )
 
 class WeatherViewModel(
     private val searchCities: SearchCitiesUseCase,
     private val getCurrentWeather: GetCurrentWeatherUseCase,
     private val getLocalWeather: GetLocalWeatherUseCase,
+    observeConnectivity: ObserveConnectivityUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WeatherUiState())
@@ -50,6 +57,12 @@ class WeatherViewModel(
 
     /** Une seule requête à la fois : la dernière action de l'utilisateur l'emporte. */
     private var request: Job? = null
+
+    init {
+        observeConnectivity(NoParams)
+            .onEach { result -> if (result is AppResult.Success) _state.update { it.copy(isOnline = result.data) } }
+            .launchIn(viewModelScope)
+    }
 
     fun onQueryChange(value: String) = _state.update { it.copy(query = value) }
 

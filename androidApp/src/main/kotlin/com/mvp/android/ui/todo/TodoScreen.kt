@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mvp.android.ui.common.StatusBanner
 import com.mvp.android.ui.theme.MvpColors
 import com.mvp.android.ui.theme.Radius
 import com.mvp.android.ui.theme.Spacing
@@ -80,6 +81,7 @@ fun TodoScreen(
         onDelete = { viewModel.onDelete(it) },
         onPickReminder = { todo -> pickReminder(context, todo.reminderAt) { at -> viewModel.onSetReminder(todo.id, at) } },
         onRemoveReminder = { viewModel.onSetReminder(it, null) },
+        onRetrySync = { viewModel.onRetrySync() },
     )
 }
 
@@ -94,6 +96,7 @@ private fun TodoContent(
     onDelete: (String) -> Unit,
     onPickReminder: (Todo) -> Unit,
     onRemoveReminder: (String) -> Unit,
+    onRetrySync: () -> Unit,
 ) {
     Scaffold { padding ->
         Column(
@@ -103,6 +106,9 @@ private fun TodoContent(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Mes tâches", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
                 onOpenComposeMultiplatform?.let { TextButton(onClick = it) { Text("Version Compose MP") } }
+            }
+            state.syncBanner?.let { banner ->
+                StatusBanner(banner.message, actionLabel = "Réessayer".takeIf { banner.canRetry }, onAction = onRetrySync)
             }
 
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {

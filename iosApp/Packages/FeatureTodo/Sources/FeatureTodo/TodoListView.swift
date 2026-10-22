@@ -32,6 +32,11 @@ public struct TodoListView: View {
                         .tint(Color(argb: colors.primary))
                 }
             }
+            if let banner = viewModel.syncBanner {
+                StatusBanner(banner.message, actionTitle: banner.canRetry ? "Réessayer" : nil) {
+                    Task { await viewModel.retrySync() }
+                }
+            }
 
             HStack(spacing: DS.Spacing.sm) {
                 TextField("Nouvelle tâche", text: $viewModel.input)

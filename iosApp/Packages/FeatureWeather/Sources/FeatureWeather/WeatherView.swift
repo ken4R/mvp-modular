@@ -19,6 +19,9 @@ public struct WeatherView: View {
             Text("Météo")
                 .font(DS.Typography.titleLarge)
                 .foregroundColor(Color(argb: colors.onBackground))
+            if !viewModel.isOnline {
+                StatusBanner("Hors ligne · la météo s'affichera au retour du réseau")
+            }
 
             HStack(spacing: DS.Spacing.sm) {
                 TextField("Rechercher une ville", text: $viewModel.query)
@@ -44,6 +47,8 @@ public struct WeatherView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(argb: colors.background))
         .task { await viewModel.start() }
+        .onAppear { viewModel.observeConnectivity() }
+        .onDisappear { viewModel.stopObservingConnectivity() }
     }
 
     @ViewBuilder

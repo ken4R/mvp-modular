@@ -20,7 +20,10 @@ final class WeatherViewModel: ObservableObject {
 
     @Published var query: String = ""
     @Published private(set) var state: State = .idle
+    /// Hors ligne : bandeau en haut de l'écran, la recherche et la météo attendent le réseau (ADR 0012).
+    @Published private(set) var isOnline = true
     private var requestID = 0
+    private var connectivitySubscription: Subscription?
 
     private let initialQuery: String?
     private let searchCities: SearchCitiesUseCase
@@ -37,6 +40,19 @@ final class WeatherViewModel: ObservableObject {
         self.searchCities = searchCities
         self.getCurrentWeather = getCurrentWeather
         self.getLocalWeather = getLocalWeather
+    }
+
+    func observeConnectivity() {
+        guard connectivitySubscription == nil else { return }
+        connectivitySubscription = UseCases.shared.observeConnectivity(
+            onOnline: { [weak self] online in self?.isOnline = online.boolValue },
+            onError: { _ in }
+        )
+    }
+
+    func stopObservingConnectivity() {
+        connectivitySubscription?.cancel()
+        connectivitySubscription = nil
     }
 
     /// Lance la recherche initiale éventuelle, une seule fois.

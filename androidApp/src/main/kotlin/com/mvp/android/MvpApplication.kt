@@ -4,6 +4,7 @@ import android.app.Application
 import com.mvp.android.di.androidAppModule
 import com.mvp.android.widget.TodoWidgetUpdater
 import com.mvp.core.common.domain.usecase.NoParams
+import com.mvp.feature.todo.domain.usecase.StartTodoSyncUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
 import com.mvp.shared.di.initKoin
 import kotlinx.coroutines.MainScope
@@ -21,6 +22,8 @@ class MvpApplication : Application() {
         // Rappels de tâches : alignés sur les tâches, le réglage Notifications et la session tant que
         // le processus vit (portée jamais annulée, comme l'Application).
         get<SyncTodoRemindersUseCase>()(NoParams).launchIn(MainScope())
+        // Mode hors ligne : les modifications des tâches partent dès que le réseau revient (ADR 0012).
+        get<StartTodoSyncUseCase>()(NoParams).launchIn(MainScope())
         // Widget Tâches : redessiné à chaque changement, effacé à la déconnexion ou quand le verrou est activé.
         TodoWidgetUpdater(this, get()).start(MainScope())
     }

@@ -11,6 +11,7 @@ struct TodoDemoApp: App {
     init() {
         KoinIosKt.doInitKoin()
         TodoReminders.start()
+        TodoSync.start()
         Task { @MainActor in
             for title in ["Acheter du pain", "Préparer la démo"] {
                 _ = try? await UseCases.shared.addTodo().invoke(params: title as NSString)

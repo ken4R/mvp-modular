@@ -8,6 +8,7 @@ import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.session.UserAccount
 import com.mvp.core.common.domain.usecase.NoParams
+import com.mvp.core.connectivity.domain.usecase.ObserveConnectivityUseCase
 import com.mvp.core.deeplink.domain.model.DeepLink
 import com.mvp.core.deeplink.domain.usecase.ConsumeDeepLinkUseCase
 import com.mvp.core.deeplink.domain.usecase.ObservePendingDeepLinkUseCase
@@ -30,15 +31,19 @@ import com.mvp.feature.settings.domain.usecase.SetNotificationsEnabledUseCase
 import com.mvp.feature.settings.domain.usecase.UnlockAppUseCase
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
 import com.mvp.feature.todo.domain.model.Todo
+import com.mvp.feature.todo.domain.model.TodoSyncStatus
 import com.mvp.feature.todo.domain.model.TodoWidgetState
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
+import com.mvp.feature.todo.domain.usecase.StartTodoSyncUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
+import com.mvp.feature.todo.domain.usecase.SyncTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
 import com.mvp.feature.weather.domain.usecase.GetCurrentWeatherUseCase
 import com.mvp.feature.weather.domain.usecase.GetLocalWeatherUseCase
@@ -73,6 +78,7 @@ object UseCases : KoinComponent {
     fun deleteTodo(): DeleteTodoUseCase = get()
     fun findTodo(): FindTodoUseCase = get()
     fun setTodoReminder(): SetTodoReminderUseCase = get()
+    fun syncTodos(): SyncTodosUseCase = get()
 
     fun searchCities(): SearchCitiesUseCase = get()
     fun getCurrentWeather(): GetCurrentWeatherUseCase = get()
@@ -146,6 +152,38 @@ object UseCases : KoinComponent {
             .onEach { result ->
                 when (result) {
                     is AppResult.Success -> onState(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /**
+     * Synchronisation automatique des tâches (mode hors ligne, ADR 0012). À appeler une seule fois au lancement
+     * de l'app, et à garder pendant toute sa vie.
+     */
+    fun startTodoSync(): Subscription = Subscription(get<StartTodoSyncUseCase>()(NoParams).launchIn(scope))
+
+    /** Bandeau de l'écran Tâches : hors ligne, modifications en attente, échec. Les callbacks sont appelés sur le main thread. */
+    fun observeTodoSyncStatus(onStatus: (TodoSyncStatus) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveTodoSyncStatusUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onStatus(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /** `true` tant que l'appareil a accès à internet (bandeau « Hors ligne »). Les callbacks sont appelés sur le main thread. */
+    fun observeConnectivity(onOnline: (Boolean) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveConnectivityUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onOnline(result.data)
                     is AppResult.Failure -> onError(result.error)
                 }
             }

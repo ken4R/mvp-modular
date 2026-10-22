@@ -3,6 +3,7 @@ package com.mvp.feature.todo
 import com.mvp.core.common.domain.analytics.AnalyticsEvent
 import com.mvp.core.common.domain.analytics.AnalyticsTracker
 import com.mvp.core.common.domain.applock.AppLockPreference
+import com.mvp.core.common.domain.connectivity.ConnectivityObserver
 import com.mvp.core.common.domain.notification.NotificationsPreference
 import com.mvp.core.common.domain.session.SessionExpiry
 import com.mvp.feature.todo.domain.model.Todo
@@ -53,4 +54,10 @@ class FakeAnalyticsTracker : AnalyticsTracker {
 class FakeAppLockPreference(enabled: Boolean) : AppLockPreference {
     val enabled = MutableStateFlow(enabled)
     override fun observeAppLockEnabled(): Flow<Boolean> = enabled
+}
+
+/** Accès à internet piloté par le test. */
+class FakeConnectivityObserver(online: Boolean) : ConnectivityObserver {
+    val online = MutableStateFlow(online)
+    override fun observeIsOnline(): Flow<Boolean> = online
 }

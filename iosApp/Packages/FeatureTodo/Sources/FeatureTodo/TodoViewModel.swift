@@ -1,6 +1,12 @@
 import Foundation
 import Shared
 
+/// Bandeau au-dessus de la liste (mode hors ligne, ADR 0012). `canRetry` : bouton « Réessayer ».
+struct SyncBanner: Equatable {
+    let message: String
+    let canRetry: Bool
+}
+
 @MainActor
 final class TodoViewModel: ObservableObject {
     @Published private(set) var todos: [Todo] = []
@@ -9,9 +15,12 @@ final class TodoViewModel: ObservableObject {
     @Published private(set) var remindersEnabled = true
     /// Tâche ouverte par un lien : la liste défile jusqu'à elle et la met en évidence quelques secondes.
     @Published private(set) var focusedTodoId: String?
+    /// Hors ligne, ou synchronisation en échec ; `nil` : rien à signaler.
+    @Published private(set) var syncBanner: SyncBanner?
 
     private var subscription: Subscription?
     private var remindersSubscription: Subscription?
+    private var syncSubscription: Subscription?
     private var focusTask: Task<Void, Never>?
 
     /// Des rappels à venir sont posés mais ne partiront pas : la vue invite à activer les notifications.
@@ -32,6 +41,10 @@ final class TodoViewModel: ObservableObject {
             onEnabled: { [weak self] enabled in self?.remindersEnabled = enabled.boolValue },
             onError: { _ in }
         )
+        syncSubscription = UseCases.shared.observeTodoSyncStatus(
+            onStatus: { [weak self] status in self?.syncBanner = Self.banner(for: status) },
+            onError: { _ in }
+        )
     }
 
     func stop() {
@@ -39,6 +52,25 @@ final class TodoViewModel: ObservableObject {
         subscription = nil
         remindersSubscription?.cancel()
         remindersSubscription = nil
+        syncSubscription?.cancel()
+        syncSubscription = nil
+    }
+
+    /// Bouton « Réessayer » du bandeau ; sinon la synchronisation réessaie seule, de plus en plus espacée.
+    func retrySync() async {
+        _ = try? await UseCases.shared.syncTodos().invoke(params: NoParams.shared)
+    }
+
+    nonisolated private static func banner(for status: TodoSyncStatus) -> SyncBanner? {
+        let count = Int(status.pendingChanges)
+        let pending = count == 1 ? "1 modification en attente" : "\(count) modifications en attente"
+        if !status.isOnline {
+            return SyncBanner(message: count > 0 ? "Hors ligne · \(pending)" : "Hors ligne · vos tâches restent modifiables", canRetry: false)
+        }
+        if status.lastSyncFailed && count > 0 {
+            return SyncBanner(message: "Synchronisation impossible · \(pending)", canRetry: !status.isSyncing)
+        }
+        return nil
     }
 
     /// Un lien demande la tâche `id` : mise en évidence si elle existe ; sinon l'écran reste sur la liste et le dit.

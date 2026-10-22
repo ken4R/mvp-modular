@@ -67,6 +67,10 @@ public struct CatalogView: View {
 
     private func productList(_ colors: ColorTokens) -> some View {
         List {
+            if !viewModel.isOnline {
+                StatusBanner("Hors ligne · catalogue enregistré, actualisé au retour du réseau")
+                    .listRowSeparator(.hidden)
+            }
             // Liste en cache affichée malgré l'échec : on dit d'où elle vient.
             if let error = viewModel.refreshError {
                 Text(offlineBanner(error))

@@ -13,6 +13,8 @@ struct iOSApp: App {
     init() {
         KoinIosKt.doInitKoin()
         TodoReminders.start()
+        // Mode hors ligne : les modifications des tâches partent dès que le réseau revient (ADR 0012).
+        TodoSync.start()
         // Widget Tâches de l'écran d'accueil : recopié à chaque changement, vidé à la déconnexion ou avec le verrou.
         TodoWidgetPublisher.start()
     }

@@ -4,6 +4,9 @@
     <!-- Appels HTTPS : Open-Meteo (Météo), DummyJSON et ses images (Catalogue) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Mode hors ligne : savoir si l'appareil a accès à internet (core:connectivity, ADR 0012) -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- Android 13+ : demandée par l'écran Réglages quand on active les notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 

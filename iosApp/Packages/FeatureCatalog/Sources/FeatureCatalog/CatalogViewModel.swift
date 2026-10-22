@@ -14,8 +14,11 @@ final class CatalogViewModel: ObservableObject {
     @Published private(set) var refreshError: String?
     /// Échec du chargement de la page suivante : la pagination s'arrête jusqu'à « Réessayer ».
     @Published private(set) var loadMoreError: String?
+    /// Hors ligne : bandeau au-dessus de la liste en cache (ADR 0012).
+    @Published private(set) var isOnline = true
 
     private var subscription: Subscription?
+    private var connectivitySubscription: Subscription?
     private var didRefreshOnce = false
 
     /// Affiche le cache tout de suite, puis recharge la première page en arrière-plan (au premier affichage seulement).
@@ -29,6 +32,10 @@ final class CatalogViewModel: ObservableObject {
             },
             onError: { _ in }
         )
+        connectivitySubscription = UseCases.shared.observeConnectivity(
+            onOnline: { [weak self] online in self?.connectivityChanged(online.boolValue) },
+            onError: { _ in }
+        )
         guard !didRefreshOnce else { return }
         didRefreshOnce = true
         Task { await refresh() }
@@ -37,6 +44,21 @@ final class CatalogViewModel: ObservableObject {
     func stop() {
         subscription?.cancel()
         subscription = nil
+        connectivitySubscription?.cancel()
+        connectivitySubscription = nil
+    }
+
+    /// Retour du réseau : ce qui a échoué hors ligne est relancé sans attendre l'utilisateur.
+    private func connectivityChanged(_ online: Bool) {
+        let wasOffline = !isOnline
+        isOnline = online
+        guard online, wasOffline else { return }
+        if refreshError != nil {
+            Task { await refresh() }
+        } else if loadMoreError != nil {
+            loadMoreError = nil
+            Task { await loadMore() }
+        }
     }
 
     func refresh() async {

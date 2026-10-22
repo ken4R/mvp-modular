@@ -7,6 +7,7 @@ import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.result.onFailure
 import com.mvp.core.common.domain.result.onSuccess
 import com.mvp.core.common.domain.usecase.NoParams
+import com.mvp.core.connectivity.domain.usecase.ObserveConnectivityUseCase
 import com.mvp.feature.catalog.domain.model.Product
 import com.mvp.feature.catalog.domain.model.ProductSummary
 import com.mvp.feature.catalog.domain.usecase.GetProductUseCase
@@ -43,6 +44,8 @@ data class CatalogUiState(
     val loadMoreError: String? = null,
     /** Fiche produit ouverte par-dessus la liste, ou `null`. */
     val detail: ProductDetailState? = null,
+    /** Hors ligne : bandeau au-dessus de la liste en cache (ADR 0012). */
+    val isOnline: Boolean = true,
 )
 
 class CatalogViewModel(
@@ -50,6 +53,7 @@ class CatalogViewModel(
     private val refreshCatalog: RefreshCatalogUseCase,
     private val loadMoreProducts: LoadMoreProductsUseCase,
     private val getProduct: GetProductUseCase,
+    observeConnectivity: ObserveConnectivityUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CatalogUiState())
@@ -69,6 +73,19 @@ class CatalogViewModel(
             .launchIn(viewModelScope)
         // Le cache s'affiche tout de suite ; la première page est rechargée en arrière-plan.
         refresh()
+        observeConnectivity(NoParams)
+            .onEach { result ->
+                if (result !is AppResult.Success) return@onEach
+                val online = result.data
+                val wasOffline = !_state.value.isOnline
+                _state.update { it.copy(isOnline = online) }
+                // Retour du réseau : ce qui a échoué hors ligne est relancé sans attendre l'utilisateur.
+                if (online && wasOffline) {
+                    if (_state.value.refreshError != null) refresh()
+                    if (_state.value.loadMoreError != null) retryLoadMore()
+                }
+            }
+            .launchIn(viewModelScope)
     }
 
     fun refresh() {

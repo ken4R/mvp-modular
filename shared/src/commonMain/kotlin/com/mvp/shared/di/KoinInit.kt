@@ -2,6 +2,7 @@ package com.mvp.shared.di
 
 import com.mvp.core.analytics.di.analyticsModule
 import com.mvp.core.common.di.coreCommonModule
+import com.mvp.core.connectivity.di.connectivityModule
 import com.mvp.core.database.di.databaseModule
 import com.mvp.core.deeplink.di.deepLinkModule
 import com.mvp.core.location.di.locationModule
@@ -31,6 +32,7 @@ val sharedModules: List<Module> = listOf(
     locationModule,
     deepLinkModule,
     analyticsModule,
+    connectivityModule,
     todoModule,
     weatherModule,
     settingsModule,

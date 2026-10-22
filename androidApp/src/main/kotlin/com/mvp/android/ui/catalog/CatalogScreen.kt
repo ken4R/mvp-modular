@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.mvp.android.ui.common.StatusBanner
 import com.mvp.android.ui.theme.Radius
 import com.mvp.android.ui.theme.Sizes
 import com.mvp.android.ui.theme.Spacing
@@ -92,6 +93,7 @@ private fun CatalogListView(
             verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Text("Catalogue", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = Spacing.md))
+            if (!state.isOnline) StatusBanner("Hors ligne · catalogue enregistré, actualisé au retour du réseau")
             // Liste en cache affichée malgré l'échec : on dit d'où elle vient.
             if (state.refreshError != null && state.products.isNotEmpty()) {
                 Text(

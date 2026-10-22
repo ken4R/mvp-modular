@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mvp.android.ui.common.StatusBanner
 import com.mvp.android.ui.theme.Spacing
 import com.mvp.feature.weather.domain.model.City
 import com.mvp.feature.weather.domain.model.CurrentWeather
@@ -100,6 +101,7 @@ private fun WeatherContentView(
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             Text("Météo", style = MaterialTheme.typography.headlineSmall)
+            if (!state.isOnline) StatusBanner("Hors ligne · la météo s'affichera au retour du réseau")
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 OutlinedTextField(
                     value = state.query,

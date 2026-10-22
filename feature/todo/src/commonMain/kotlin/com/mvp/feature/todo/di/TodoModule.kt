@@ -9,16 +9,24 @@ import com.mvp.feature.todo.data.repository.TodoRepositoryImpl
 import com.mvp.feature.todo.data.session.TodoUserSessionObserver
 import com.mvp.feature.todo.data.source.SqlDelightTodoLocalDataSource
 import com.mvp.feature.todo.data.source.TodoLocalDataSource
+import com.mvp.feature.todo.data.sync.FakeTodoRemoteDataSource
+import com.mvp.feature.todo.data.sync.TodoRemoteDataSource
+import com.mvp.feature.todo.data.sync.TodoSyncLocalDataSource
+import com.mvp.feature.todo.data.sync.TodoSyncRepositoryImpl
 import com.mvp.feature.todo.domain.reminder.ReminderScheduler
 import com.mvp.feature.todo.domain.repository.TodoRepository
+import com.mvp.feature.todo.domain.repository.TodoSyncRepository
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
+import com.mvp.feature.todo.domain.usecase.StartTodoSyncUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
+import com.mvp.feature.todo.domain.usecase.SyncTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
 import org.koin.dsl.bind
 import org.koin.dsl.module
@@ -31,11 +39,19 @@ private val systemNow: () -> Long = { Clock.System.now().toEpochMilliseconds() }
 val todoModule = module {
     // Data
     single { TodoDatabase(get<DatabaseDriverFactory>().create(TodoDatabase.Schema, "todo.db")) }
-    single<TodoLocalDataSource> { SqlDelightTodoLocalDataSource(get(), get<AppDispatchers>().io) }
+    // Une seule base pour les tâches et la file d'envoi de la synchronisation (ADR 0012).
+    single { SqlDelightTodoLocalDataSource(get(), get<AppDispatchers>().io, systemNow) }
+    single<TodoLocalDataSource> { get<SqlDelightTodoLocalDataSource>() }
+    single<TodoSyncLocalDataSource> { get<SqlDelightTodoLocalDataSource>() }
     single<TodoRepository> { TodoRepositoryImpl(get()) }
     single<ReminderScheduler> { NotificationReminderScheduler(get()) }
-    // Prévenu par feature:auth : les tâches sont effacées et leurs rappels annulés à la déconnexion.
-    single { TodoUserSessionObserver(get(), get()) } bind UserSessionObserver::class
+    // Pas encore de backend : faux serveur en mémoire. ConnectivityObserver vient de core:connectivity.
+    single<TodoRemoteDataSource> { FakeTodoRemoteDataSource(get()) }
+    single { TodoSyncRepositoryImpl(get(), get()) }
+    single<TodoSyncRepository> { get<TodoSyncRepositoryImpl>() }
+    // Prévenu par feature:auth : les tâches et leurs modifications en attente sont effacées, leurs rappels
+    // annulés à la déconnexion, après la synchronisation en cours.
+    single { TodoUserSessionObserver(get(), get(), get()) } bind UserSessionObserver::class
 
     // Domain
     factory { ObserveTodosUseCase(get(), get<AppDispatchers>().io) }
@@ -50,4 +66,8 @@ val todoModule = module {
     factory { SyncTodoRemindersUseCase(get(), get(), get(), get(), systemNow, get<AppDispatchers>().io) }
     // Widget de l'écran d'accueil : AppLockPreference vient de feature:settings (ADR 0011).
     factory { ObserveTodoWidgetUseCase(get(), get(), get(), systemNow, get<AppDispatchers>().io) }
+    // Mode hors ligne (ADR 0012) : StartTodoSyncUseCase est lancé une fois par chaque app.
+    factory { StartTodoSyncUseCase(get(), get(), get(), get<AppDispatchers>().io) }
+    factory { SyncTodosUseCase(get(), get(), get<AppDispatchers>().io) }
+    factory { ObserveTodoSyncStatusUseCase(get(), get(), get<AppDispatchers>().io) }
 }

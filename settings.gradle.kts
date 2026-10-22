@@ -36,6 +36,7 @@ include(":core:notifications")
 include(":core:location")
 include(":core:deeplink")
 include(":core:analytics")
+include(":core:connectivity")
 
 // Features
 include(":feature:todo")

@@ -2,6 +2,11 @@ package com.mvp.android.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mvp.core.analytics.domain.model.AnalyticsJournal
+import com.mvp.core.analytics.domain.usecase.FlushAnalyticsUseCase
+import com.mvp.core.analytics.domain.usecase.ObserveAnalyticsJournalUseCase
+import com.mvp.core.analytics.domain.usecase.TrackEventUseCase
+import com.mvp.core.common.domain.analytics.AnalyticsEvent
 import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.result.onFailure
@@ -11,6 +16,7 @@ import com.mvp.android.ui.applock.DeviceAuthResult
 import com.mvp.feature.auth.domain.usecase.LogoutUseCase
 import com.mvp.feature.auth.domain.usecase.ObserveSessionUseCase
 import com.mvp.feature.settings.domain.model.Consent
+import com.mvp.feature.settings.domain.model.ConsentChoice
 import com.mvp.feature.settings.domain.model.ConsentType
 import com.mvp.feature.settings.domain.model.UserProfile
 import com.mvp.feature.settings.domain.usecase.ObserveSettingsUseCase
@@ -35,6 +41,8 @@ data class SettingsUiState(
     val consents: List<Consent> = emptyList(),
     val accountEmail: String? = null,
     val isLoggingOut: Boolean = false,
+    /** Journal de mesure, montré dans les builds de debug seulement. */
+    val analyticsJournal: AnalyticsJournal = AnalyticsJournal(pending = emptyList(), sent = emptyList()),
     val error: String? = null,
 )
 
@@ -46,6 +54,9 @@ class SettingsViewModel(
     private val setConsent: SetConsentUseCase,
     private val setAppLockEnabled: SetAppLockEnabledUseCase,
     private val logout: LogoutUseCase,
+    observeAnalyticsJournal: ObserveAnalyticsJournalUseCase,
+    private val trackEvent: TrackEventUseCase,
+    private val flushAnalytics: FlushAnalyticsUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
@@ -79,6 +90,9 @@ class SettingsViewModel(
             .launchIn(viewModelScope)
         observeSession(NoParams)
             .onEach { result -> if (result is AppResult.Success) _state.update { it.copy(accountEmail = result.data?.email) } }
+            .launchIn(viewModelScope)
+        observeAnalyticsJournal(NoParams)
+            .onEach { result -> if (result is AppResult.Success) _state.update { it.copy(analyticsJournal = result.data) } }
             .launchIn(viewModelScope)
     }
 
@@ -136,8 +150,13 @@ class SettingsViewModel(
     }
 
     fun onConsentChange(type: ConsentType, granted: Boolean) = viewModelScope.launch {
-        setConsent(Consent(type, granted)).onSuccess { clearError() }.onFailure(::showError)
+        setConsent(ConsentChoice(type, granted)).onSuccess { clearError() }.onFailure(::showError)
     }
+
+    /** Journal de mesure (debug) : un événement de test, ignoré sans consentement comme les autres. */
+    fun onSendTestEvent() = viewModelScope.launch { trackEvent(AnalyticsEvent.DebugTest) }
+
+    fun onFlushAnalytics() = viewModelScope.launch { flushAnalytics(NoParams).onFailure(::showError) }
 
     /** Efface les données locales puis la session ; l'app revient alors sur l'écran de connexion. */
     fun onLogout() {

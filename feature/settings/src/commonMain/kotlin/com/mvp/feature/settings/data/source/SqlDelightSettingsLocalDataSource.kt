@@ -4,6 +4,7 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import com.mvp.feature.settings.data.db.SettingsDatabase
 import com.mvp.feature.settings.domain.model.Consent
+import com.mvp.feature.settings.domain.model.ConsentTexts
 import com.mvp.feature.settings.domain.model.ConsentType
 import com.mvp.feature.settings.domain.model.UserProfile
 import com.mvp.feature.settings.domain.model.UserSettings
@@ -54,21 +55,38 @@ private const val KEY_LEGACY_EMAIL = "profile.email"
 private const val KEY_NOTIFICATIONS = "notifications.enabled"
 private const val KEY_APP_LOCK = "app_lock.enabled"
 private fun consentKey(type: ConsentType) = "consent.${type.name}"
+private fun consentDecidedAtKey(type: ConsentType) = "consent.${type.name}.decided_at"
+private fun consentTextVersionKey(type: ConsentType) = "consent.${type.name}.text_version"
 
 private fun Map<String, String>.toSettings(): UserSettings {
     val defaults = UserSettings.initial()
     return UserSettings(
         profile = defaults.profile,
         notificationsEnabled = this[KEY_NOTIFICATIONS]?.toBooleanStrictOrNull() ?: defaults.notificationsEnabled,
-        consents = defaults.consents.map { default ->
-            Consent(default.type, this[consentKey(default.type)]?.toBooleanStrictOrNull() ?: default.granted)
-        },
+        consents = defaults.consents.map { default -> readConsent(default) },
         appLockEnabled = this[KEY_APP_LOCK]?.toBooleanStrictOrNull() ?: defaults.appLockEnabled,
     )
 }
 
+/**
+ * Un choix fait sur une autre version du texte que l'actuelle (ou avant que les choix ne soient datés)
+ * est lu comme jamais fait : refusé, et redemandé à l'utilisateur.
+ */
+private fun Map<String, String>.readConsent(default: Consent): Consent {
+    val type = default.type
+    val granted = this[consentKey(type)]?.toBooleanStrictOrNull() ?: return default
+    val textVersion = this[consentTextVersionKey(type)]?.toIntOrNull()
+    val decidedAt = this[consentDecidedAtKey(type)]?.toLongOrNull()
+    if (textVersion != ConsentTexts.of(type).version || decidedAt == null) return default
+    return Consent(type, granted, decidedAt = decidedAt, textVersion = textVersion)
+}
+
 private fun UserSettings.toEntries(): List<Pair<String, String>> = buildList {
     add(KEY_NOTIFICATIONS to notificationsEnabled.toString())
-    consents.forEach { add(consentKey(it.type) to it.granted.toString()) }
+    consents.forEach { consent ->
+        add(consentKey(consent.type) to consent.granted.toString())
+        consent.decidedAt?.let { add(consentDecidedAtKey(consent.type) to it.toString()) }
+        consent.textVersion?.let { add(consentTextVersionKey(consent.type) to it.toString()) }
+    }
     add(KEY_APP_LOCK to appLockEnabled.toString())
 }

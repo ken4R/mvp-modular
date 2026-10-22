@@ -76,17 +76,24 @@ public struct SettingsView: View {
 
             Section(header: header("Consentements", colors)) {
                 ForEach(viewModel.consents, id: \.type.name) { consent in
-                    let texts = ConsentTexts(consent.type)
+                    // Textes et versions communs aux deux apps (KMP) : l'accord porte sur ce texte précis.
+                    let text = ConsentTexts.shared.of(type: consent.type)
                     Toggle(isOn: Binding(
                         get: { consent.granted },
                         set: { granted in Task { await viewModel.setConsent(consent.type, granted: granted) } }
                     )) {
-                        rowText(texts.title, subtitle: texts.subtitle, colors)
+                        rowText(text.title, subtitle: "\(text.summary)\n\(Self.decisionLabel(consent))", colors)
                     }
                     .tint(Color(argb: colors.primary))
                 }
             }
             .listRowBackground(Color(argb: colors.surface))
+
+            #if DEBUG
+            if let journal = viewModel.analyticsJournal {
+                analyticsJournalSection(journal, colors)
+            }
+            #endif
 
             Section(header: header("Compte", colors)) {
                 if let email = viewModel.accountEmail {
@@ -151,26 +158,51 @@ public struct SettingsView: View {
         }
     }
 
+    /// Date du dernier choix, ou rien de choisi : le consentement est alors refusé.
+    private static func decisionLabel(_ consent: Consent) -> String {
+        guard let decidedAt = consent.decidedAt?.int64Value else { return "Pas encore choisi : refusé par défaut" }
+        let date = Date(timeIntervalSince1970: TimeInterval(decidedAt) / 1000)
+        let version = consent.textVersion.map { " (texte v\($0.intValue))" } ?? ""
+        return "\(consent.granted ? "Accepté" : "Refusé") le \(date.formatted(date: .abbreviated, time: .shortened))\(version)"
+    }
+
+    /// Journal de mesure (builds de debug) : ce qui attend sur l'appareil et ce qui a été « envoyé ».
+    /// Pas encore d'outil de mesure : les envois restent en mémoire sur l'appareil.
+    private func analyticsJournalSection(_ journal: AnalyticsJournal, _ colors: ColorTokens) -> some View {
+        Section(header: header("Journal de mesure (debug)", colors)) {
+            Text("Rien n'est gardé sans le consentement Mesure d'audience. Envoyé par lots, ou quand l'app passe en arrière-plan.")
+                .font(DS.Typography.caption)
+                .foregroundColor(Color(argb: colors.onSurface))
+            Button("Événement test") { Task { await viewModel.sendTestEvent() } }
+                .tint(Color(argb: colors.primary))
+            Button("Envoyer maintenant") { Task { await viewModel.flushAnalytics() } }
+                .tint(Color(argb: colors.primary))
+                .disabled(journal.pending.isEmpty)
+            journalRows("En attente", journal.pending, colors)
+            journalRows("Envoyés", journal.sent, colors)
+        }
+        .listRowBackground(Color(argb: colors.surface))
+    }
+
+    @ViewBuilder
+    private func journalRows(_ title: String, _ events: [TrackedEvent], _ colors: ColorTokens) -> some View {
+        Text("\(title) : \(events.count)")
+            .font(DS.Typography.body)
+            .foregroundColor(Color(argb: colors.onSurface))
+        ForEach(events, id: \.id) { event in
+            Text(Self.describe(event))
+                .font(DS.Typography.caption)
+                .foregroundColor(Color(argb: colors.onSurface))
+        }
+    }
+
+    private static func describe(_ event: TrackedEvent) -> String {
+        let date = Date(timeIntervalSince1970: TimeInterval(event.timestamp) / 1000)
+        let properties = event.properties.sorted { $0.key < $1.key }.map { "  \($0.key)=\($0.value)" }.joined()
+        return "\(date.formatted(date: .omitted, time: .standard))  \(event.name)\(properties)"
+    }
+
     private static var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
-    }
-}
-
-/// Titre et explication d'un consentement KMP.
-private struct ConsentTexts {
-    let title: String
-    let subtitle: String
-
-    init(_ type: ConsentType) {
-        let texts: (title: String, subtitle: String)
-        // Comparaison sur le nom Kotlin de l'entrée : l'export Swift renomme les cas de l'enum.
-        switch type.name {
-        case "Analytics": texts = ("Mesure d'audience", "Statistiques anonymes pour améliorer l'app")
-        case "Marketing": texts = ("Communications marketing", "Offres et nouveautés par e-mail ou notification")
-        case "Personalization": texts = ("Personnalisation", "Contenus adaptés à votre utilisation")
-        default: texts = (type.name, "")
-        }
-        title = texts.title
-        subtitle = texts.subtitle
     }
 }

@@ -35,6 +35,7 @@ include(":core:securestorage")
 include(":core:notifications")
 include(":core:location")
 include(":core:deeplink")
+include(":core:analytics")
 
 // Features
 include(":feature:todo")

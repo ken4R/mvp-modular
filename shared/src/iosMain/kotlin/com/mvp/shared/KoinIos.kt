@@ -1,5 +1,9 @@
 package com.mvp.shared
 
+import com.mvp.core.analytics.domain.model.AnalyticsJournal
+import com.mvp.core.analytics.domain.usecase.FlushAnalyticsUseCase
+import com.mvp.core.analytics.domain.usecase.ObserveAnalyticsJournalUseCase
+import com.mvp.core.analytics.domain.usecase.TrackEventUseCase
 import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.session.UserAccount
@@ -88,6 +92,22 @@ object UseCases : KoinComponent {
 
     fun openDeepLink(): OpenDeepLinkUseCase = get()
     fun consumeDeepLink(): ConsumeDeepLinkUseCase = get()
+
+    fun trackEvent(): TrackEventUseCase = get()
+    fun flushAnalytics(): FlushAnalyticsUseCase = get()
+
+    /** Journal de mesure (builds de debug). Les callbacks sont appelés sur le main thread. */
+    fun observeAnalyticsJournal(onJournal: (AnalyticsJournal) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveAnalyticsJournalUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onJournal(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
 
     /** Lien profond en attente d'affichage, ou `null`. Les callbacks sont appelés sur le main thread. */
     fun observePendingDeepLink(onLink: (DeepLink?) -> Unit, onError: (AppError) -> Unit): Subscription {

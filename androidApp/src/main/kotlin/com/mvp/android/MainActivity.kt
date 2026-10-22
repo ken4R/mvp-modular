@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import com.mvp.android.ui.analytics.AnalyticsViewModel
 import com.mvp.android.ui.applock.AppLockViewModel
 import com.mvp.android.ui.applock.LockScreen
 import com.mvp.android.ui.auth.LoginScreen
@@ -40,16 +41,23 @@ import com.mvp.android.ui.settings.SettingsScreen
 import com.mvp.android.ui.theme.MvpTheme
 import com.mvp.android.ui.todo.TodoScreen
 import com.mvp.android.ui.weather.WeatherScreen
+import com.mvp.core.common.domain.analytics.AnalyticsScreen
 import com.mvp.core.deeplink.domain.model.DeepLink
 import org.koin.androidx.compose.koinViewModel
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
-private enum class Tab(val label: String) { Todo("Tâches"), Weather("Météo"), Catalog("Catalogue"), Settings("Réglages") }
+private enum class Tab(val label: String, val screen: AnalyticsScreen) {
+    Todo("Tâches", AnalyticsScreen.Tasks),
+    Weather("Météo", AnalyticsScreen.Weather),
+    Catalog("Catalogue", AnalyticsScreen.Catalog),
+    Settings("Réglages", AnalyticsScreen.Settings),
+}
 
 class MainActivity : ComponentActivity() {
 
     private val appLockViewModel: AppLockViewModel by viewModel()
     private val deepLinkViewModel: DeepLinkViewModel by viewModel()
+    private val analyticsViewModel: AnalyticsViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,7 +83,7 @@ class MainActivity : ComponentActivity() {
                     } else {
                         // Les ViewModels des onglets sont liés à la session : neufs à chaque connexion.
                         CompositionLocalProvider(LocalViewModelStoreOwner provides sessionViewModel.screens) {
-                            AppTabs(deepLinkViewModel)
+                            AppTabs(deepLinkViewModel, analyticsViewModel)
                         }
                     }
                 }
@@ -103,7 +111,10 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         // Une rotation recrée l'activité sans quitter l'app : pas de verrouillage dans ce cas.
-        if (!isChangingConfigurations) appLockViewModel.onBackground()
+        if (!isChangingConfigurations) {
+            appLockViewModel.onBackground()
+            analyticsViewModel.onBackground()
+        }
     }
 
     /** Verrou activé : l'aperçu de l'app dans les apps récentes ne montre pas son contenu. */
@@ -123,13 +134,15 @@ class MainActivity : ComponentActivity() {
 private fun Blank() = Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
 
 @Composable
-private fun AppTabs(deepLinks: DeepLinkViewModel) {
+private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel) {
     // Revient sur « Tâches » à chaque nouvelle connexion.
     var tab by rememberSaveable { mutableStateOf(Tab.Todo) }
     // Tâche ou produit demandé par le dernier lien, transmis à l'écran de l'onglet qui l'affiche.
     var todoRequest by remember { mutableStateOf<String?>(null) }
     var productRequest by remember { mutableStateOf<Long?>(null) }
     val pendingLink by deepLinks.pending.collectAsStateWithLifecycle()
+    // Mesuré seulement avec le consentement Analytics (vérifié dans KMP).
+    LaunchedEffect(tab) { analytics.onScreenShown(tab.screen) }
     // Ces onglets ne sont composés qu'une fois connecté et déverrouillé : un lien reçu avant attend jusque-là.
     LaunchedEffect(pendingLink) {
         val link = pendingLink ?: return@LaunchedEffect

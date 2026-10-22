@@ -1,5 +1,6 @@
 package com.mvp.feature.todo
 
+import com.mvp.core.common.domain.analytics.AnalyticsEvent
 import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.result.getOrNull
@@ -28,8 +29,9 @@ class TodoUseCasesTest {
     private val repository = TodoRepositoryImpl(InMemoryTodoLocalDataSource(), idGenerator = { "id-${nextId++}" })
 
     private val observe = ObserveTodosUseCase(repository, dispatcher)
-    private val add = AddTodoUseCase(repository, dispatcher)
-    private val toggle = ToggleTodoUseCase(repository, dispatcher)
+    private val analytics = FakeAnalyticsTracker()
+    private val add = AddTodoUseCase(repository, analytics, dispatcher)
+    private val toggle = ToggleTodoUseCase(repository, analytics, dispatcher)
     private val delete = DeleteTodoUseCase(repository, dispatcher)
     private val find = FindTodoUseCase(repository, dispatcher)
 
@@ -89,5 +91,19 @@ class TodoUseCasesTest {
 
         delete("id-0")
         assertEquals(AppResult.Failure(AppError.NotFound), find("id-0"))
+    }
+
+    @Test
+    fun addAndCompletionAreTrackedWithoutTheTitle() = scope.runTest {
+        add("   ")
+        assertEquals(emptyList(), analytics.events)
+
+        add("Acheter du pain")
+        toggle("id-0")
+        toggle("id-0")
+
+        // Une tâche rouverte n'est pas mesurée ; aucun événement ne porte le titre.
+        assertEquals(listOf(AnalyticsEvent.TaskAdded, AnalyticsEvent.TaskCompleted), analytics.events)
+        assertEquals(emptyMap(), analytics.events.first().properties)
     }
 }

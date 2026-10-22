@@ -33,8 +33,9 @@ class TodoReminderUseCasesTest {
     private val notifications = FakeNotificationsPreference(enabled = true)
     private val session = FakeSessionExpiry(expiresAt = now + 7 * DAY)
 
-    private val add = AddTodoUseCase(repository, dispatcher)
-    private val toggle = ToggleTodoUseCase(repository, dispatcher)
+    private val analytics = FakeAnalyticsTracker()
+    private val add = AddTodoUseCase(repository, analytics, dispatcher)
+    private val toggle = ToggleTodoUseCase(repository, analytics, dispatcher)
     private val delete = DeleteTodoUseCase(repository, dispatcher)
     private val setReminder = SetTodoReminderUseCase(repository, { now }, dispatcher)
     private val sync = SyncTodoRemindersUseCase(repository, notifications, session, scheduler, { now }, dispatcher)

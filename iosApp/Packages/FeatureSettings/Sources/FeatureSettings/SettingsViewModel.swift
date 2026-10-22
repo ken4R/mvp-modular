@@ -14,9 +14,12 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var accountEmail: String?
     @Published private(set) var isLoggingOut = false
     @Published private(set) var error: String?
+    /// Journal de mesure, montré dans les builds de debug seulement.
+    @Published private(set) var analyticsJournal: AnalyticsJournal?
 
     private var subscription: Subscription?
     private var sessionSubscription: Subscription?
+    private var journalSubscription: Subscription?
     /// Le formulaire de profil n'est pré-rempli qu'une fois, pour ne pas écraser la saisie en cours.
     private var profileLoaded = false
 
@@ -30,6 +33,12 @@ final class SettingsViewModel: ObservableObject {
             onAccount: { [weak self] account in self?.accountEmail = account?.email },
             onError: { _ in }
         )
+        #if DEBUG
+        journalSubscription = UseCases.shared.observeAnalyticsJournal(
+            onJournal: { [weak self] journal in self?.analyticsJournal = journal },
+            onError: { _ in }
+        )
+        #endif
     }
 
     func stop() {
@@ -37,6 +46,8 @@ final class SettingsViewModel: ObservableObject {
         subscription = nil
         sessionSubscription?.cancel()
         sessionSubscription = nil
+        journalSubscription?.cancel()
+        journalSubscription = nil
     }
 
     /// Efface les données locales puis la session ; l'app revient alors sur l'écran de connexion.
@@ -110,9 +121,20 @@ final class SettingsViewModel: ObservableObject {
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
+    /// La date et la version du texte sont ajoutées dans KMP. Retirer la mesure d'audience vide sa file d'attente.
     func setConsent(_ type: ConsentType, granted: Bool) async {
-        let result = try? await UseCases.shared.setConsent().invoke(params: Consent(type: type, granted: granted))
+        let result = try? await UseCases.shared.setConsent().invoke(params: ConsentChoice(type: type, granted: granted))
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
+    }
+
+    /// Journal de mesure (debug) : un événement de test, ignoré sans consentement comme les autres.
+    func sendTestEvent() async {
+        _ = try? await UseCases.shared.trackEvent().invoke(params: AnalyticsEvent.DebugTest.shared)
+    }
+
+    func flushAnalytics() async {
+        let result = try? await UseCases.shared.flushAnalytics().invoke(params: NoParams.shared)
+        if let failure = result as? AppResultFailure { error = failure.error.userMessage }
     }
 
     private func apply(_ settings: UserSettings) {

@@ -1,6 +1,7 @@
 package com.mvp.android.ui.settings
 
 import android.Manifest
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -37,8 +38,14 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mvp.android.ui.applock.rememberDeviceAuthentication
 import com.mvp.android.ui.theme.Spacing
+import com.mvp.core.analytics.domain.model.AnalyticsJournal
+import com.mvp.core.analytics.domain.model.TrackedEvent
+import com.mvp.feature.settings.domain.model.Consent
+import com.mvp.feature.settings.domain.model.ConsentTexts
 import com.mvp.feature.settings.domain.model.ConsentType
 import org.koin.androidx.compose.koinViewModel
+import java.text.DateFormat
+import java.util.Date
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
@@ -47,6 +54,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
     val appVersion = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "-"
     }
+    // Le journal de mesure n'existe que dans les builds de debug.
+    val isDebugBuild = remember { context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 }
 
     // Android 13+ : les notifications demandent une permission à l'exécution.
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -87,6 +96,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
         onAppLockChange = onAppLockChange,
         onConsentChange = { type, granted -> viewModel.onConsentChange(type, granted) },
         onLogout = viewModel::onLogout,
+        showAnalyticsJournal = isDebugBuild,
+        onSendTestEvent = { viewModel.onSendTestEvent() },
+        onFlushAnalytics = { viewModel.onFlushAnalytics() },
     )
 }
 
@@ -101,6 +113,9 @@ private fun SettingsContent(
     onAppLockChange: (Boolean) -> Unit,
     onConsentChange: (ConsentType, Boolean) -> Unit,
     onLogout: () -> Unit,
+    showAnalyticsJournal: Boolean,
+    onSendTestEvent: () -> Unit,
+    onFlushAnalytics: () -> Unit,
 ) {
     Scaffold { padding ->
         Column(
@@ -157,13 +172,18 @@ private fun SettingsContent(
             HorizontalDivider()
             SectionTitle("Consentements")
             state.consents.forEach { consent ->
-                val texts = consent.type.texts()
+                val text = ConsentTexts.of(consent.type)
                 SwitchRow(
-                    title = texts.first,
-                    subtitle = texts.second,
+                    title = text.title,
+                    subtitle = "${text.summary}\n${consent.decisionLabel()}",
                     checked = consent.granted,
                     onCheckedChange = { onConsentChange(consent.type, it) },
                 )
+            }
+
+            if (showAnalyticsJournal) {
+                HorizontalDivider()
+                AnalyticsJournalSection(state.analyticsJournal, onSendTestEvent, onFlushAnalytics)
             }
 
             HorizontalDivider()
@@ -201,9 +221,39 @@ private fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChec
     }
 }
 
-/** Titre et explication d'un consentement. */
-private fun ConsentType.texts(): Pair<String, String> = when (this) {
-    ConsentType.Analytics -> "Mesure d'audience" to "Statistiques anonymes pour améliorer l'app"
-    ConsentType.Marketing -> "Communications marketing" to "Offres et nouveautés par e-mail ou notification"
-    ConsentType.Personalization -> "Personnalisation" to "Contenus adaptés à votre utilisation"
+/** Date du dernier choix, ou rien de choisi : le consentement est alors refusé. */
+private fun Consent.decisionLabel(): String {
+    val date = decidedAt ?: return "Pas encore choisi : refusé par défaut"
+    val formatted = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(date))
+    return "${if (granted) "Accepté" else "Refusé"} le $formatted (texte v$textVersion)"
 }
+
+/**
+ * Journal de mesure (builds de debug) : ce qui attend sur l'appareil et ce qui a été « envoyé ».
+ * Pas encore d'outil de mesure : les envois restent en mémoire sur l'appareil.
+ */
+@Composable
+private fun AnalyticsJournalSection(journal: AnalyticsJournal, onSendTestEvent: () -> Unit, onFlush: () -> Unit) {
+    val timeFormat = remember { DateFormat.getTimeInstance(DateFormat.MEDIUM) }
+    SectionTitle("Journal de mesure (debug)")
+    Text(
+        "Rien n'est gardé sans le consentement Mesure d'audience. Envoyé par lots, ou quand l'app passe en arrière-plan.",
+        style = MaterialTheme.typography.bodySmall,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        OutlinedButton(onClick = onSendTestEvent) { Text("Événement test") }
+        Button(onClick = onFlush, enabled = journal.pending.isNotEmpty()) { Text("Envoyer maintenant") }
+    }
+    Text("En attente : ${journal.pending.size}", style = MaterialTheme.typography.bodyLarge)
+    journal.pending.forEach { Text(it.describe(timeFormat), style = MaterialTheme.typography.bodySmall) }
+    Text("Envoyés : ${journal.sent.size}", style = MaterialTheme.typography.bodyLarge)
+    journal.sent.forEach { Text(it.describe(timeFormat), style = MaterialTheme.typography.bodySmall) }
+}
+
+private fun TrackedEvent.describe(timeFormat: DateFormat): String =
+    buildString {
+        append(timeFormat.format(Date(timestamp)))
+        append("  ")
+        append(name)
+        properties.forEach { (key, value) -> append("  $key=$value") }
+    }

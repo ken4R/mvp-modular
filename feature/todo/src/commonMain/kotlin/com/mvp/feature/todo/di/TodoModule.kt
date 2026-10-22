@@ -38,8 +38,9 @@ val todoModule = module {
 
     // Domain
     factory { ObserveTodosUseCase(get(), get<AppDispatchers>().io) }
-    factory { AddTodoUseCase(get(), get<AppDispatchers>().io) }
-    factory { ToggleTodoUseCase(get(), get<AppDispatchers>().io) }
+    // AnalyticsTracker vient de core:analytics : il ne garde rien sans le consentement Analytics.
+    factory { AddTodoUseCase(get(), get(), get<AppDispatchers>().io) }
+    factory { ToggleTodoUseCase(get(), get(), get<AppDispatchers>().io) }
     factory { DeleteTodoUseCase(get(), get<AppDispatchers>().io) }
     factory { FindTodoUseCase(get(), get<AppDispatchers>().io) }
     factory { SetTodoReminderUseCase(get(), systemNow, get<AppDispatchers>().io) }

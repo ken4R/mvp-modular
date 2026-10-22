@@ -4,6 +4,7 @@ import com.mvp.core.database.testing.createInMemoryDriver
 import com.mvp.feature.settings.data.db.SettingsDatabase
 import com.mvp.feature.settings.data.source.SqlDelightSettingsLocalDataSource
 import com.mvp.feature.settings.domain.model.Consent
+import com.mvp.feature.settings.domain.model.ConsentTexts
 import com.mvp.feature.settings.domain.model.ConsentType
 import com.mvp.feature.settings.domain.model.UserProfile
 import com.mvp.feature.settings.domain.model.UserSettings
@@ -40,7 +41,7 @@ class SqlDelightSettingsLocalDataSourceTest {
             settings.copy(
                 profile = UserProfile(displayName = "Youssef", email = "y@example.com"),
                 notificationsEnabled = true,
-                consents = settings.consents.map { if (it.type == ConsentType.Marketing) it.copy(granted = true) else it },
+                consents = settings.consents.map { if (it.type == ConsentType.Marketing) it.grantedNow() else it },
                 appLockEnabled = true,
             )
         }
@@ -54,7 +55,7 @@ class SqlDelightSettingsLocalDataSourceTest {
         assertEquals(
             listOf(
                 Consent(ConsentType.Analytics, granted = false),
-                Consent(ConsentType.Marketing, granted = true),
+                Consent(ConsentType.Marketing, granted = true, decidedAt = DECIDED_AT, textVersion = 1),
                 Consent(ConsentType.Personalization, granted = false),
             ),
             restored.consents,
@@ -109,6 +110,24 @@ class SqlDelightSettingsLocalDataSourceTest {
     }
 
     @Test
+    fun undatedConsentFromAnOlderVersionIsAskedAgain() = scope.runTest {
+        // Accord enregistré avant que les choix ne soient datés (PR #6 à #13).
+        SettingsDatabase(driver).settingEntityQueries.upsert("consent.Analytics", "true")
+
+        assertEquals(Consent(ConsentType.Analytics, granted = false), newDataSource().observe().first().consents.first())
+    }
+
+    @Test
+    fun consentGivenOnAnOldTextIsAskedAgain() = scope.runTest {
+        val queries = SettingsDatabase(driver).settingEntityQueries
+        queries.upsert("consent.Analytics", "true")
+        queries.upsert("consent.Analytics.decided_at", DECIDED_AT.toString())
+        queries.upsert("consent.Analytics.text_version", (ConsentTexts.of(ConsentType.Analytics).version - 1).toString())
+
+        assertEquals(Consent(ConsentType.Analytics, granted = false), newDataSource().observe().first().consents.first())
+    }
+
+    @Test
     fun failedTransformLeavesSettingsUnchanged() = scope.runTest {
         val source = newDataSource()
 
@@ -120,6 +139,10 @@ class SqlDelightSettingsLocalDataSourceTest {
     }
 }
 
+private const val DECIDED_AT = 1_761_000_000_000L
+
+private fun Consent.grantedNow() = copy(granted = true, decidedAt = DECIDED_AT, textVersion = ConsentTexts.of(type).version)
+
 private fun SqlDelightSettingsLocalDataSource.setConsentGranted(type: ConsentType) = update { settings ->
-    settings.copy(consents = settings.consents.map { if (it.type == type) it.copy(granted = true) else it })
+    settings.copy(consents = settings.consents.map { if (it.type == type) it.grantedNow() else it })
 }

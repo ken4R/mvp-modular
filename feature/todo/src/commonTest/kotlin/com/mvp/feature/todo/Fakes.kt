@@ -1,5 +1,7 @@
 package com.mvp.feature.todo
 
+import com.mvp.core.common.domain.analytics.AnalyticsEvent
+import com.mvp.core.common.domain.analytics.AnalyticsTracker
 import com.mvp.core.common.domain.notification.NotificationsPreference
 import com.mvp.core.common.domain.session.SessionExpiry
 import com.mvp.feature.todo.domain.model.Todo
@@ -36,4 +38,12 @@ class FakeNotificationsPreference(enabled: Boolean) : NotificationsPreference {
 class FakeSessionExpiry(expiresAt: Long?) : SessionExpiry {
     val expiresAt = MutableStateFlow(expiresAt)
     override fun observeExpiresAt(): Flow<Long?> = expiresAt
+}
+
+/** Garde les événements de mesure reçus, consentement compris (le filtre est testé dans core:analytics). */
+class FakeAnalyticsTracker : AnalyticsTracker {
+    val events = mutableListOf<AnalyticsEvent>()
+    override suspend fun track(event: AnalyticsEvent) {
+        events += event
+    }
 }

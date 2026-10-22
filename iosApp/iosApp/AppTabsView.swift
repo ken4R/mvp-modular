@@ -9,7 +9,18 @@ import FeatureSettings
 /// Construite seulement une fois connecté et déverrouillé (SessionGate, AppLockGate) :
 /// un lien reçu avant attend dans KMP, puis s'affiche ici.
 struct AppTabsView: View {
-    private enum Tab: Hashable { case todo, weather, catalog, settings }
+    private enum Tab: Hashable {
+        case todo, weather, catalog, settings
+
+        var analyticsScreen: AnalyticsScreen {
+            switch self {
+            case .todo: return .tasks
+            case .weather: return .weather
+            case .catalog: return .catalog
+            case .settings: return .settings
+            }
+        }
+    }
 
     @StateObject private var router = DeepLinkRouter()
     @State private var tab: Tab = .todo
@@ -32,11 +43,21 @@ struct AppTabsView: View {
                 .tabItem { Label("Réglages", systemImage: "gearshape") }
                 .tag(Tab.settings)
         }
-        .onAppear { router.start() }
+        .onAppear {
+            router.start()
+            track(tab)
+        }
         .onDisappear { router.stop() }
+        // Mesuré seulement avec le consentement Analytics (vérifié dans KMP).
+        .onChange(of: tab) { track($0) }
         .onReceive(router.$link) { link in
             if let link { show(link) }
         }
+    }
+
+    private func track(_ tab: Tab) {
+        let event = AnalyticsEvent.ScreenViewed(screen: tab.analyticsScreen)
+        Task { _ = try? await UseCases.shared.trackEvent().invoke(params: event) }
     }
 
     private func show(_ link: DeepLink) {

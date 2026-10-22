@@ -7,6 +7,8 @@ import FeatureSettings
 /// App complète : initialise la logique KMP et assemble les features, derrière l'écran de connexion.
 @main
 struct iOSApp: App {
+    @Environment(\.scenePhase) private var scenePhase
+
     init() {
         KoinIosKt.doInitKoin()
         TodoReminders.start()
@@ -27,6 +29,11 @@ struct iOSApp: App {
                     _ = try? await UseCases.shared.openDeepLink().invoke(params: url.absoluteString as NSString)
                 }
             }
+        }
+        // Mesure d'audience : ce qui attend part quand l'app passe en arrière-plan (rien sans consentement).
+        .onChange(of: scenePhase) { phase in
+            guard phase == .background else { return }
+            Task { @MainActor in _ = try? await UseCases.shared.flushAnalytics().invoke(params: NoParams.shared) }
         }
     }
 }

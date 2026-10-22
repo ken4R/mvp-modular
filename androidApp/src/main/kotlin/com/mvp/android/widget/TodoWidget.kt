@@ -106,7 +106,9 @@ private fun TaskRow(item: TodoWidgetItem) {
 
 @Composable
 private fun Message(text: String) {
-    Text(text, style = WidgetTheme.body, modifier = GlanceModifier.fillMaxSize().clickable(actionStartActivity<MainActivity>()))
+    val context = LocalContext.current
+    val openApp = actionStartActivity(Intent(context, MainActivity::class.java))
+    Text(text, style = WidgetTheme.body, modifier = GlanceModifier.fillMaxSize().clickable(openApp))
 }
 
 /**

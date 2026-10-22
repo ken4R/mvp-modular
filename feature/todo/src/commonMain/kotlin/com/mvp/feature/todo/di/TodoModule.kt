@@ -15,6 +15,7 @@ import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
@@ -47,4 +48,6 @@ val todoModule = module {
     // NotificationsPreference vient de feature:settings, SessionExpiry de feature:auth : sans dépendance directe.
     factory { ObserveRemindersEnabledUseCase(get(), get<AppDispatchers>().io) }
     factory { SyncTodoRemindersUseCase(get(), get(), get(), get(), systemNow, get<AppDispatchers>().io) }
+    // Widget de l'écran d'accueil : AppLockPreference vient de feature:settings (ADR 0011).
+    factory { ObserveTodoWidgetUseCase(get(), get(), get(), systemNow, get<AppDispatchers>().io) }
 }

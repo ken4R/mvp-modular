@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="todo_widget_description">Vos tâches à faire, le rappel le plus proche en premier.</string>
+</resources>

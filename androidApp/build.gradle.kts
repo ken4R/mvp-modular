@@ -45,5 +45,7 @@ dependencies {
     // avec le moteur Android déjà utilisé par core:network (pas d'OkHttp, voir libs.versions.toml).
     implementation(libs.coil.compose)
     implementation(libs.coil.network.ktor3)
+    // Widget Tâches de l'écran d'accueil, écrit en Jetpack Glance (ADR 0011).
+    implementation(libs.androidx.glance.appwidget)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

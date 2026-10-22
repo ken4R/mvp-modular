@@ -30,10 +30,12 @@ import com.mvp.feature.settings.domain.usecase.SetNotificationsEnabledUseCase
 import com.mvp.feature.settings.domain.usecase.UnlockAppUseCase
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
 import com.mvp.feature.todo.domain.model.Todo
+import com.mvp.feature.todo.domain.model.TodoWidgetState
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
@@ -128,6 +130,22 @@ object UseCases : KoinComponent {
             .onEach { result ->
                 when (result) {
                     is AppResult.Success -> onTodos(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /**
+     * Contenu du widget Tâches de l'écran d'accueil (ADR 0011), à recopier dans le fichier partagé avec
+     * l'extension WidgetKit. En cas d'erreur, n'y écrire aucune tâche. Les callbacks sont appelés sur le main thread.
+     */
+    fun observeTodoWidget(onState: (TodoWidgetState) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveTodoWidgetUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onState(result.data)
                     is AppResult.Failure -> onError(result.error)
                 }
             }

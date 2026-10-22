@@ -26,9 +26,16 @@ packages:
     path: Packages/FeatureCatalog
   FeatureTodoCompose:
     path: Packages/FeatureTodoCompose
+  FeatureTodoWidget:
+    path: Packages/FeatureTodoWidget
 
 settingGroups:
+  # Versions communes à l'app et à son extension widget (iOS refuse une extension de version différente).
+  versions:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
   app:
+    groups: [versions]
     GENERATE_INFOPLIST_FILE: YES
     INFOPLIST_KEY_UILaunchScreen_Generation: YES
 
@@ -63,6 +70,11 @@ targets:
         # Exigé par Compose Multiplatform (écran Tâches partagé, ADR 0010) : autorise le 120 Hz (ProMotion),
         # sinon ComposeUIViewController s'arrête au lancement de l'écran.
         CADisableMinimumFrameDurationOnPhone: true
+    # App Group partagé avec l'extension du widget Tâches : seul le fichier du widget y est écrit (ADR 0011).
+    entitlements:
+      path: Generated/iosApp.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.mvp.ios]
     settings:
       groups: [app]
       base:
@@ -79,6 +91,37 @@ targets:
       - package: FeatureAuth
       - package: FeatureCatalog
       - package: FeatureTodoCompose
+      - package: FeatureTodoWidget
+        product: FeatureTodoWidget
+      # Widget Tâches, embarqué dans l'app (PlugIns/).
+      - target: TodoWidgetExtension
+
+  # Extension WidgetKit du widget Tâches (ADR 0011). Elle ne lie pas le framework Kotlin : elle ne lit que le
+  # fichier écrit par l'app dans l'App Group (package FeatureTodoWidget, produit TodoWidgetData).
+  # Pas d'app de démo : un widget s'essaie depuis l'écran d'accueil, avec l'app complète.
+  TodoWidgetExtension:
+    type: app-extension
+    platform: iOS
+    sources: [Packages/FeatureTodoWidget/Widget]
+    info:
+      path: Generated/TodoWidgetExtension-Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Generated/TodoWidgetExtension.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.mvp.ios]
+    settings:
+      groups: [versions]
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.todowidget
+        INFOPLIST_KEY_CFBundleDisplayName: Tâches
+        SKIP_INSTALL: YES
+    dependencies:
+      - package: FeatureTodoWidget
+        product: TodoWidgetData
 
   # Démo de la feature todo, lancée seule avec des données d'exemple.
   TodoDemo:

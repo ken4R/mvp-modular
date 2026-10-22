@@ -60,7 +60,7 @@ jobs:
       - name: Build de l'app iOS et des démos de features (simulateur, sans signature)
         run: |
           cd iosApp
-          for scheme in iosApp TodoDemo WeatherDemo SettingsDemo AuthDemo CatalogDemo; do
+          for scheme in iosApp TodoDemo WeatherDemo SettingsDemo AuthDemo CatalogDemo TodoComposeDemo; do
             xcodebuild build \
               -project iosApp.xcodeproj \
               -scheme "$scheme" \
@@ -73,6 +73,12 @@ jobs:
           plist=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app/Info.plist' | head -1)
           /usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$plist"
           /usr/libexec/PlistBuddy -c 'Print :NSLocationDefaultAccuracyReduced' "$plist"
+      - name: Clé exigée par Compose Multiplatform dans l'Info.plist des apps qui l'affichent
+        run: |
+          for app in iosApp TodoComposeDemo; do
+            plist=$(find ~/Library/Developer/Xcode/DerivedData -path "*/Debug-iphonesimulator/$app.app/Info.plist" | head -1)
+            /usr/libexec/PlistBuddy -c 'Print :CADisableMinimumFrameDurationOnPhone' "$plist"
+          done
       - name: Taille du framework Kotlin et de l'app iOS (suivi du poids, ADR 0010)
         run: |
           app=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app' -type d | head -1)

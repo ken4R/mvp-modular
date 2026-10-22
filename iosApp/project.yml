@@ -24,6 +24,8 @@ packages:
     path: Packages/FeatureAuth
   FeatureCatalog:
     path: Packages/FeatureCatalog
+  FeatureTodoCompose:
+    path: Packages/FeatureTodoCompose
 
 settingGroups:
   app:
@@ -58,6 +60,9 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: com.mvp.ios.deeplink
             CFBundleURLSchemes: [mvpmodular]
+        # Exigé par Compose Multiplatform (écran Tâches partagé, ADR 0010) : autorise le 120 Hz (ProMotion),
+        # sinon ComposeUIViewController s'arrête au lancement de l'écran.
+        CADisableMinimumFrameDurationOnPhone: true
     settings:
       groups: [app]
       base:
@@ -73,6 +78,7 @@ targets:
       - package: FeatureSettings
       - package: FeatureAuth
       - package: FeatureCatalog
+      - package: FeatureTodoCompose
 
   # Démo de la feature todo, lancée seule avec des données d'exemple.
   TodoDemo:
@@ -162,3 +168,24 @@ targets:
       - package: SharedKMP
         product: Shared
       - package: FeatureCatalog
+
+  # Démo de l'écran Tâches en Compose Multiplatform, à comparer à TodoDemo (SwiftUI). ADR 0010.
+  TodoComposeDemo:
+    type: application
+    platform: iOS
+    sources: [Packages/FeatureTodoCompose/Demo]
+    info:
+      path: Generated/TodoComposeDemo-Info.plist
+      properties:
+        # Exigé par Compose Multiplatform (voir iosApp ci-dessus).
+        CADisableMinimumFrameDurationOnPhone: true
+    settings:
+      groups: [app]
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.demo.todocompose
+        INFOPLIST_KEY_CFBundleDisplayName: Todo Compose Demo
+    dependencies:
+      - target: KotlinShared
+      - package: SharedKMP
+        product: Shared
+      - package: FeatureTodoCompose

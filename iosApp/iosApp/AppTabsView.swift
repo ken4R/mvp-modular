@@ -1,6 +1,7 @@
 import SwiftUI
 import Shared
 import FeatureTodo
+import FeatureTodoCompose
 import FeatureWeather
 import FeatureCatalog
 import FeatureSettings
@@ -27,10 +28,15 @@ struct AppTabsView: View {
     /// Tâche ou produit demandé par le dernier lien, remis à `nil` par l'écran qui l'affiche.
     @State private var todoRequest: String?
     @State private var productRequest: Int64?
+    /// Version Compose Multiplatform de l'écran Tâches, ouverte depuis l'écran SwiftUI (ADR 0010).
+    @State private var showComposeTodo = false
 
     var body: some View {
         TabView(selection: $tab) {
-            TodoListView(focusRequest: $todoRequest)
+            TodoListView(focusRequest: $todoRequest, onOpenComposeMultiplatform: { showComposeTodo = true })
+                .sheet(isPresented: $showComposeTodo) {
+                    TodoComposeView(onClose: { showComposeTodo = false })
+                }
                 .tabItem { Label("Tâches", systemImage: "checklist") }
                 .tag(Tab.todo)
             WeatherView()
@@ -61,6 +67,8 @@ struct AppTabsView: View {
     }
 
     private func show(_ link: DeepLink) {
+        // La feuille Compose couvrirait l'écran demandé (et la mise en évidence n'existe que dans l'écran SwiftUI).
+        showComposeTodo = false
         switch link {
         case let tasks as DeepLinkTasks:
             tab = .todo

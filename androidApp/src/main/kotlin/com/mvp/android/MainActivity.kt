@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -43,6 +44,7 @@ import com.mvp.android.ui.todo.TodoScreen
 import com.mvp.android.ui.weather.WeatherScreen
 import com.mvp.core.common.domain.analytics.AnalyticsScreen
 import com.mvp.core.deeplink.domain.model.DeepLink
+import com.mvp.feature.todocompose.ui.TodoComposeScreen
 import org.koin.androidx.compose.koinViewModel
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -140,6 +142,9 @@ private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel)
     // Tâche ou produit demandé par le dernier lien, transmis à l'écran de l'onglet qui l'affiche.
     var todoRequest by remember { mutableStateOf<String?>(null) }
     var productRequest by remember { mutableStateOf<Long?>(null) }
+    // Onglet Tâches : écran natif (Jetpack Compose) ou version Compose Multiplatform partagée avec iOS (ADR 0010).
+    var showComposeMultiplatformTodo by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = tab == Tab.Todo && showComposeMultiplatformTodo) { showComposeMultiplatformTodo = false }
     val pendingLink by deepLinks.pending.collectAsStateWithLifecycle()
     // Mesuré seulement avec le consentement Analytics (vérifié dans KMP).
     LaunchedEffect(tab) { analytics.onScreenShown(tab.screen) }
@@ -149,6 +154,8 @@ private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel)
         when (link) {
             is DeepLink.Tasks -> {
                 tab = Tab.Todo
+                // La mise en évidence d'une tâche n'existe que dans l'écran natif.
+                showComposeMultiplatformTodo = false
                 todoRequest = link.todoId
             }
             DeepLink.Weather -> tab = Tab.Weather
@@ -177,7 +184,15 @@ private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel)
         // Les écrans ont leur propre Scaffold : on leur évite de réappliquer les insets déjà gérés ici.
         Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
             when (tab) {
-                Tab.Todo -> TodoScreen(focusRequest = todoRequest, onFocusRequestHandled = { todoRequest = null })
+                Tab.Todo -> if (showComposeMultiplatformTodo) {
+                    TodoComposeScreen(onClose = { showComposeMultiplatformTodo = false })
+                } else {
+                    TodoScreen(
+                        focusRequest = todoRequest,
+                        onFocusRequestHandled = { todoRequest = null },
+                        onOpenComposeMultiplatform = { showComposeMultiplatformTodo = true },
+                    )
+                }
                 Tab.Weather -> WeatherScreen()
                 Tab.Catalog -> CatalogScreen(productRequest = productRequest, onProductRequestHandled = { productRequest = null })
                 Tab.Settings -> SettingsScreen()

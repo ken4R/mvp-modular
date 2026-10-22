@@ -44,3 +44,6 @@ include(":feature:settings")
 include(":feature:auth")
 include(":feature:catalog")
 
+// Écrans partagés en Compose Multiplatform (comparaison avec le natif, ADR 0010)
+include(":feature:todo-compose")
+

@@ -10,17 +10,28 @@ public struct TodoListView: View {
     @State private var reminderTodo: Todo?
     /// Tâche demandée par un lien profond : prise en compte puis remise à `nil`.
     @Binding private var focusRequest: String?
+    /// Bouton vers la version Compose Multiplatform de l'écran (ADR 0010), si fourni.
+    private let onOpenComposeMultiplatform: (() -> Void)?
 
-    public init(focusRequest: Binding<String?> = .constant(nil)) {
+    public init(focusRequest: Binding<String?> = .constant(nil), onOpenComposeMultiplatform: (() -> Void)? = nil) {
         _focusRequest = focusRequest
+        self.onOpenComposeMultiplatform = onOpenComposeMultiplatform
     }
 
     public var body: some View {
         let colors = DS.colors(colorScheme)
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            Text("Mes tâches")
-                .font(DS.Typography.titleLarge)
-                .foregroundColor(Color(argb: colors.onBackground))
+            HStack {
+                Text("Mes tâches")
+                    .font(DS.Typography.titleLarge)
+                    .foregroundColor(Color(argb: colors.onBackground))
+                Spacer(minLength: DS.Spacing.sm)
+                if let onOpenComposeMultiplatform {
+                    Button("Version Compose MP", action: onOpenComposeMultiplatform)
+                        .font(DS.Typography.label)
+                        .tint(Color(argb: colors.primary))
+                }
+            }
 
             HStack(spacing: DS.Spacing.sm) {
                 TextField("Nouvelle tâche", text: $viewModel.input)

@@ -173,8 +173,13 @@ private fun TodoRow(
             )
             todo.reminderAt?.let { at ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Rappel le ${formatReminder(at)}", style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = onRemoveReminder) { Text("Retirer") }
+                    // La date passe à la ligne si besoin : « Retirer » garde sa largeur au lieu d'être écrasé
+                    Text(
+                        "Rappel le ${formatReminder(at)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    TextButton(onClick = onRemoveReminder) { Text("Retirer", maxLines = 1) }
                 }
             }
         }

@@ -13,6 +13,8 @@ import com.mvp.core.deeplink.domain.model.DeepLink
  *
  * N'importe quelle app ou page web peut ouvrir ces liens : la lecture est stricte (identifiants au format
  * attendu, rien de plus dans le chemin), et la requête (`?…`) comme le fragment (`#…`) sont ignorés.
+ * Une autre app peut déclarer le même schéma : un lien ne porte jamais de donnée sensible (jeton, titre…),
+ * et l'app ne le confie qu'à elle-même (intent explicite, `userInfo` d'une notification).
  */
 object DeepLinks {
     const val SCHEME = "mvpmodular"
@@ -41,7 +43,7 @@ object DeepLinks {
             "weather" -> DeepLink.Weather.takeIf { arguments.isEmpty() }
             "catalog" -> when {
                 arguments.isEmpty() -> DeepLink.Catalog()
-                arguments.size == 2 && arguments[0] == "products" -> arguments[1]
+                arguments.size == 2 && arguments[0].equals("products", ignoreCase = true) -> arguments[1]
                     .takeIf(PRODUCT_ID::matches)
                     ?.toLongOrNull()
                     ?.takeIf { it > 0 }

@@ -60,8 +60,18 @@ class DeepLinkUseCasesTest {
     fun pendingLinkIsForgottenAtLogout() = runTest(dispatcher) {
         open("mvpmodular://tasks/abc")
 
-        DeepLinkUserSessionObserver(repository).clearUserData()
+        DeepLinkUserSessionObserver(repository).onLogout()
 
         assertNull(pending())
+    }
+
+    @Test
+    fun linkReceivedLoggedOutSurvivesLogin() = runTest(dispatcher) {
+        open("mvpmodular://settings")
+
+        // La connexion efface les données restantes des features : le lien, lui, reste en attente.
+        DeepLinkUserSessionObserver(repository).clearUserData()
+
+        assertEquals(DeepLink.Settings, pending())
     }
 }

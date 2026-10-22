@@ -16,11 +16,13 @@
         android:label="MVP Modular"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <!-- singleTask : un lien ouvert depuis une autre app revient à l'activité existante (onNewIntent)
-             au lieu d'en empiler une seconde dans la tâche de l'app appelante. -->
+             au lieu d'en empiler une seconde dans la tâche de l'app appelante. taskAffinity vide : une autre app
+             ne peut pas attirer l'activité dans sa propre tâche en déclarant la même affinité (StrandHogg). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask"
+            android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

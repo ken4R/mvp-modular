@@ -12,9 +12,6 @@ final class TodoViewModel: ObservableObject {
 
     private var subscription: Subscription?
     private var remindersSubscription: Subscription?
-    /// `true` une fois la liste lue : avant, une tâche demandée par un lien ne peut pas être dite absente.
-    private var loaded = false
-    private var requestedFocus: String?
     private var focusTask: Task<Void, Never>?
 
     /// Des rappels à venir sont posés mais ne partiront pas : la vue invite à activer les notifications.
@@ -28,11 +25,7 @@ final class TodoViewModel: ObservableObject {
     func start() {
         guard subscription == nil else { return }
         subscription = UseCases.shared.observeTodos(
-            onTodos: { [weak self] todos in
-                self?.todos = todos
-                self?.loaded = true
-                self?.applyFocus()
-            },
+            onTodos: { [weak self] todos in self?.todos = todos },
             onError: { [weak self] error in self?.error = error.userMessage }
         )
         remindersSubscription = UseCases.shared.observeRemindersEnabled(
@@ -48,20 +41,14 @@ final class TodoViewModel: ObservableObject {
         remindersSubscription = nil
     }
 
-    /// Un lien demande la tâche `id` : mise en évidence si elle existe, message sinon.
-    func focus(_ id: String) {
-        requestedFocus = id
-        applyFocus()
-    }
-
-    private func applyFocus() {
-        guard loaded, let id = requestedFocus else { return }
-        requestedFocus = nil
-        guard todos.contains(where: { $0.id == id }) else {
-            // Supprimée, ou d'un autre compte : l'écran reste sur la liste et le dit.
-            error = "Cette tâche n'existe plus"
+    /// Un lien demande la tâche `id` : mise en évidence si elle existe ; sinon l'écran reste sur la liste et le dit.
+    func focus(_ id: String) async {
+        let result = try? await UseCases.shared.findTodo().invoke(params: id as NSString)
+        if let failure = result as? AppResultFailure {
+            error = failure.error.userMessage
             return
         }
+        guard result != nil else { return }
         focusedTodoId = id
         focusTask?.cancel()
         focusTask = Task { [weak self] in

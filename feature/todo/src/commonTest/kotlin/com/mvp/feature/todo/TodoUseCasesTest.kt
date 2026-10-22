@@ -9,6 +9,7 @@ import com.mvp.feature.todo.data.source.InMemoryTodoLocalDataSource
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
+import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
 import kotlinx.coroutines.flow.first
@@ -30,6 +31,7 @@ class TodoUseCasesTest {
     private val add = AddTodoUseCase(repository, dispatcher)
     private val toggle = ToggleTodoUseCase(repository, dispatcher)
     private val delete = DeleteTodoUseCase(repository, dispatcher)
+    private val find = FindTodoUseCase(repository, dispatcher)
 
     private suspend fun currentTodos(): List<Todo> = observe(NoParams).first().getOrNull()!!
 
@@ -76,5 +78,16 @@ class TodoUseCasesTest {
         assertEquals(AppResult.Success(Unit), delete("id-0"))
         assertEquals(emptyList(), currentTodos())
         assertEquals(AppResult.Failure(AppError.NotFound), delete("id-0"))
+    }
+
+    @Test
+    fun findReturnsTheTodoOrNotFound() = scope.runTest {
+        add("Acheter du pain")
+
+        assertEquals(AppResult.Success(Todo("id-0", "Acheter du pain", isDone = false)), find("id-0"))
+        assertEquals(AppResult.Failure(AppError.NotFound), find("inconnue"))
+
+        delete("id-0")
+        assertEquals(AppResult.Failure(AppError.NotFound), find("id-0"))
     }
 }

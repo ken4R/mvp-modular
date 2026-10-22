@@ -95,7 +95,7 @@ public struct TodoListView: View {
         guard let id = focusRequest else { return }
         focusRequest = nil
         reminderTodo = nil
-        viewModel.focus(id)
+        Task { await viewModel.focus(id) }
     }
 
     /// Ferme le clavier après l'ajout : sinon la barre d'autocorrection peut

@@ -21,7 +21,7 @@ class DeepLinksTest {
     @Test
     fun schemeAndScreenIgnoreCaseAndTrailingSlash() {
         assertEquals(DeepLink.Weather, DeepLinks.parse("MVPModular://Weather/"))
-        assertEquals(DeepLink.Catalog(7), DeepLinks.parse("mvpmodular://catalog/products/7/"))
+        assertEquals(DeepLink.Catalog(7), DeepLinks.parse("mvpmodular://catalog/Products/7/"))
     }
 
     @Test

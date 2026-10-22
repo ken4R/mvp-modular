@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mvp.android.ui.theme.MvpColors
 import com.mvp.android.ui.theme.Radius
 import com.mvp.android.ui.theme.Spacing
 import com.mvp.feature.todo.domain.model.Todo
@@ -54,10 +55,10 @@ fun TodoScreen(
     val context = LocalContext.current
     val listState = rememberLazyListState()
     LaunchedEffect(focusRequest) {
-        focusRequest?.let(viewModel::focus)
+        focusRequest?.let { viewModel.focus(it) }
         onFocusRequestHandled()
     }
-    // Défile jusqu'à la tâche mise en évidence (dès que la liste est lue), puis retire la mise en évidence.
+    // Défile jusqu'à la tâche mise en évidence, puis retire la mise en évidence.
     val focusIndex = state.focusedTodoId?.let { id -> state.todos.indexOfFirst { it.id == id } }?.takeIf { it >= 0 }
     LaunchedEffect(state.focusedTodoId, focusIndex != null) {
         if (focusIndex == null) return@LaunchedEffect
@@ -143,7 +144,7 @@ private fun TodoRow(
     onPickReminder: () -> Unit,
     onRemoveReminder: () -> Unit,
 ) {
-    val background = if (highlighted) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+    val background = if (highlighted) MvpColors.highlight else Color.Transparent
     Row(
         modifier = Modifier.fillMaxWidth().background(background, RoundedCornerShape(Radius.md)),
         verticalAlignment = Alignment.CenterVertically,

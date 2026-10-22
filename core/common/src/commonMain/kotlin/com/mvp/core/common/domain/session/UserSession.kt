@@ -18,4 +18,10 @@ interface UserSessionObserver {
 
     /** À la déconnexion (ou au changement de compte) : effacer toutes les données locales de l'utilisateur. */
     suspend fun clearUserData(): AppResult<Unit>
+
+    /**
+     * Après une déconnexion explicite réussie (pas à la connexion d'un autre compte) : oublier ce qui
+     * ne vaut que pour la session en cours, par exemple un lien profond en attente.
+     */
+    suspend fun onLogout() {}
 }

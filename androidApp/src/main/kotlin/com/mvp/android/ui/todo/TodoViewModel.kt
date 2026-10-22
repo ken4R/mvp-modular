@@ -11,6 +11,7 @@ import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoReminder
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
+import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
@@ -28,8 +29,6 @@ data class TodoUiState(
     val input: String = "",
     val error: String? = null,
     val remindersEnabled: Boolean = true,
-    /** `true` une fois la liste lue : avant, une tâche demandée par un lien ne peut pas être dite absente. */
-    val loaded: Boolean = false,
     /** Tâche ouverte par un lien : la liste défile jusqu'à elle et la met en évidence quelques secondes. */
     val focusedTodoId: String? = null,
 ) {
@@ -47,6 +46,7 @@ class TodoViewModel(
     private val addTodo: AddTodoUseCase,
     private val toggleTodo: ToggleTodoUseCase,
     private val deleteTodo: DeleteTodoUseCase,
+    private val findTodo: FindTodoUseCase,
     private val setTodoReminder: SetTodoReminderUseCase,
 ) : ViewModel() {
 
@@ -57,10 +57,7 @@ class TodoViewModel(
         observeTodos(NoParams)
             .onEach { result ->
                 when (result) {
-                    is AppResult.Success -> {
-                        _state.update { it.copy(todos = result.data, loaded = true) }
-                        checkFocus()
-                    }
+                    is AppResult.Success -> _state.update { it.copy(todos = result.data) }
                     is AppResult.Failure -> showError(result.error)
                 }
             }
@@ -70,23 +67,14 @@ class TodoViewModel(
             .launchIn(viewModelScope)
     }
 
-    /** Un lien demande la tâche [id] : mise en évidence si elle existe, message sinon. */
-    fun focus(id: String) {
-        _state.update { it.copy(focusedTodoId = id) }
-        checkFocus()
+    /** Un lien demande la tâche [id] : mise en évidence si elle existe ; sinon l'écran reste sur la liste et le dit. */
+    fun focus(id: String) = viewModelScope.launch {
+        findTodo(id)
+            .onSuccess { todo -> _state.update { it.copy(focusedTodoId = todo.id) } }
+            .onFailure(::showError)
     }
 
     fun clearFocus() = _state.update { it.copy(focusedTodoId = null) }
-
-    /** Tâche demandée absente (supprimée, ou d'un autre compte) : l'écran reste sur la liste et le dit. */
-    private fun checkFocus() = _state.update { state ->
-        val id = state.focusedTodoId
-        if (state.loaded && id != null && state.todos.none { it.id == id }) {
-            state.copy(focusedTodoId = null, error = MISSING_TODO)
-        } else {
-            state
-        }
-    }
 
     fun onInputChange(value: String) = _state.update { it.copy(input = value, error = null) }
 
@@ -99,7 +87,6 @@ class TodoViewModel(
     fun onToggle(id: String) = viewModelScope.launch { toggleTodo(id).onFailure(::showError) }
 
     fun onDelete(id: String) = viewModelScope.launch {
-        // La tâche supprimée n'est plus « absente » d'un lien : pas de message à son sujet.
         if (_state.value.focusedTodoId == id) clearFocus()
         deleteTodo(id).onFailure(::showError)
     }
@@ -112,10 +99,6 @@ class TodoViewModel(
     }
 
     private fun showError(error: AppError) = _state.update { it.copy(error = error.toMessage()) }
-
-    private companion object {
-        const val MISSING_TODO = "Cette tâche n'existe plus"
-    }
 }
 
 private fun AppError.toMessage(): String = when (this) {

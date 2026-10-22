@@ -14,7 +14,7 @@ import org.koin.dsl.module
 val deepLinkModule = module {
     // Data
     single<PendingDeepLinkRepository> { InMemoryPendingDeepLinkRepository() }
-    // Prévenu par feature:auth : le lien en attente est oublié à la déconnexion.
+    // Prévenu par feature:auth : le lien en attente est oublié à la déconnexion (pas à la connexion).
     single { DeepLinkUserSessionObserver(get()) } bind UserSessionObserver::class
 
     // Domain

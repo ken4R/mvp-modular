@@ -28,6 +28,7 @@ import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
+import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
@@ -64,6 +65,7 @@ object UseCases : KoinComponent {
     fun addTodo(): AddTodoUseCase = get()
     fun toggleTodo(): ToggleTodoUseCase = get()
     fun deleteTodo(): DeleteTodoUseCase = get()
+    fun findTodo(): FindTodoUseCase = get()
     fun setTodoReminder(): SetTodoReminderUseCase = get()
 
     fun searchCities(): SearchCitiesUseCase = get()

@@ -22,10 +22,15 @@ class InMemorySecureStorage : SecureStorage {
 class RecordingSessionObserver(var failClear: Boolean = false, var failLogin: Boolean = false) : UserSessionObserver {
     val logins = mutableListOf<UserAccount>()
     var clearCount = 0
+    var logoutCount = 0
 
     override suspend fun onLogin(account: UserAccount): AppResult<Unit> {
         logins += account
         return if (failLogin) AppResult.Failure(AppError.Unknown("échec")) else AppResult.Success(Unit)
+    }
+
+    override suspend fun onLogout() {
+        logoutCount++
     }
 
     override suspend fun clearUserData(): AppResult<Unit> {

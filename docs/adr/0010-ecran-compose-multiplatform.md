@@ -34,25 +34,28 @@ Contraintes : Kotlin 2.4.21, AGP 8.13 et compileSdk 36 (PR #11 : les bibliothèq
 | Code de l'écran | Écrit deux fois : Compose Android (`TodoScreen` + `TodoViewModel`, 320 lignes) et SwiftUI (`TodoListView` + `TodoViewModel` + `TodoReminders`, 400 lignes), choix du rappel et liens profonds compris. | Écrit une fois : 330 lignes Kotlin (écran 130, ViewModel 90, thème 70, format de date par plateforme 25), plus 45 lignes Swift / Kotlin pour l'enveloppe iOS ; sans le choix du rappel ni les liens. L'état de l'écran (validation affichée, consigne de rappels) n'est écrit et testé qu'une fois, en `commonTest`, là où le natif l'a en double, sans test côté Swift. Les textes d'erreur restent recopiés tant que l'écran natif Android existe. |
 | Rendu et ressenti iOS | Composants UIKit / SwiftUI : `List`, glissement pour supprimer, `TextField` système, police San Francisco, Dynamic Type, animations et retour haptique d'iOS. | Composants Material 3 dessinés par Compose (Skia sur Metal) : une app Android sur iPhone. Pas de glissement pour supprimer, cases à cocher Material, champ de texte Compose (sélection, loupe et menu copier / coller imités). Défilement et inertie proches d'iOS mais pas identiques. |
 | Accessibilité | VoiceOver, Dynamic Type, Contrôle vocal, Contraste élevé : natifs, sans rien faire. | VoiceOver passe par la couche d'accessibilité de Compose (arbre sémantique traduit pour UIKit) : lecture et activation des éléments, mais à vérifier élément par élément sur appareil. La taille de texte suit le réglage iOS via la densité de police de Compose ; les rotors et le Contrôle vocal sont moins complets. |
-| Poids | Rien de plus. | Le moteur de rendu Skia et les bibliothèques Compose s'ajoutent au binaire `Shared` de toutes les apps iOS, qu'elles affichent l'écran ou non. Mesures CI ci-dessous. Android : presque rien, Compose y est déjà. |
-| Temps de build | Swift compilé par Xcode, incrémental. | Liaison Kotlin/Native plus longue (Compose + Skia) à chaque build iOS, release surtout. Mesures CI ci-dessous. |
+| Poids | Rien de plus. | Le moteur de rendu Skia et les bibliothèques Compose s'ajoutent au binaire `Shared` de toutes les apps iOS, qu'elles affichent l'écran ou non. +30 Mo sur le binaire release iPhone (mesures ci-dessous). Android : +0,5 Mo, Compose y est déjà. |
+| Temps de build | Swift compilé par Xcode, incrémental. | Liaison Kotlin/Native bien plus longue (Compose + Skia) : job CI iOS de 13 à 34 min, liaison release ×4,5. |
 | Intégration iOS | Tout l'écosystème SwiftUI (navigation, feuilles, `.searchable`, widgets, App Intents). | Un `UIViewController` opaque : navigation, barre d'outils et feuilles côté Swift ne voient pas l'intérieur ; une feuille Compose doit respecter les mêmes règles de verrou que les feuilles natives ; passer des données ou des actions = paramètres Kotlin (`onClose`). Clé `CADisableMinimumFrameDurationOnPhone` obligatoire dans l'Info.plist (sinon l'écran s'arrête au lancement). Le clavier est géré par Compose (`ignoresSafeArea(.keyboard)` côté SwiftUI). |
 | Outillage | Aperçus Xcode, Instruments, débogueur de vues. | Aperçus et inspecteur Compose sur Android seulement ; sur iOS, débogage du code Kotlin limité. |
 | Design system | `DS` (pont SwiftUI). | `SharedMvpTheme`, mêmes tokens. Un troisième pont vers les tokens, qui doit suivre les deux autres. |
 
-### Mesures (CI, macOS 15, Xcode 26)
+### Mesures (CI, macOS 15, Xcode 26, PR #15)
 
-| Mesure | Avant (main) | Avec l'écran Compose |
-|---|---|---|
-| APK debug Android | 16,3 Mo | À COMPLÉTER |
-| `iosApp.app` debug simulateur | À COMPLÉTER | À COMPLÉTER |
-| Binaire `Shared` release iPhone (arm64) | À COMPLÉTER | À COMPLÉTER |
-| Job CI iOS | À COMPLÉTER | À COMPLÉTER |
+| Mesure | Avant (main) | Avec l'écran Compose | Écart |
+|---|---|---|---|
+| APK debug Android | 16,3 Mo | 16,8 Mo | +0,5 Mo (Compose y est déjà) |
+| Binaire `Shared` release iPhone (arm64) | 8,4 Mo | 38,8 Mo | **+30,4 Mo (×4,6)**, pour toutes les apps iOS |
+| `iosApp.app` debug simulateur | non mesuré | 119 Mo (dont 114 Mo de `Shared` debug) | |
+| Liaison release `Shared` arm64 | 1 min 40 | 7 min 30 | ×4,5 |
+| Job CI iOS complet | 13 min | 34 min | ×2,6 (chaque build iOS lie Compose et Skia) |
+
+Le poids iOS est le coût le plus net : environ 30 Mo de plus à télécharger (un peu moins compressé dans l'App Store), payés dès le premier écran Compose, puis presque rien pour les suivants. Le temps de build se ressent à chaque modification Kotlin sur Mac (la cible `KotlinShared` relie le framework).
 
 ## Conséquences
 
 - Les deux apps ont l'écran Tâches en deux versions, natif par défaut : chacun peut comparer sur son appareil avec les mêmes données.
-- Recommandation pour la suite : garder le natif pour les écrans centraux de l'app (le ressenti iOS et l'accessibilité y comptent le plus), et réserver Compose Multiplatform aux écrans internes ou secondaires (debug, réglages avancés, formulaires) si le gain de code l'emporte sur le poids mesuré. Décision à prendre après l'essai sur appareil.
+- Recommandation pour la suite : garder le natif pour les écrans centraux de l'app (le ressenti iOS et l'accessibilité y comptent le plus), et réserver Compose Multiplatform aux écrans internes ou secondaires (debug, réglages avancés, formulaires) si le gain de code l'emporte sur les 30 Mo et le temps de build mesurés. Décision à prendre après l'essai sur appareil.
 - Exception assumée aux règles de `CLAUDE.md` : un module UI Compose Multiplatform (`feature:<nom>-compose`) dépend de sa feature et l'app Android affiche son composable via `shared`. Il ne contient que de l'UI et un ViewModel, jamais de règle métier.
 - `shared` dépend désormais de Compose Multiplatform : tout futur module UI partagé suit `feature:todo-compose` (composables `internal` ou non exportés vers Swift, un point d'entrée `UIViewController` dans `ComposeScreens`).
 - Monter Compose Multiplatform au-delà de 1.9 attend la montée d'AGP / compileSdk, comme Coil.

@@ -81,8 +81,8 @@ jobs:
           done
       - name: Taille du framework Kotlin et de l'app iOS (suivi du poids, ADR 0010)
         run: |
-          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app' -type d | head -1)
-          du -sh "$app" "$app/Frameworks/Shared.framework"
           # Binaire release pour iPhone (arm64) : la taille qui compte pour l'utilisateur.
           ./gradlew :shared:linkReleaseFrameworkIosArm64
+          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app' -type d | head -1)
+          du -sk "$app" "$app/Frameworks/Shared.framework"
           ls -l shared/build/bin/iosArm64/releaseFramework/Shared.framework/Shared

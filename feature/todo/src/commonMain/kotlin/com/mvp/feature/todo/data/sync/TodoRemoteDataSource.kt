@@ -7,7 +7,7 @@ import com.mvp.core.common.domain.result.AppResult
  * [FakeTodoRemoteDataSource]. Un vrai serveur sera une autre implémentation (Ktor, `safeApiCall`), qui applique
  * la même règle : pour chaque tâche, la version la plus récente gagne.
  */
-interface TodoRemoteDataSource {
+internal interface TodoRemoteDataSource {
 
     /**
      * Envoie les modifications. Le serveur garde, pour chaque tâche, la plus récente entre la sienne et

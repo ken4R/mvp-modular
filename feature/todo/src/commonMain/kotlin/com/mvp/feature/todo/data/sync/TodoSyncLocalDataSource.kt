@@ -7,9 +7,9 @@ import kotlinx.coroutines.flow.Flow
  * [com.mvp.feature.todo.data.source.SqlDelightTodoLocalDataSource] : chaque modification d'une tâche y entre
  * dans la file d'envoi au sein de la même transaction, donc rien ne se perd si l'app est tuée entre les deux.
  */
-interface TodoSyncLocalDataSource {
+internal interface TodoSyncLocalDataSource {
 
-    /** Nombre de tâches modifiées hors ligne (ou pas encore envoyées), réémis à chaque changement. */
+    /** Nombre de tâches modifiées hors ligne (ou pas encore envoyées), réémis à chaque écriture dans la file. */
     fun observePendingCount(): Flow<Int>
 
     /** Les modifications à envoyer, la plus ancienne d'abord. */
@@ -23,8 +23,9 @@ interface TodoSyncLocalDataSource {
 
     /**
      * Applique les versions reçues du serveur : une tâche est créée, mise à jour ou supprimée si la version
-     * reçue est plus récente que la sienne. Une tâche qui a une modification en attente n'est pas touchée :
-     * sa version part au prochain envoi et le serveur départage. Les rappels de l'appareil sont gardés.
+     * reçue n'est pas plus ancienne que la sienne (à égalité, le serveur l'emporte). Une tâche qui a une modification en attente n'est pas touchée :
+     * sa version part au prochain envoi et le serveur départage. Les rappels de l'appareil sont gardés. Une
+     * version au titre vide ou trop long (règles d'AddTodoUseCase) est ignorée.
      */
     fun applyRemote(records: List<TodoRecord>)
 }

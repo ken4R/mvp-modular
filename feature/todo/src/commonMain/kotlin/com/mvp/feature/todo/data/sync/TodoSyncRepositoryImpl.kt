@@ -27,7 +27,7 @@ internal class TodoSyncRepositoryImpl(
     private val progress = MutableStateFlow(Progress())
 
     /** Entre la déconnexion et la connexion suivante, plus rien ne part ni n'arrive. */
-    private var signedOut = false
+    private val signedIn = MutableStateFlow(true)
 
     private data class Progress(val isSyncing: Boolean = false, val lastSyncFailed: Boolean = false)
 
@@ -36,8 +36,12 @@ internal class TodoSyncRepositoryImpl(
             TodoSyncState(pendingChanges, current.isSyncing, current.lastSyncFailed)
         }.distinctUntilChanged()
 
+    override fun observePendingChanges(): Flow<Int> = local.observePendingCount()
+
+    override fun observeIsSignedIn(): Flow<Boolean> = signedIn
+
     override suspend fun sync(): AppResult<Int> = mutex.withLock {
-        if (signedOut) return@withLock AppResult.Failure(AppError.Unauthorized)
+        if (!signedIn.value) return@withLock AppResult.Failure(AppError.Unauthorized)
         progress.update { it.copy(isSyncing = true) }
         val result = try {
             pushThenPull()
@@ -67,15 +71,26 @@ internal class TodoSyncRepositoryImpl(
     }
 
     /**
-     * Déconnexion : attend la fin d'une synchronisation en cours, prévient le serveur, puis lance [clear]
-     * (effacement des données locales). Jusqu'à [onSignedIn], [sync] échoue sans rien envoyer.
+     * Déconnexion : arrête la synchronisation automatique (qui annule l'envoi en cours), attend la fin d'une
+     * synchronisation encore en cours, prévient le serveur, puis lance [clear] (effacement des données locales). Jusqu'à [onSignedIn], [sync] échoue sans rien envoyer. Si l'effacement
+     * échoue, la déconnexion n'a pas lieu (la session est gardée) : la synchronisation reprend.
+     * [TodoRemoteDataSource.signOut] doit rester local (oublier le jeton), pour ne pas retarder la déconnexion.
      */
-    suspend fun signOut(clear: suspend () -> Unit) = mutex.withLock {
-        signedOut = true
-        remote.signOut()
-        clear()
-        progress.value = Progress()
+    suspend fun signOut(clear: suspend () -> Unit) {
+        signedIn.value = false
+        mutex.withLock {
+            try {
+                remote.signOut()
+                clear()
+            } catch (e: Throwable) {
+                signedIn.value = true
+                throw e
+            }
+            progress.value = Progress()
+        }
     }
 
-    suspend fun onSignedIn() = mutex.withLock { signedOut = false }
+    fun onSignedIn() {
+        signedIn.value = true
+    }
 }

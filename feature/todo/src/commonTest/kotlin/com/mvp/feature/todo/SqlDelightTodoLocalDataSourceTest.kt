@@ -194,6 +194,9 @@ class SqlDelightTodoLocalDataSourceTest {
                 TodoRecord("gone", "", isDone = false, updatedAt = 3_000L, isDeleted = true),
                 TodoRecord("other", "Créée ailleurs", isDone = false, updatedAt = 3_000L),
                 TodoRecord("ghost", "", isDone = false, updatedAt = 3_000L, isDeleted = true),
+                // Versions que l'app n'aurait pas pu écrire : ignorées.
+                TodoRecord("blank", "  ", isDone = false, updatedAt = 3_000L),
+                TodoRecord("long", "x".repeat(81), isDone = false, updatedAt = 3_000L),
             ),
         )
 

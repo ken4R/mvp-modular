@@ -20,7 +20,10 @@ internal class TodoUserSessionObserver(
     private val sync: TodoSyncRepositoryImpl,
 ) : UserSessionObserver {
 
-    override suspend fun onLogin(account: UserAccount): AppResult<Unit> = safeCall { sync.onSignedIn() }
+    override suspend fun onLogin(account: UserAccount): AppResult<Unit> {
+        sync.onSignedIn()
+        return AppResult.Success(Unit)
+    }
 
     override suspend fun clearUserData(): AppResult<Unit> = safeCall {
         sync.signOut {

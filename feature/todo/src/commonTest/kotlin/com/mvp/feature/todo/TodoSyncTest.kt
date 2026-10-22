@@ -229,6 +229,68 @@ class TodoSyncTest {
     }
 
     @Test
+    fun logoutDuringASyncWaitsForItAndLeavesNothingBehind() = scope.runTest {
+        val slowServer = FakeTodoRemoteDataSource(connectivity, latencyMillis = 400)
+        val phone = Device()
+        val sync = TodoSyncRepositoryImpl(phone.local, slowServer)
+        val observer = TodoUserSessionObserver(phone.local, FakeReminderScheduler(), sync)
+        phone.local.upsert(Todo("a", "Tâche", isDone = false))
+
+        val running = launch { sync.sync() }
+        testScheduler.advanceTimeBy(200)
+        val logout = launch { observer.clearUserData() }
+        testScheduler.advanceUntilIdle()
+        running.join()
+        logout.join()
+
+        assertEquals(emptyList(), phone.todos())
+        assertEquals(emptyList(), phone.local.pendingChanges())
+        assertTrue((slowServer.fetchAll() as AppResult.Success).data.isEmpty())
+    }
+
+    @Test
+    fun automaticSyncStopsRetryingWhenTheServerRefusesTheSession() = scope.runTest {
+        val phone = Device()
+        var calls = 0
+        val refusingServer = object : TodoRemoteDataSource {
+            override suspend fun push(changes: List<TodoRecord>): AppResult<Unit> {
+                calls++
+                return AppResult.Failure(AppError.Unauthorized)
+            }
+            override suspend fun fetchAll() = AppResult.Failure(AppError.Unauthorized)
+            override suspend fun signOut() {}
+        }
+        phone.local.upsert(Todo("a", "Tâche", isDone = false))
+        val job = launch { StartTodoSyncUseCase(TodoSyncRepositoryImpl(phone.local, refusingServer), connectivity, session, dispatcher)(NoParams).collect {} }
+
+        testScheduler.advanceTimeBy(600_000)
+        job.cancel()
+
+        assertEquals(1, calls)
+    }
+
+    @Test
+    fun automaticSyncStopsAtLogoutAndResumesRightAfterTheNextLogin() = scope.runTest {
+        val phone = Device()
+        val observer = TodoUserSessionObserver(phone.local, FakeReminderScheduler(), phone.sync)
+        val job = launch { StartTodoSyncUseCase(phone.sync, connectivity, session, dispatcher)(NoParams).collect {} }
+        testScheduler.advanceUntilIdle()
+        observer.clearUserData()
+        testScheduler.advanceUntilIdle()
+
+        // La session de l'autre compte est enregistrée avant onLogin : rien ne part encore.
+        phone.local.upsert(Todo("a", "Nouveau compte", isDone = false))
+        testScheduler.advanceUntilIdle()
+        assertEquals(1, phone.local.pendingChanges().size)
+
+        observer.onLogin(UserAccount("2", "Autre", "autre@example.com"))
+        testScheduler.advanceUntilIdle()
+        job.cancel()
+
+        assertEquals(emptyList(), phone.local.pendingChanges())
+    }
+
+    @Test
     fun logoutErasesTodosOutboxAndServerAndBlocksSyncUntilNextLogin() = scope.runTest {
         val phone = Device()
         val reminders = FakeReminderScheduler()

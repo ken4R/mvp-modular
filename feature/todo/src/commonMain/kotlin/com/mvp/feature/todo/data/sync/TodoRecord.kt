@@ -6,7 +6,7 @@ package com.mvp.feature.todo.data.sync
  * gagne). [isDeleted] : tâche supprimée ; le serveur en garde la trace pour que la suppression atteigne les
  * autres appareils et qu'une version plus ancienne ne la fasse pas réapparaître.
  */
-data class TodoRecord(
+internal data class TodoRecord(
     val id: String,
     val title: String,
     val isDone: Boolean,

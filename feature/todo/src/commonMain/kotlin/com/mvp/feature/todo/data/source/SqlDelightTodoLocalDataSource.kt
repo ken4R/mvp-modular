@@ -8,6 +8,7 @@ import com.mvp.feature.todo.data.db.TodoEntity
 import com.mvp.feature.todo.data.sync.TodoRecord
 import com.mvp.feature.todo.data.sync.TodoSyncLocalDataSource
 import com.mvp.feature.todo.domain.model.Todo
+import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -67,7 +68,7 @@ internal class SqlDelightTodoLocalDataSource(
     }
 
     override fun observePendingCount(): Flow<Int> =
-        pending.count().asFlow().mapToOne(dispatcher).map { it.toInt() }.distinctUntilChanged()
+        pending.count().asFlow().mapToOne(dispatcher).map { it.toInt() }
 
     override fun pendingChanges(): List<TodoRecord> =
         pending.selectPending { todoId, isDeleted, changedAt, title, isDone ->
@@ -86,11 +87,14 @@ internal class SqlDelightTodoLocalDataSource(
     override fun applyRemote(records: List<TodoRecord>) = queries.transaction {
         records.forEach { record ->
             if (pending.selectIsPending(record.id).executeAsOne() > 0L) return@forEach
+            // Le serveur n'est pas cru sur parole : une version que l'app n'aurait pas pu écrire est ignorée.
+            if (!record.isDeleted && !record.title.isValidTitle()) return@forEach
             val local = queries.selectById(record.id).executeAsOneOrNull()
             when {
-                // Déjà supprimée ici, ou modifiée ici plus récemment (déjà envoyée) : rien à faire.
+                // Déjà supprimée ici, ou modifiée ici plus récemment (déjà envoyée) : rien à faire. À égalité
+                // d'heure, la version du serveur l'emporte, comme sur le serveur : tous les appareils convergent.
                 local == null && record.isDeleted -> Unit
-                local != null && local.updated_at >= record.updatedAt -> Unit
+                local != null && local.updated_at > record.updatedAt -> Unit
                 record.isDeleted -> queries.deleteById(record.id)
                 local == null -> queries.insert(record.id, record.title, record.isDone.toLong(), null, record.updatedAt)
                 else -> queries.update(record.title, record.isDone.toLong(), local.reminder_at, record.updatedAt, record.id)
@@ -124,6 +128,8 @@ internal class SqlDelightTodoLocalDataSource(
 
 private fun toTodo(entity: TodoEntity) =
     Todo(id = entity.id, title = entity.title, isDone = entity.is_done != 0L, reminderAt = entity.reminder_at)
+
+private fun String.isValidTitle(): Boolean = isNotBlank() && length <= AddTodoUseCase.MAX_TITLE_LENGTH
 
 private fun Boolean.toLong(): Long = if (this) 1L else 0L
 

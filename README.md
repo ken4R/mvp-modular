@@ -78,6 +78,7 @@ Changer une couleur ou une taille dans le module KMP met à jour les deux apps.
 Module de référence pour les prochaines features : ajouter, cocher et supprimer des tâches.
 - **Use cases** : `ObserveTodosUseCase` (Flow, tâches terminées en dernier), `AddTodoUseCase` (titre obligatoire, 80 caractères max), `ToggleTodoUseCase`, `DeleteTodoUseCase`.
 - **Rappels** ([plan](docs/plans/rappels-taches.md), [ADR 0004](docs/adr/0004-rappels-notifications-locales.md)) : `SetTodoReminderUseCase` (date à venir, `null` pour retirer), `ObserveRemindersEnabledUseCase`, et `SyncTodoRemindersUseCase`, lancé une fois par chaque app, qui programme une notification pour chaque tâche non terminée dont le rappel est à venir, seulement si le réglage Notifications est activé et avant la fin de la session (`SessionExpiry`, fourni par `feature:auth`). La déconnexion ou l'expiration de la session annule tous les rappels.
+- **Widget de l'écran d'accueil** ([plan](docs/plans/widgets.md), [ADR 0011](docs/adr/0011-widgets-ecran-accueil.md)) : `ObserveTodoWidgetUseCase` donne ce que le widget peut montrer : rien sans session valide (`SignedOut`) ni avec le déverrouillage Face ID / empreinte activé (`Locked`, via `AppLockPreference` fourni par `feature:settings`), sinon les tâches non terminées, rappel le plus proche d'abord. Android : widget Glance `widget/TodoWidget.kt`, redessiné par `TodoWidgetUpdater`. iOS : package `FeatureTodoWidget` (l'app recopie l'état dans un fichier de l'App Group) et extension `TodoWidgetExtension`, qui ne charge pas le framework Kotlin.
 - **Data** : tâches stockées en SQLite (SQLDelight, `todo.db`, migration `1.sqm` pour la colonne `reminder_at`) derrière `TodoLocalDataSource` ; elles survivent au redémarrage. Une implémentation en mémoire sert aux tests des use cases.
 - **Android** : `ui/todo/TodoViewModel.kt` + `TodoScreen.kt` (bouton « Rappel » : date puis heure) ; `MvpApplication` lance la synchronisation des rappels.
 - **iOS** : package SPM `iosApp/Packages/FeatureTodo` (`TodoViewModel.swift` + `TodoListView.swift`, cloche et feuille de rappel ; `TodoReminders.start()` à appeler au lancement) et son app de démo `TodoDemo`. Les Flow sont exposés à Swift par callbacks via `UseCases.observeTodos(...)`, qui renvoie une `Subscription` à annuler.
@@ -141,10 +142,11 @@ iosApp/
    ├─ FeatureSettings/          ← même structure, démo SettingsDemo
    ├─ FeatureAuth/              ← écran de connexion + SessionGate, démo AuthDemo
    ├─ FeatureCatalog/           ← liste paginée + fiche + cache d'images, démo CatalogDemo
-   └─ FeatureTodoCompose/       ← écran Tâches en Compose Multiplatform (UIViewController), démo TodoComposeDemo
+   ├─ FeatureTodoCompose/       ← écran Tâches en Compose Multiplatform (UIViewController), démo TodoComposeDemo
+   └─ FeatureTodoWidget/        ← widget Tâches : recopie pour l'extension (Sources/) + extension WidgetKit (Widget/)
 ```
 
-- Une feature iOS dépend uniquement de `SharedKMP` (la logique) et de `DesignSystemUI` (le visuel), jamais d'une autre feature.
+- Une feature iOS dépend uniquement de `SharedKMP` (la logique) et de `DesignSystemUI` (le visuel), jamais d'une autre feature. Exception : l'extension WidgetKit ne lie que `TodoWidgetData`, sans dépendance, car elle ne charge pas le framework Kotlin ([ADR 0011](docs/adr/0011-widgets-ecran-accueil.md)).
 - La démo est optionnelle : c'est une cible app de `project.yml` dont les sources sont `Packages/<Feature>/Demo`. Elle sert à développer et tester la feature sans passer par l'app complète.
 - Le framework Kotlin est dynamique : SPM l'embarque une seule fois, même si plusieurs packages en dépendent.
 

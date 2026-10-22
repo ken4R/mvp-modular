@@ -102,10 +102,50 @@ class ProfileAndSessionTest {
         stack.repository.setNotificationsEnabled(true)
 
         assertEquals(AppResult.Success(Unit), stack.observer.clearUserData())
+        stack.observer.onLogout()
 
         assertEquals(UserSettings.initial(), stack.current())
         assertEquals(UserSettings.initial(), newStack().current())
         assertTrue(storage.values.isEmpty())
         assertNull(SettingsDatabase(driver).settingEntityQueries.selectAll().executeAsList().firstOrNull())
+    }
+
+    @Test
+    fun appLockStaysOnUntilTheLogoutIsComplete() = scope.runTest {
+        val stack = newStack()
+        stack.repository.updateProfile(UserProfile("Youssef", "y@example.com"))
+        stack.repository.setNotificationsEnabled(true)
+        stack.repository.setAppLockEnabled(true)
+
+        // Session encore valide, autres features peut-être pas encore effacées : le verrou tient.
+        assertEquals(AppResult.Success(Unit), stack.observer.clearUserData())
+        assertEquals(UserSettings.initial().copy(appLockEnabled = true), stack.current())
+
+        stack.observer.onLogout()
+        assertEquals(UserSettings.initial(), stack.current())
+    }
+
+    @Test
+    fun appLockKeptByAnAccountChangeIsDroppedAtLogin() = scope.runTest {
+        val stack = newStack()
+        stack.repository.updateProfile(UserProfile("Ancien compte", ""))
+        stack.repository.setAppLockEnabled(true)
+
+        stack.observer.clearUserData()
+        stack.observer.onLogin(account)
+
+        assertEquals(false, stack.current().appLockEnabled)
+        assertEquals(UserProfile("Youssef", "y@example.com"), stack.current().profile)
+    }
+
+    @Test
+    fun sameAccountLoggingBackInKeepsItsAppLock() = scope.runTest {
+        val stack = newStack()
+        stack.repository.updateProfile(UserProfile("Youssef", "y@example.com"))
+        stack.repository.setAppLockEnabled(true)
+
+        stack.observer.onLogin(account)
+
+        assertEquals(true, stack.current().appLockEnabled)
     }
 }

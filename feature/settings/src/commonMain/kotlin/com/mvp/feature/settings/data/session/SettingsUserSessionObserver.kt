@@ -7,6 +7,7 @@ import com.mvp.core.common.domain.session.UserSessionObserver
 import com.mvp.feature.settings.data.source.ProfileLocalDataSource
 import com.mvp.feature.settings.data.source.SettingsLocalDataSource
 import com.mvp.feature.settings.domain.model.UserProfile
+import com.mvp.feature.settings.domain.model.UserSettings
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
 
 /** Les réglages suivent la session : profil pré-rempli à la connexion, tout effacé à la déconnexion. */
@@ -18,6 +19,8 @@ internal class SettingsUserSessionObserver(
     // Un profil déjà rempli (même compte qui se reconnecte) n'est pas écrasé.
     override suspend fun onLogin(account: UserAccount): AppResult<Unit> = safeCall {
         if (profile.current().displayName.isEmpty()) {
+            // Données effacées (autre compte) : le verrou gardé par clearUserData ne vaut pas pour ce compte.
+            settings.update { it.copy(appLockEnabled = false) }
             profile.save(
                 UserProfile(
                     displayName = account.displayName.take(UpdateProfileUseCase.MAX_NAME_LENGTH),
@@ -27,8 +30,19 @@ internal class SettingsUserSessionObserver(
         }
     }
 
+    /**
+     * Tout est remis à zéro sauf le verrou Face ID / empreinte, en une seule écriture : pendant la déconnexion,
+     * la session est encore valide et les autres features ne sont pas forcément effacées (ordre non garanti,
+     * échec possible). Le verrou reste donc actif jusqu'à la fin de la déconnexion ([onLogout]) : ni l'app
+     * ni le widget Tâches ne montrent les tâches sans authentification entre-temps (ADR 0011).
+     */
     override suspend fun clearUserData(): AppResult<Unit> = safeCall {
         profile.clear()
+        settings.update { UserSettings.initial().copy(appLockEnabled = it.appLockEnabled) }
+    }
+
+    /** Session effacée : plus rien à protéger, la base des réglages est vidée. */
+    override suspend fun onLogout() {
         settings.clear()
     }
 }

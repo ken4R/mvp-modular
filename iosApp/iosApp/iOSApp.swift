@@ -2,6 +2,7 @@ import SwiftUI
 import Shared
 import FeatureAuth
 import FeatureTodo
+import FeatureTodoWidget
 import FeatureSettings
 
 /// App complète : initialise la logique KMP et assemble les features, derrière l'écran de connexion.
@@ -12,6 +13,8 @@ struct iOSApp: App {
     init() {
         KoinIosKt.doInitKoin()
         TodoReminders.start()
+        // Widget Tâches de l'écran d'accueil : recopié à chaque changement, vidé à la déconnexion ou avec le verrou.
+        TodoWidgetPublisher.start()
     }
 
     var body: some Scene {

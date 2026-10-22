@@ -73,6 +73,15 @@ jobs:
           plist=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app/Info.plist' | head -1)
           /usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$plist"
           /usr/libexec/PlistBuddy -c 'Print :NSLocationDefaultAccuracyReduced' "$plist"
+      - name: Extension du widget Tâches embarquée dans l'app, sans le framework Kotlin (ADR 0011)
+        run: |
+          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app' -type d | head -1)
+          appex="$app/PlugIns/TodoWidgetExtension.appex"
+          /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$appex/Info.plist"
+          if otool -L "$appex/TodoWidgetExtension" | grep -q Shared.framework; then
+            echo "error: l'extension widget ne doit pas lier Shared.framework" >&2
+            exit 1
+          fi
       - name: Clé exigée par Compose Multiplatform dans l'Info.plist des apps qui l'affichent
         run: |
           for app in iosApp TodoComposeDemo; do

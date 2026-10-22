@@ -36,5 +36,20 @@
                 <data android:scheme="mvpmodular" />
             </intent-filter>
         </activity>
+
+        <!-- Widget Tâches de l'écran d'accueil (Jetpack Glance, ADR 0011). Exporté : c'est le lanceur qui
+             l'installe et le système qui lui envoie APPWIDGET_UPDATE (diffusion protégée). Le widget ne fait
+             qu'ouvrir MainActivity par un intent explicite ; il ne coche ni ne supprime rien. -->
+        <receiver
+            android:name=".widget.TodoWidgetReceiver"
+            android:exported="true"
+            android:label="Tâches">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/todo_widget_info" />
+        </receiver>
     </application>
 </manifest>

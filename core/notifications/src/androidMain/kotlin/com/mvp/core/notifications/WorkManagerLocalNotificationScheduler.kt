@@ -38,6 +38,7 @@ internal class WorkManagerLocalNotificationScheduler(
                         .putString(NotificationWorker.KEY_TAG, tag)
                         .putString(NotificationWorker.KEY_TITLE, notification.title)
                         .putString(NotificationWorker.KEY_BODY, notification.body)
+                        .putString(NotificationWorker.KEY_DEEP_LINK, notification.deepLink)
                         .build(),
                 )
                 .addTag(group)

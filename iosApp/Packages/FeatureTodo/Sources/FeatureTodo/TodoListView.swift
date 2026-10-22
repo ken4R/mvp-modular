@@ -8,8 +8,12 @@ public struct TodoListView: View {
     @FocusState private var inputFocused: Bool
     /// Tâche dont on choisit le rappel (feuille ouverte).
     @State private var reminderTodo: Todo?
+    /// Tâche demandée par un lien profond : prise en compte puis remise à `nil`.
+    @Binding private var focusRequest: String?
 
-    public init() {}
+    public init(focusRequest: Binding<String?> = .constant(nil)) {
+        _focusRequest = focusRequest
+    }
 
     public var body: some View {
         let colors = DS.colors(colorScheme)
@@ -42,24 +46,34 @@ public struct TodoListView: View {
                     .font(DS.Typography.body)
                     .foregroundColor(Color(argb: colors.onBackground))
             }
-            List {
-                ForEach(viewModel.todos, id: \.id) { todo in
-                    TodoRow(
-                        todo: todo,
-                        colors: colors,
-                        onToggle: { Task { await viewModel.toggle(todo) } },
-                        onReminder: {
-                            viewModel.clearError()
-                            reminderTodo = todo
+            ScrollViewReader { proxy in
+                List {
+                    ForEach(viewModel.todos, id: \.id) { todo in
+                        TodoRow(
+                            todo: todo,
+                            colors: colors,
+                            onToggle: { Task { await viewModel.toggle(todo) } },
+                            onReminder: {
+                                viewModel.clearError()
+                                reminderTodo = todo
+                            }
+                        )
+                        .swipeActions {
+                            Button("Supprimer", role: .destructive) { Task { await viewModel.delete(todo) } }
                         }
-                    )
-                    .swipeActions {
-                        Button("Supprimer", role: .destructive) { Task { await viewModel.delete(todo) } }
+                        .listRowBackground(todo.id == viewModel.focusedTodoId ? Color(argb: colors.highlight) : nil)
+                    }
+                }
+                .listStyle(.plain)
+                .scrollDismissesKeyboard(.immediately)
+                .onChange(of: viewModel.focusedTodoId) { id in
+                    guard let id else { return }
+                    // Au tour suivant : la ligne vient parfois d'arriver avec la liste.
+                    DispatchQueue.main.async {
+                        withAnimation { proxy.scrollTo(id, anchor: .center) }
                     }
                 }
             }
-            .listStyle(.plain)
-            .scrollDismissesKeyboard(.immediately)
         }
         .padding(DS.Spacing.md)
         .background(Color(argb: colors.background))
@@ -69,8 +83,19 @@ public struct TodoListView: View {
         )) { target in
             ReminderSheet(todo: target.todo, colors: colors, viewModel: viewModel) { reminderTodo = nil }
         }
-        .onAppear { viewModel.start() }
+        .onAppear {
+            viewModel.start()
+            takeFocusRequest()
+        }
+        .onChange(of: focusRequest) { _ in takeFocusRequest() }
         .onDisappear { viewModel.stop() }
+    }
+
+    private func takeFocusRequest() {
+        guard let id = focusRequest else { return }
+        focusRequest = nil
+        reminderTodo = nil
+        Task { await viewModel.focus(id) }
     }
 
     /// Ferme le clavier après l'ajout : sinon la barre d'autocorrection peut

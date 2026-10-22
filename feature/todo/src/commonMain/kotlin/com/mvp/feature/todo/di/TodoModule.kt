@@ -13,6 +13,7 @@ import com.mvp.feature.todo.domain.reminder.ReminderScheduler
 import com.mvp.feature.todo.domain.repository.TodoRepository
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
+import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
@@ -40,6 +41,7 @@ val todoModule = module {
     factory { AddTodoUseCase(get(), get<AppDispatchers>().io) }
     factory { ToggleTodoUseCase(get(), get<AppDispatchers>().io) }
     factory { DeleteTodoUseCase(get(), get<AppDispatchers>().io) }
+    factory { FindTodoUseCase(get(), get<AppDispatchers>().io) }
     factory { SetTodoReminderUseCase(get(), systemNow, get<AppDispatchers>().io) }
     // NotificationsPreference vient de feature:settings, SessionExpiry de feature:auth : sans dépendance directe.
     factory { ObserveRemindersEnabledUseCase(get(), get<AppDispatchers>().io) }

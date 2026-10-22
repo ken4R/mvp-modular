@@ -34,6 +34,7 @@ include(":core:database-testing")
 include(":core:securestorage")
 include(":core:notifications")
 include(":core:location")
+include(":core:deeplink")
 
 // Features
 include(":feature:todo")

@@ -56,6 +56,13 @@ object Sizes {
     val heroImage = DesignSystem.sizes.heroImage.dp
 }
 
+/** Couleurs du design system sans rôle Material 3 équivalent : `MvpColors.highlight`. */
+object MvpColors {
+    /** Fond d'un élément mis en évidence (tâche ouverte par un lien), texte en `onSurface`. */
+    val highlight: Color
+        @Composable get() = DesignSystem.colors(isSystemInDarkTheme()).highlight.toColor()
+}
+
 private fun Long.toColor() = Color(this)
 
 private fun ColorTokens.toColorScheme(dark: Boolean): ColorScheme {

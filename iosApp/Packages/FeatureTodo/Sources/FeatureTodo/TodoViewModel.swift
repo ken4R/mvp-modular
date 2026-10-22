@@ -7,9 +7,12 @@ final class TodoViewModel: ObservableObject {
     @Published var input: String = ""
     @Published private(set) var error: String?
     @Published private(set) var remindersEnabled = true
+    /// Tâche ouverte par un lien : la liste défile jusqu'à elle et la met en évidence quelques secondes.
+    @Published private(set) var focusedTodoId: String?
 
     private var subscription: Subscription?
     private var remindersSubscription: Subscription?
+    private var focusTask: Task<Void, Never>?
 
     /// Des rappels à venir sont posés mais ne partiront pas : la vue invite à activer les notifications.
     var showRemindersDisabledHint: Bool {
@@ -37,6 +40,25 @@ final class TodoViewModel: ObservableObject {
         remindersSubscription?.cancel()
         remindersSubscription = nil
     }
+
+    /// Un lien demande la tâche `id` : mise en évidence si elle existe ; sinon l'écran reste sur la liste et le dit.
+    func focus(_ id: String) async {
+        let result = try? await UseCases.shared.findTodo().invoke(params: id as NSString)
+        if let failure = result as? AppResultFailure {
+            error = failure.error.userMessage
+            return
+        }
+        guard result != nil else { return }
+        focusedTodoId = id
+        focusTask?.cancel()
+        focusTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: Self.focusDuration)
+            if !Task.isCancelled { self?.focusedTodoId = nil }
+        }
+    }
+
+    /// Durée de la mise en évidence, en nanosecondes (3 s).
+    private static let focusDuration: UInt64 = 3_000_000_000
 
     func add() async {
         let result = try? await UseCases.shared.addTodo().invoke(params: input as NSString)

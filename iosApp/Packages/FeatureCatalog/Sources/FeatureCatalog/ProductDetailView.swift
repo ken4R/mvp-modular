@@ -2,7 +2,7 @@ import SwiftUI
 import Shared
 import DesignSystemUI
 
-/// Fiche produit, ouverte par son identifiant (depuis la liste, ou plus tard depuis un lien).
+/// Fiche produit, ouverte par son identifiant (depuis la liste, ou depuis un lien profond).
 struct ProductDetailView: View {
     @StateObject private var viewModel: ProductDetailViewModel
     @Environment(\.colorScheme) private var colorScheme

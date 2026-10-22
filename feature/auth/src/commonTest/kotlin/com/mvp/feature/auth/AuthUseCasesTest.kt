@@ -123,6 +123,16 @@ class AuthUseCasesTest {
     }
 
     @Test
+    fun loginIsNotALogout() = scope.runTest {
+        // Première connexion : les données restantes sont effacées, mais ce n'est pas une déconnexion
+        // (un lien profond reçu avant la connexion doit survivre).
+        login(demo)
+
+        assertEquals(1, observer.clearCount)
+        assertEquals(0, observer.logoutCount)
+    }
+
+    @Test
     fun featuresAreToldAboutLogin() = scope.runTest {
         login(demo)
 
@@ -178,6 +188,7 @@ class AuthUseCasesTest {
         assertEquals(AppResult.Success(Unit), logout(NoParams))
 
         assertEquals(2, observer.clearCount)
+        assertEquals(1, observer.logoutCount)
         assertNull(account())
         assertTrue(storage.values.isEmpty(), "aucune trace de la session ne doit rester : ${storage.values.keys}")
     }
@@ -189,6 +200,7 @@ class AuthUseCasesTest {
 
         assertIs<AppResult.Failure>(logout(NoParams))
         assertEquals("jean.dupont@exemple.fr", account()?.email)
+        assertEquals(0, observer.logoutCount)
 
         observer.failClear = false
         assertEquals(AppResult.Success(Unit), logout(NoParams))

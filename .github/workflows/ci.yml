@@ -39,7 +39,8 @@ jobs:
           ls -l "$release"
           unzip -p "$debug" 'classes*.dex' > "$RUNNER_TEMP/debug.dex"
           unzip -p "$release" 'classes*.dex' > "$RUNNER_TEMP/release.dex"
-          # Témoin : le mot de passe de démo est bien visible dans le code du build debug.
+          # Témoin : le faux service et son mot de passe sont bien visibles dans le code du build debug.
+          grep -aq FakeAuthRemoteDataSource "$RUNNER_TEMP/debug.dex"
           grep -aq demo1234 "$RUNNER_TEMP/debug.dex"
           if grep -aq demo1234 "$RUNNER_TEMP/release.dex"; then
             echo "error: le build release contient encore le faux service de connexion" >&2

@@ -18,7 +18,7 @@ internal class AndroidDatabaseDriverFactory(private val context: Context) : Data
 private class SecureDeleteCallback(schema: SqlSchema<QueryResult.Value<Unit>>) : AndroidSqliteDriver.Callback(schema) {
     override fun onConfigure(db: SupportSQLiteDatabase) {
         super.onConfigure(db)
-        // Le PRAGMA renvoie une ligne : il passe par query, execSQL le refuserait.
-        db.query(SECURE_DELETE_PRAGMA).close()
+        // Le PRAGMA renvoie une ligne : il passe par query (execSQL le refuserait), lue pour l'exécuter.
+        db.query(SECURE_DELETE_PRAGMA).use { it.moveToFirst() }
     }
 }

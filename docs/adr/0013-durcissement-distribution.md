@@ -23,11 +23,14 @@ Avant une première distribution (TestFlight, Play Console en test interne), qua
 - Android : constante `BuildConfig.DEMO_AUTH` de `feature:auth`, vraie en debug, fausse en release. C'est une vraie constante (contrairement à `BuildConfig.DEBUG` d'une bibliothèque) : R8 replie la condition et retire `FakeAuthRemoteDataSource` de l'APK release. La CI le vérifie (le mot de passe de démo est présent dans le dex debug, absent du dex release).
 - iOS : `Platform.isDebugBinary` du framework Kotlin. La cible Xcode `KotlinShared` compile maintenant le framework dans la configuration Xcode (Release pour une archive). Le code du faux service reste dans le binaire, mais n'est jamais instancié.
 
-Hors développement, `UnavailableAuthRemoteDataSource` refuse toute connexion (`AppError.Unavailable`, « Connexion indisponible dans cette version ») et une session du faux service restée sur l'appareil n'est plus acceptée (comptes `demo:`). L'écran de connexion n'affiche l'indice `demo1234` qu'en debug (`BuildConfig.DEMO_AUTH` / `#if DEBUG`).
+Hors développement, `UnavailableAuthRemoteDataSource` refuse toute connexion (`AppError.Unavailable`) et une session du faux service restée sur l'appareil n'est plus acceptée (comptes `demo:`). L'écran de connexion n'affiche l'indice `demo1234` qu'en debug (`BuildConfig.DEMO_AUTH` / `#if DEBUG`).
 
 ## Conséquences
 
 - Un build distribué ne permet plus de se connecter tant qu'un vrai backend n'est pas branché sur `AuthRemoteDataSource` : la distribution TestFlight / Play Console sert d'abord à valider l'installation et l'écran de connexion, ou attend le vrai backend.
 - La CI construit aussi le release Android (R8), ce qui détecte une règle manquante. Le release iOS n'est pas construit en CI (trop long) : la seule différence de code est `Platform.isDebugBinary`, la liaison release du framework est déjà faite par l'étape de suivi du poids.
 - Un plantage R8 au lancement (réflexion non couverte par une règle) ne se voit qu'en lançant l'APK release : à essayer sur un émulateur avant la première distribution.
+- Une session `demo:` restée sur l'appareil est ignorée mais pas effacée : elle n'ouvre rien, et la prochaine connexion avec un vrai compte efface les données de l'ancien (changement de compte, ADR 0003).
+- Seuls les artefacts release (APK / AAB release, archive Xcode hors Debug) se distribuent : un build debug envoyé à des testeurs embarque le faux service.
+- Mode WAL (iOS, journal par défaut de SQLiter) : une trame ancienne du fichier `-wal` peut garder une ligne supprimée jusqu'à sa réécriture. Accepté (fichier dans le bac à sable, chiffré par Data Protection) ; un `wal_checkpoint(TRUNCATE)` après l'effacement de déconnexion le fermerait si besoin.
 - Restent ouverts : lier le jeton à la biométrie avant le vrai backend (ADR 0007), et les points serveur du mode hors ligne (ADR 0012).

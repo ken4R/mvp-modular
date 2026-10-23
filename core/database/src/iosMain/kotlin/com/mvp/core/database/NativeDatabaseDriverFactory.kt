@@ -37,19 +37,24 @@ internal class NativeDatabaseDriverFactory : DatabaseDriverFactory {
 /**
  * Le dossier par défaut de SQLiter (Application Support/databases) : les bases déjà créées y restent.
  * Le marquer exclu des sauvegardes couvre tout son contenu, journaux WAL compris.
+ * `null` (dossier introuvable) : SQLiter reprend ce même dossier par défaut, seule l'exclusion manque.
  */
 @OptIn(ExperimentalForeignApi::class)
-private fun databaseDirectory(): String {
+private fun databaseDirectory(): String? {
     val fileManager = NSFileManager.defaultManager
     val directory = fileManager
         .URLForDirectory(NSApplicationSupportDirectory, NSUserDomainMask, appropriateForURL = null, create = true, error = null)
         ?.URLByAppendingPathComponent(DATABASE_FOLDER, isDirectory = true)
-        ?: error("Dossier Application Support introuvable")
-    fileManager.createDirectoryAtURL(directory, withIntermediateDirectories = true, attributes = null, error = null)
+    if (directory == null ||
+        !fileManager.createDirectoryAtURL(directory, withIntermediateDirectories = true, attributes = null, error = null)
+    ) {
+        NSLog("core:database : dossier des bases introuvable, exclusion des sauvegardes non appliquée")
+        return null
+    }
     if (!directory.setResourceValue(true, forKey = NSURLIsExcludedFromBackupKey, error = null)) {
         NSLog("core:database : impossible d'exclure les bases des sauvegardes")
     }
-    return directory.path ?: error("Chemin du dossier des bases introuvable")
+    return directory.path
 }
 
 private const val DATABASE_FOLDER = "databases"

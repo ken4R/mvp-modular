@@ -104,7 +104,7 @@ private extension AppError {
         switch self {
         case let validation as AppErrorValidation: return validation.message
         case is AppErrorUnauthorized: return "E-mail ou mot de passe incorrect"
-        case is AppErrorUnavailable: return "Connexion indisponible dans cette version"
+        case is AppErrorUnavailable: return "Service indisponible"
         case is AppErrorNetwork: return "Problème de connexion"
         case is AppErrorNotFound: return "Compte introuvable"
         default: return "Erreur inattendue"

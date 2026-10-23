@@ -16,7 +16,25 @@ android {
         versionName = "0.1.0"
     }
 
-    buildFeatures { compose = true }
+    buildTypes {
+        // Build distribué : R8 réduit, optimise et obfusque le code, puis retire les ressources inutilisées.
+        // Les bibliothèques (Ktor, kotlinx.serialization, Koin, WorkManager...) fournissent leurs propres règles.
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Faux service de connexion absent : l'écran de connexion n'affiche pas le mot de passe de démo.
+            buildConfigField("boolean", "DEMO_AUTH", "false")
+        }
+        debug {
+            buildConfigField("boolean", "DEMO_AUTH", "true")
+        }
+    }
+
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

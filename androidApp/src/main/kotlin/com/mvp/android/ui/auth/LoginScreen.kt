@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mvp.android.BuildConfig
 import com.mvp.android.ui.theme.Spacing
 import org.koin.androidx.compose.koinViewModel
 
@@ -50,7 +51,11 @@ fun LoginScreen(viewModel: LoginViewModel = koinViewModel()) {
         ) {
             Text("Connexion", style = MaterialTheme.typography.headlineSmall)
             Text(
-                "Prototype sans serveur : n'importe quel e-mail, mot de passe « demo1234 ».",
+                if (BuildConfig.DEMO_AUTH) {
+                    "Prototype sans serveur : n'importe quel e-mail, mot de passe « demo1234 »."
+                } else {
+                    "Connexion indisponible dans cette version : aucun serveur n'est encore branché."
+                },
                 style = MaterialTheme.typography.bodySmall,
             )
             OutlinedTextField(

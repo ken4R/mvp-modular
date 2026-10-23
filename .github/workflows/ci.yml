@@ -30,6 +30,21 @@ jobs:
         run: ./gradlew :androidApp:assembleDebug
       - name: Taille de l'APK debug (suivi du poids, ADR 0010)
         run: ls -l androidApp/build/outputs/apk/debug/*.apk
+      - name: Build release minifié par R8
+        run: ./gradlew :androidApp:assembleRelease
+      - name: Faux service de connexion absent du build release
+        run: |
+          debug=$(ls androidApp/build/outputs/apk/debug/*.apk | head -1)
+          release=$(ls androidApp/build/outputs/apk/release/*.apk | head -1)
+          ls -l "$release"
+          unzip -p "$debug" 'classes*.dex' > "$RUNNER_TEMP/debug.dex"
+          unzip -p "$release" 'classes*.dex' > "$RUNNER_TEMP/release.dex"
+          # Témoin : le mot de passe de démo est bien visible dans le code du build debug.
+          grep -aq demo1234 "$RUNNER_TEMP/debug.dex"
+          if grep -aq demo1234 "$RUNNER_TEMP/release.dex"; then
+            echo "error: le build release contient encore le faux service de connexion" >&2
+            exit 1
+          fi
 
   ios:
     name: iOS + tests KMP

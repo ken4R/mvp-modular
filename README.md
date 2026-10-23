@@ -52,7 +52,7 @@ Règles de dépendance :
 | `safeCall` | Convertit les exceptions techniques en `AppError` dans les repositories |
 | `AppDispatchers` | Dispatchers injectables (remplaçables en test) |
 
-`core:database` ajoute la persistance locale ([ADR 0002](docs/adr/0002-persistance-sqldelight.md)) : `DatabaseDriverFactory` ouvre une base SQLDelight par feature (driver Android / iOS) et `databaseModule` la fournit via Koin. `core:database-testing` donne une base en mémoire aux tests `commonTest`.
+`core:database` ajoute la persistance locale ([ADR 0002](docs/adr/0002-persistance-sqldelight.md)) : `DatabaseDriverFactory` ouvre une base SQLDelight par feature (driver Android / iOS), hors sauvegardes et avec `secure_delete` ([ADR 0013](docs/adr/0013-durcissement-distribution.md)) et `databaseModule` la fournit via Koin. `core:database-testing` donne une base en mémoire aux tests `commonTest`.
 
 `core:securestorage` ajoute le stockage chiffré ([ADR 0003](docs/adr/0003-connexion-stockage-chiffre.md)) : `SecureStorage` (clé / valeur) chiffré par l'Android Keystore (AES-GCM) ou rangé dans le Keychain iOS, pour les secrets et les données personnelles (session, profil).
 
@@ -109,7 +109,7 @@ Page Réglages : profil, notifications, consentements et version de l'app.
 
 Connexion devant l'app : sans session, seul l'écran de connexion est accessible ([ADR 0003](docs/adr/0003-connexion-stockage-chiffre.md)).
 - **Use cases** : `LoginUseCase` (e-mail valide, mot de passe obligatoire), `LogoutUseCase`, `ObserveSessionUseCase` (Flow du compte connecté, `null` si déconnecté ou session expirée).
-- **Data** : pas encore de backend, `FakeAuthRemoteDataSource` accepte n'importe quel e-mail avec le mot de passe `demo1234` (session de 7 jours). La session est gardée dans `core:securestorage` ; le jeton ne sort jamais de la feature.
+- **Data** : pas encore de backend, `FakeAuthRemoteDataSource` accepte n'importe quel e-mail avec le mot de passe `demo1234` (session de 7 jours), **dans les builds debug seulement** : un build release refuse toute connexion (`UnavailableAuthRemoteDataSource`, [ADR 0013](docs/adr/0013-durcissement-distribution.md)). La session est gardée dans `core:securestorage` ; le jeton ne sort jamais de la feature.
 - **Lien avec les autres features** : sans dépendance entre elles, via `UserSessionObserver` (`core:common`). À la connexion, le profil des Réglages est pré-rempli avec le compte ; à la déconnexion, les tâches (et leurs rappels), les réglages et le profil sont effacés, puis la session. Toute feature qui stocke des données de l'utilisateur doit déclarer le sien.
 - **Android** : `ui/auth/SessionViewModel.kt` (écran racine), `LoginViewModel.kt` + `LoginScreen.kt` ; déconnexion dans la section « Compte » des Réglages.
 - **iOS** : package SPM `iosApp/Packages/FeatureAuth` : `SessionGate { ... }` enveloppe les onglets de l'app, `LoginView` ; app de démo `AuthDemo`. Le Flow est exposé par `UseCases.observeSession(...)`.

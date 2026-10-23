@@ -28,7 +28,7 @@ L'app doit demander une connexion avant d'ouvrir les onglets, garder la session 
 
 ## Conséquences
 
-- Le faux service n'est pas une protection : le mot de passe de démonstration est public (affiché sur l'écran de connexion). L'autorisation réelle devra être faite côté serveur, avec révocation du jeton à la déconnexion et renouvellement (refresh token).
+- Le faux service n'est pas une protection : le mot de passe de démonstration est public (affiché sur l'écran de connexion). Il ne tourne que dans les builds de développement : un build distribué refuse toute connexion (ADR 0013). L'autorisation réelle devra être faite côté serveur, avec révocation du jeton à la déconnexion et renouvellement (refresh token).
 - L'expiration est vérifiée à chaque émission de la session (lancement, connexion, déconnexion), pas en continu pendant que l'app est ouverte.
 - Les implémentations Keystore / Keychain ne sont pas couvertes par les tests `commonTest` (pas de Keystore sur la JVM de test, Keychain soumis aux entitlements sur simulateur) : elles se vérifient en recette manuelle sur appareil ou simulateur.
 - Une nouvelle feature qui stocke des données de l'utilisateur doit déclarer son `UserSessionObserver`, sinon ses données survivront à la déconnexion.

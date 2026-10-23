@@ -47,8 +47,10 @@ aggregateTargets:
     buildScripts:
       - name: Compile Kotlin (Shared.xcframework)
         basedOnDependencyAnalysis: false
+        # Release (archive TestFlight / App Store) : framework Kotlin release, où le faux service de connexion est désactivé.
         script: |
-          "$SRCROOT/../scripts/build-ios-framework.sh" debug
+          if [ "$CONFIGURATION" = "Release" ]; then config=release; else config=debug; fi
+          "$SRCROOT/../scripts/build-ios-framework.sh" "$config"
     settings:
       ENABLE_USER_SCRIPT_SANDBOXING: NO
 

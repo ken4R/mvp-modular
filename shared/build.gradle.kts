@@ -50,6 +50,7 @@ kotlin {
             // Non exporté : les types Ktor n'ont pas à apparaître côté Swift.
             implementation(projects.core.network)
             implementation(projects.core.database)
+            implementation(projects.core.files)
             implementation(projects.core.securestorage)
             implementation(projects.core.notifications)
             implementation(projects.core.location)

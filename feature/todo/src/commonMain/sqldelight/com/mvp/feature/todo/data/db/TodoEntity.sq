@@ -1,27 +1,42 @@
 -- Une ligne par tâche. L'ordre d'affichage suit l'ordre de création (rowid) :
 -- les mises à jour se font par UPDATE, jamais par REPLACE, pour le conserver.
 -- reminder_at : heure du rappel (epoch ms), NULL sans rappel (ajoutée par la migration 1.sqm).
--- updated_at : heure de la dernière modification du titre ou de l'état (epoch ms), qui départage les
+-- updated_at : heure de la dernière modification du titre, de l'état ou de la note (epoch ms), qui départage les
 -- conflits de synchronisation ; le rappel reste propre à l'appareil et ne la change pas (migration 2.sqm, ADR 0012).
+-- note : texte libre, synchronisé comme le titre, vide par défaut (migration 3.sqm, ADR 0014).
 CREATE TABLE TodoEntity (
     id TEXT NOT NULL PRIMARY KEY,
     title TEXT NOT NULL,
     is_done INTEGER NOT NULL DEFAULT 0,
     reminder_at INTEGER,
-    updated_at INTEGER NOT NULL DEFAULT 0
+    updated_at INTEGER NOT NULL DEFAULT 0,
+    note TEXT NOT NULL DEFAULT ''
 );
 
+-- Avec le nombre de pièces jointes (TodoAttachmentEntity.sq) : la jointure fait réémettre la liste quand on en
+-- ajoute ou en retire une.
 selectAll:
-SELECT * FROM TodoEntity ORDER BY rowid;
+SELECT TodoEntity.*, COUNT(TodoAttachmentEntity.id) AS attachment_count
+FROM TodoEntity
+LEFT JOIN TodoAttachmentEntity ON TodoAttachmentEntity.todo_id = TodoEntity.id
+GROUP BY TodoEntity.id
+ORDER BY TodoEntity.rowid;
+
+selectWithAttachmentCountById:
+SELECT TodoEntity.*, COUNT(TodoAttachmentEntity.id) AS attachment_count
+FROM TodoEntity
+LEFT JOIN TodoAttachmentEntity ON TodoAttachmentEntity.todo_id = TodoEntity.id
+WHERE TodoEntity.id = ?
+GROUP BY TodoEntity.id;
 
 selectById:
 SELECT * FROM TodoEntity WHERE id = ?;
 
 insert:
-INSERT INTO TodoEntity(id, title, is_done, reminder_at, updated_at) VALUES (?, ?, ?, ?, ?);
+INSERT INTO TodoEntity(id, title, is_done, reminder_at, updated_at, note) VALUES (?, ?, ?, ?, ?, ?);
 
 update:
-UPDATE TodoEntity SET title = ?, is_done = ?, reminder_at = ?, updated_at = ? WHERE id = ?;
+UPDATE TodoEntity SET title = ?, is_done = ?, reminder_at = ?, updated_at = ?, note = ? WHERE id = ?;
 
 deleteById:
 DELETE FROM TodoEntity WHERE id = ?;

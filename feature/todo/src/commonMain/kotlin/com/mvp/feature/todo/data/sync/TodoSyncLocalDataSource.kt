@@ -24,8 +24,9 @@ internal interface TodoSyncLocalDataSource {
     /**
      * Applique les versions reçues du serveur : une tâche est créée, mise à jour ou supprimée si la version
      * reçue n'est pas plus ancienne que la sienne (à égalité, le serveur l'emporte). Une tâche qui a une modification en attente n'est pas touchée :
-     * sa version part au prochain envoi et le serveur départage. Les rappels de l'appareil sont gardés. Une
-     * version au titre vide ou trop long (règles d'AddTodoUseCase) est ignorée.
+     * sa version part au prochain envoi et le serveur départage. Les rappels et les pièces jointes de l'appareil
+     * sont gardés (une tâche supprimée perd ses pièces jointes). Une version au titre vide ou trop long (règles
+     * d'AddTodoUseCase) ou à la note trop longue (UpdateTodoNoteUseCase) est ignorée.
      */
     fun applyRemote(records: List<TodoRecord>)
 }

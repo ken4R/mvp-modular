@@ -14,6 +14,7 @@ import com.mvp.feature.todo.data.sync.FakeTodoRemoteDataSource
 import com.mvp.feature.todo.data.sync.TodoRecord
 import com.mvp.feature.todo.data.sync.TodoRemoteDataSource
 import com.mvp.feature.todo.data.sync.TodoSyncRepositoryImpl
+import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoSyncStatus
 import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
@@ -45,9 +46,11 @@ class TodoSyncTest {
     private val drivers = mutableListOf<SqlDriver>()
 
     private inner class Device {
+        val files = FakeFileStore()
         val local = SqlDelightTodoLocalDataSource(
             TodoDatabase(createInMemoryDriver(TodoDatabase.Schema).also { drivers += it }),
             dispatcher,
+            files,
             now = { clock },
         )
         val sync = TodoSyncRepositoryImpl(local, server)
@@ -74,6 +77,42 @@ class TodoSyncTest {
 
         assertEquals(phone.todos(), tablet.todos())
         assertEquals(emptyList(), phone.local.pendingChanges())
+    }
+
+    @Test
+    fun noteTravelsWithTheTaskButAttachmentsStayOnTheDevice() = scope.runTest {
+        val phone = Device()
+        val tablet = Device()
+        phone.local.upsert(Todo("a", "Acheter du pain", isDone = false))
+        phone.local.addAttachment("p1", "a", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1, 2))
+        clock = 2_000L
+        phone.local.setNote("a", "Complet, pas de seigle")
+        phone.sync.sync()
+
+        tablet.sync.sync()
+
+        assertEquals(listOf(Todo("a", "Acheter du pain", isDone = false, note = "Complet, pas de seigle")), tablet.todos())
+        assertEquals(emptyList(), tablet.files.names())
+        assertEquals(1, phone.todos().single().attachmentCount)
+    }
+
+    @Test
+    fun aTaskDeletedOnAnotherDeviceLosesItsAttachmentsHere() = scope.runTest {
+        val phone = Device()
+        val tablet = Device()
+        phone.local.upsert(Todo("a", "Tâche", isDone = false))
+        phone.sync.sync()
+        tablet.sync.sync()
+        tablet.local.addAttachment("p1", "a", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1, 2))
+
+        clock = 2_000L
+        phone.local.delete("a")
+        phone.sync.sync()
+        tablet.sync.sync()
+
+        assertEquals(emptyList(), tablet.todos())
+        assertEquals(emptyList(), tablet.local.observeAttachments("a").first())
+        assertEquals(emptyList(), tablet.files.names())
     }
 
     @Test

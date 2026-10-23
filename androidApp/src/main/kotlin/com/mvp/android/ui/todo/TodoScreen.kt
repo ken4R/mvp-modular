@@ -5,6 +5,7 @@ import android.app.TimePickerDialog
 import android.content.Context
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,6 +52,7 @@ import java.time.format.FormatStyle
 /**
  * [focusRequest] : tâche demandée par un lien, à mettre en évidence ; [onFocusRequestHandled] une fois prise en compte.
  * [onOpenComposeMultiplatform] : affiche un bouton vers la version Compose Multiplatform de l'écran (ADR 0010).
+ * Un tap sur une tâche ouvre sa fiche (note et pièces jointes, ADR 0014) à la place de la liste.
  */
 @Composable
 fun TodoScreen(
@@ -59,9 +64,18 @@ fun TodoScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val listState = rememberLazyListState()
+    var openedTodoId by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(focusRequest) {
-        focusRequest?.let { viewModel.focus(it) }
+        focusRequest?.let {
+            // Un lien vers une tâche revient à la liste, où elle est mise en évidence.
+            openedTodoId = null
+            viewModel.focus(it)
+        }
         onFocusRequestHandled()
+    }
+    openedTodoId?.let { id ->
+        TodoDetailScreen(todoId = id, onClose = { openedTodoId = null })
+        return
     }
     // Défile jusqu'à la tâche mise en évidence, puis retire la mise en évidence.
     val focusIndex = state.focusedTodoId?.let { id -> state.todos.indexOfFirst { it.id == id } }?.takeIf { it >= 0 }
@@ -79,6 +93,7 @@ fun TodoScreen(
         onAdd = { viewModel.onAdd() },
         onToggle = { viewModel.onToggle(it) },
         onDelete = { viewModel.onDelete(it) },
+        onOpen = { openedTodoId = it },
         onPickReminder = { todo -> pickReminder(context, todo.reminderAt) { at -> viewModel.onSetReminder(todo.id, at) } },
         onRemoveReminder = { viewModel.onSetReminder(it, null) },
         onRetrySync = { viewModel.onRetrySync() },
@@ -94,6 +109,7 @@ private fun TodoContent(
     onAdd: () -> Unit,
     onToggle: (String) -> Unit,
     onDelete: (String) -> Unit,
+    onOpen: (String) -> Unit,
     onPickReminder: (Todo) -> Unit,
     onRemoveReminder: (String) -> Unit,
     onRetrySync: () -> Unit,
@@ -141,6 +157,7 @@ private fun TodoContent(
                         highlighted = todo.id == state.focusedTodoId,
                         onToggle = { onToggle(todo.id) },
                         onDelete = { onDelete(todo.id) },
+                        onOpen = { onOpen(todo.id) },
                         onPickReminder = { onPickReminder(todo) },
                         onRemoveReminder = { onRemoveReminder(todo.id) },
                     )
@@ -156,6 +173,7 @@ private fun TodoRow(
     highlighted: Boolean,
     onToggle: () -> Unit,
     onDelete: () -> Unit,
+    onOpen: () -> Unit,
     onPickReminder: () -> Unit,
     onRemoveReminder: () -> Unit,
 ) {
@@ -165,12 +183,13 @@ private fun TodoRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = todo.isDone, onCheckedChange = { onToggle() })
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f).clickable(onClickLabel = "Ouvrir la fiche", onClick = onOpen)) {
             Text(
                 text = todo.title,
                 style = MaterialTheme.typography.bodyLarge,
                 textDecoration = if (todo.isDone) TextDecoration.LineThrough else null,
             )
+            detailsSummary(todo)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             todo.reminderAt?.let { at ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // La date passe à la ligne si besoin : « Retirer » garde sa largeur au lieu d'être écrasé
@@ -187,6 +206,16 @@ private fun TodoRow(
         TextButton(onClick = onDelete) { Text("Supprimer") }
     }
 }
+
+/** « Note · 2 pièces jointes » sous le titre ; `null` sans note ni pièce jointe. */
+private fun detailsSummary(todo: Todo): String? = listOfNotNull(
+    "Note".takeIf { todo.note.isNotEmpty() },
+    when (todo.attachmentCount) {
+        0 -> null
+        1 -> "1 pièce jointe"
+        else -> "${todo.attachmentCount} pièces jointes"
+    },
+).joinToString(" · ").ifEmpty { null }
 
 /** Durée de la mise en évidence d'une tâche ouverte par un lien. */
 private const val FOCUS_DURATION_MILLIS = 3_000L

@@ -8,6 +8,8 @@ public struct TodoListView: View {
     @FocusState private var inputFocused: Bool
     /// Tâche dont on choisit le rappel (feuille ouverte).
     @State private var reminderTodo: Todo?
+    /// Tâche dont la fiche (note et pièces jointes, ADR 0014) est affichée à la place de la liste.
+    @State private var openedTodoId: String?
     /// Tâche demandée par un lien profond : prise en compte puis remise à `nil`.
     @Binding private var focusRequest: String?
     /// Bouton vers la version Compose Multiplatform de l'écran (ADR 0010), si fourni.
@@ -19,8 +21,25 @@ public struct TodoListView: View {
     }
 
     public var body: some View {
+        Group {
+            if let openedTodoId {
+                TodoDetailView(todoId: openedTodoId) { self.openedTodoId = nil }
+                    .id(openedTodoId)
+            } else {
+                list
+            }
+        }
+        .onAppear {
+            viewModel.start()
+            takeFocusRequest()
+        }
+        .onChange(of: focusRequest) { _ in takeFocusRequest() }
+        .onDisappear { viewModel.stop() }
+    }
+
+    private var list: some View {
         let colors = DS.colors(colorScheme)
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+        return VStack(alignment: .leading, spacing: DS.Spacing.md) {
             HStack {
                 Text("Mes tâches")
                     .font(DS.Typography.titleLarge)
@@ -72,6 +91,10 @@ public struct TodoListView: View {
                             onReminder: {
                                 viewModel.clearError()
                                 reminderTodo = todo
+                            },
+                            onOpen: {
+                                inputFocused = false
+                                openedTodoId = todo.id
                             }
                         )
                         .swipeActions {
@@ -99,18 +122,14 @@ public struct TodoListView: View {
         )) { target in
             ReminderSheet(todo: target.todo, colors: colors, viewModel: viewModel) { reminderTodo = nil }
         }
-        .onAppear {
-            viewModel.start()
-            takeFocusRequest()
-        }
-        .onChange(of: focusRequest) { _ in takeFocusRequest() }
-        .onDisappear { viewModel.stop() }
     }
 
     private func takeFocusRequest() {
         guard let id = focusRequest else { return }
         focusRequest = nil
         reminderTodo = nil
+        // Un lien vers une tâche revient à la liste, où elle est mise en évidence.
+        openedTodoId = nil
         Task { await viewModel.focus(id) }
     }
 
@@ -133,6 +152,7 @@ private struct TodoRow: View {
     let colors: ColorTokens
     let onToggle: () -> Void
     let onReminder: () -> Void
+    let onOpen: () -> Void
 
     var body: some View {
         HStack(spacing: DS.Spacing.sm) {
@@ -147,6 +167,11 @@ private struct TodoRow: View {
                             .foregroundColor(Color(argb: colors.onSurface))
                         if let date = todo.reminderDate {
                             Text("Rappel le \(date.formatted(date: .abbreviated, time: .shortened))")
+                                .font(DS.Typography.caption)
+                                .foregroundColor(Color(argb: colors.onSurface))
+                        }
+                        if let summary = todo.detailsSummary {
+                            Text(summary)
                                 .font(DS.Typography.caption)
                                 .foregroundColor(Color(argb: colors.onSurface))
                         }
@@ -165,7 +190,28 @@ private struct TodoRow: View {
             .buttonStyle(.borderless)
             .disabled(todo.isDone)
             .accessibilityLabel("Rappel")
+
+            Button(action: onOpen) {
+                Image(systemName: todo.attachmentCount > 0 ? "paperclip.circle.fill" : "info.circle")
+                    .foregroundColor(Color(argb: colors.primary))
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Note et pièces jointes")
         }
+    }
+}
+
+private extension Todo {
+    /// « Note · 2 pièces jointes » sous le titre ; `nil` sans note ni pièce jointe.
+    var detailsSummary: String? {
+        var parts: [String] = []
+        if !note.isEmpty { parts.append("Note") }
+        switch attachmentCount {
+        case 0: break
+        case 1: parts.append("1 pièce jointe")
+        default: parts.append("\(attachmentCount) pièces jointes")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }
 

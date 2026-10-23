@@ -1,0 +1,39 @@
+-- Pièces jointes des tâches (ADR 0014). Le contenu est un fichier privé nommé par l'id (core:files) ; la ligne
+-- garde ce qui s'affiche. Propres à l'appareil, comme le rappel : elles ne partent pas au serveur. Pas de clé
+-- étrangère (désactivées par défaut dans SQLite) : la data source retire les pièces jointes avec leur tâche.
+-- file_name : nom affiché, nettoyé par AddTodoAttachmentUseCase ; jamais utilisé comme chemin.
+-- mime_type : image/jpeg, application/pdf ou text/plain (AttachmentType). added_at : epoch ms.
+CREATE TABLE TodoAttachmentEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    todo_id TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    added_at INTEGER NOT NULL
+);
+
+CREATE INDEX TodoAttachmentEntity_todo_id ON TodoAttachmentEntity(todo_id);
+
+selectByTodo:
+SELECT * FROM TodoAttachmentEntity WHERE todo_id = ? ORDER BY added_at, rowid;
+
+selectById:
+SELECT * FROM TodoAttachmentEntity WHERE id = ?;
+
+selectIdsByTodo:
+SELECT id FROM TodoAttachmentEntity WHERE todo_id = ?;
+
+countByTodo:
+SELECT COUNT(*) FROM TodoAttachmentEntity WHERE todo_id = ?;
+
+insert:
+INSERT INTO TodoAttachmentEntity(id, todo_id, file_name, mime_type, size_bytes, added_at) VALUES (?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM TodoAttachmentEntity WHERE id = ?;
+
+deleteByTodo:
+DELETE FROM TodoAttachmentEntity WHERE todo_id = ?;
+
+deleteAll:
+DELETE FROM TodoAttachmentEntity;

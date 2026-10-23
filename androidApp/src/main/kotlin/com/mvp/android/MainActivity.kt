@@ -37,6 +37,7 @@ import com.mvp.android.ui.auth.LoginScreen
 import com.mvp.android.ui.auth.SessionUiState
 import com.mvp.android.ui.auth.SessionViewModel
 import com.mvp.android.ui.catalog.CatalogScreen
+import com.mvp.android.ui.common.RecentsPrivacy
 import com.mvp.android.ui.deeplink.DeepLinkViewModel
 import com.mvp.android.ui.settings.SettingsScreen
 import com.mvp.android.ui.theme.MvpTheme
@@ -72,7 +73,10 @@ class MainActivity : ComponentActivity() {
                 val session by sessionViewModel.state.collectAsStateWithLifecycle()
                 // Collecté aussi en arrière-plan : l'écran verrouillé est prêt avant que l'app ne réapparaisse.
                 val appLock by appLockViewModel.state.collectAsState()
-                LaunchedEffect(appLock.enabled) { hideFromRecents(appLock.enabled) }
+                // Masqué aussi pendant l'affichage d'un écran sensible (fiche d'une tâche et ses pièces jointes).
+                val sensitiveScreens by RecentsPrivacy.hasSensitiveScreen.collectAsState()
+                val hidden = appLock.enabled || sensitiveScreens > 0
+                LaunchedEffect(hidden) { hideFromRecents(hidden) }
                 // Sans session, seul l'écran de connexion est accessible.
                 when (session) {
                     SessionUiState.Loading -> Blank()
@@ -119,7 +123,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Verrou activé : l'aperçu de l'app dans les apps récentes ne montre pas son contenu. */
+    /** Verrou activé ou écran sensible : l'aperçu de l'app dans les apps récentes ne montre pas son contenu. */
     private fun hideFromRecents(hide: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             setRecentsScreenshotEnabled(!hide)

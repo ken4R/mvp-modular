@@ -8,6 +8,8 @@ kotlin {
         commonMain.dependencies {
             api(projects.core.common)
             implementation(projects.core.database)
+            // Pièces jointes : fichiers privés, hors sauvegardes (ADR 0014).
+            implementation(projects.core.files)
             implementation(projects.core.notifications)
             implementation(projects.core.deeplink)
         }

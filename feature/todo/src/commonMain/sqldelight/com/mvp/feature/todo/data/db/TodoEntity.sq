@@ -1,7 +1,7 @@
 -- Une ligne par tâche. L'ordre d'affichage suit l'ordre de création (rowid) :
 -- les mises à jour se font par UPDATE, jamais par REPLACE, pour le conserver.
 -- reminder_at : heure du rappel (epoch ms), NULL sans rappel (ajoutée par la migration 1.sqm).
--- updated_at : heure de la dernière modification du titre ou de l'état (epoch ms), qui départage les
+-- updated_at : heure de la dernière modification du titre, de l'état ou de la note (epoch ms), qui départage les
 -- conflits de synchronisation ; le rappel reste propre à l'appareil et ne la change pas (migration 2.sqm, ADR 0012).
 -- note : texte libre, synchronisé comme le titre, vide par défaut (migration 3.sqm, ADR 0014).
 CREATE TABLE TodoEntity (

@@ -185,15 +185,22 @@ private struct AttachmentRow: View {
     }
 }
 
-/// Aperçu d'une pièce jointe dans l'app.
+/// Aperçu d'une pièce jointe dans l'app. Photo et texte sont lus hors du main thread, une fois par pièce jointe.
 private struct AttachmentPreview: View {
     let attachment: TodoAttachment
     let colors: ColorTokens
+    @State private var image: UIImage?
+    @State private var text: String?
+    @State private var loaded = false
 
     var body: some View {
         Group {
-            if attachment.isPhoto {
-                if let image = UIImage(contentsOfFile: attachment.localPath) {
+            if attachment.isPdf {
+                PDFPreview(url: URL(fileURLWithPath: attachment.localPath))
+            } else if !loaded {
+                ProgressView()
+            } else if attachment.isPhoto {
+                if let image {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
@@ -202,11 +209,9 @@ private struct AttachmentPreview: View {
                 } else {
                     unavailable
                 }
-            } else if attachment.isPdf {
-                PDFPreview(url: URL(fileURLWithPath: attachment.localPath))
             } else {
                 ScrollView {
-                    Text(AttachmentFiles.textPreview(path: attachment.localPath) ?? "")
+                    Text(text ?? "")
                         .font(DS.Typography.body)
                         .foregroundColor(Color(argb: colors.onSurface))
                         .textSelection(.enabled)
@@ -215,6 +220,17 @@ private struct AttachmentPreview: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task(id: attachment.id) {
+            guard !attachment.isPdf else { return }
+            loaded = false
+            let path = attachment.localPath
+            if attachment.isPhoto {
+                image = await Task.detached { UIImage(contentsOfFile: path) }.value
+            } else {
+                text = await Task.detached { AttachmentFiles.textPreview(path: path) }.value
+            }
+            loaded = true
+        }
     }
 
     private var unavailable: some View {

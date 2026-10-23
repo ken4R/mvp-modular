@@ -25,6 +25,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -32,6 +33,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.mvp.android.ui.common.RecentsPrivacy
@@ -55,6 +58,9 @@ import java.util.Locale
 fun TodoDetailScreen(todoId: String, onClose: () -> Unit, viewModel: TodoDetailViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(todoId) { viewModel.open(todoId) }
+    // Le brouillon de la note survit à un changement d'onglet, au verrou et à l'arrêt de l'app en arrière-plan.
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.saveChangedNote() }
+    DisposableEffect(todoId) { onDispose { viewModel.saveChangedNote() } }
     // Photos et documents personnels : jamais dans l'aperçu des apps récentes, verrou activé ou non.
     RecentsPrivacy.HideWhileShown()
     val close = {

@@ -1,4 +1,5 @@
 import Foundation
+import Shared
 import ImageIO
 import UIKit
 import UniformTypeIdentifiers
@@ -7,8 +8,8 @@ import UniformTypeIdentifiers
 enum AttachmentFiles {
     /// Plus grand côté d'une photo jointe, en pixels.
     static let maxPhotoSide = 2048
-    /// Taille au-delà de laquelle un fichier n'est même pas lu (KMP refuse au-delà de 10 Mo).
-    static let maxFileBytes = 10 * 1024 * 1024
+    /// Taille au-delà de laquelle un fichier n'est même pas lu : la limite de KMP.
+    static let maxFileBytes = Int(AddTodoAttachmentUseCase.Companion.shared.MAX_SIZE_BYTES)
 
     /// Photo réenregistrée en JPEG, 2 048 px au plus, orientation appliquée : sans métadonnées (position GPS,
     /// appareil, date). HEIC et PNG deviennent du JPEG, seul format photo accepté par KMP.

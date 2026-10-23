@@ -5,8 +5,8 @@ import com.mvp.core.common.domain.analytics.AnalyticsTracker
 import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.notification.NotificationsPreference
 import com.mvp.core.common.domain.result.AppResult
-import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.AttachmentType
+import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.repository.TodoRepository
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase

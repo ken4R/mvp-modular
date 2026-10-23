@@ -99,7 +99,8 @@ class TodoDetailViewModel(
         _state.value = TodoDetailUiState()
     }
 
-    private fun saveChangedNote() {
+    /** Enregistre la note modifiée sans fermer la fiche : app en arrière-plan, changement d'onglet. */
+    fun saveChangedNote() {
         val current = _state.value
         val todo = current.todo ?: return
         if (current.noteChanged) viewModelScope.launch { updateNote(TodoNote(todo.id, current.noteDraft)) }
@@ -117,6 +118,8 @@ class TodoDetailViewModel(
     /** Fichier ou photo choisi dans un sélecteur système ; les photos sont réenregistrées en JPEG (sans métadonnées). */
     fun onFilePicked(uri: Uri) = viewModelScope.launch {
         val todoId = openedId ?: return@launch
+        // Un ajout à la fois : la limite de pièces jointes est vérifiée avant l'écriture.
+        if (_state.value.isAdding) return@launch
         _state.update { it.copy(isAdding = true, error = null) }
         val picked = try {
             withContext(Dispatchers.IO) { reader.read(uri, todoId) }

@@ -37,6 +37,7 @@ include(":core:location")
 include(":core:deeplink")
 include(":core:analytics")
 include(":core:connectivity")
+include(":core:files")
 
 // Features
 include(":feature:todo")

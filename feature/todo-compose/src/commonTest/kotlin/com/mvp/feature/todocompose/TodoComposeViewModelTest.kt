@@ -6,6 +6,8 @@ import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.notification.NotificationsPreference
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.feature.todo.domain.model.Todo
+import com.mvp.feature.todo.domain.model.AttachmentType
+import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.repository.TodoRepository
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
@@ -18,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -161,6 +164,20 @@ private class InMemoryTodoRepository : TodoRepository {
     }
 
     override suspend fun setReminder(id: String, at: Long?): AppResult<Todo> = update(id) { it.copy(reminderAt = at) }
+
+    override suspend fun setNote(id: String, note: String): AppResult<Todo> = update(id) { it.copy(note = note) }
+
+    // Pièces jointes : absentes de l'écran Compose.
+    override fun observeAttachments(todoId: String): Flow<List<TodoAttachment>> = flowOf(emptyList())
+
+    override suspend fun addAttachment(
+        todoId: String,
+        fileName: String,
+        type: AttachmentType,
+        bytes: ByteArray,
+    ): AppResult<TodoAttachment> = AppResult.Failure(AppError.Unavailable)
+
+    override suspend fun deleteAttachment(id: String): AppResult<Unit> = AppResult.Failure(AppError.NotFound)
 
     private fun update(id: String, change: (Todo) -> Todo): AppResult<Todo> {
         val todo = todos.value.firstOrNull { it.id == id } ?: return AppResult.Failure(AppError.NotFound)

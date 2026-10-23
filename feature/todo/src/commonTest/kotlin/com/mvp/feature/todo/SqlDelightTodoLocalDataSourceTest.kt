@@ -12,13 +12,17 @@ import com.mvp.feature.todo.data.source.SqlDelightTodoLocalDataSource
 import com.mvp.feature.todo.data.sync.FakeTodoRemoteDataSource
 import com.mvp.feature.todo.data.sync.TodoRecord
 import com.mvp.feature.todo.data.sync.TodoSyncRepositoryImpl
+import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.Todo
+import com.mvp.feature.todo.domain.model.TodoAttachment
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.AfterTest
+import kotlin.test.assertContentEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -31,8 +35,11 @@ class SqlDelightTodoLocalDataSourceTest {
     private val dispatcher = StandardTestDispatcher(scope.testScheduler)
     private val driver = createInMemoryDriver(TodoDatabase.Schema)
 
+    /** Partagés par les instances : comme le dossier de l'app, ils survivent au redémarrage. */
+    private val files = FakeFileStore()
+
     /** Une nouvelle instance sur la même base équivaut à un redémarrage de l'app. */
-    private fun newDataSource() = SqlDelightTodoLocalDataSource(TodoDatabase(driver), dispatcher, now = { clock })
+    private fun newDataSource() = SqlDelightTodoLocalDataSource(TodoDatabase(driver), dispatcher, files, now = { clock })
 
     /** Heure des modifications (epoch ms), avancée par les tests. */
     private var clock = 1_000L
@@ -231,18 +238,142 @@ class SqlDelightTodoLocalDataSourceTest {
     }
 
     @Test
+    fun noteSurvivesRestartAndEntersTheOutbox() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Acheter du pain", isDone = false))
+        source.markSent(source.pendingChanges())
+        clock = 2_000L
+
+        assertEquals(Todo("a", "Acheter du pain", isDone = false, note = "Complet"), source.setNote("a", "Complet"))
+
+        assertEquals(Todo("a", "Acheter du pain", isDone = false, note = "Complet"), newDataSource().get("a"))
+        assertEquals(
+            listOf(TodoRecord("a", "Acheter du pain", isDone = false, updatedAt = 2_000L, note = "Complet")),
+            source.pendingChanges(),
+        )
+        assertNull(source.setNote("inconnue", "Note"))
+    }
+
+    @Test
+    fun attachmentIsStoredWithItsFileCountedAndKeptOutOfTheOutbox() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Tâche", isDone = false))
+        source.markSent(source.pendingChanges())
+        clock = 3_000L
+
+        val added = source.addAttachment("p1", "a", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1, 2, 3))
+
+        val expected = TodoAttachment("p1", "a", "Photo.jpg", AttachmentType.Photo, sizeBytes = 3, addedAt = 3_000L, localPath = "/fake/p1")
+        assertEquals(expected, added)
+        assertEquals(listOf(expected), newDataSource().observeAttachments("a").first())
+        assertContentEquals(byteArrayOf(1, 2, 3), files.read("p1"))
+        assertEquals(1, newDataSource().get("a")?.attachmentCount)
+        assertEquals(listOf(1), newDataSource().observe().first().map { it.attachmentCount })
+        assertEquals(emptyList(), source.pendingChanges())
+    }
+
+    @Test
+    fun taskListEmitsAgainWhenAnAttachmentIsAddedOrRemoved() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Tâche", isDone = false))
+        val counts = mutableListOf<Int>()
+        val job = launch { source.observe().collect { todos -> counts += todos.single().attachmentCount } }
+        testScheduler.advanceUntilIdle()
+
+        source.addAttachment("p1", "a", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1))
+        testScheduler.advanceUntilIdle()
+        source.deleteAttachment("p1")
+        testScheduler.advanceUntilIdle()
+        job.cancel()
+
+        assertEquals(listOf(0, 1, 0), counts)
+    }
+
+    @Test
+    fun attachmentForAMissingTaskOrAFailedWriteKeepsNothing() = scope.runTest {
+        val source = newDataSource()
+
+        assertNull(source.addAttachment("p1", "inconnue", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1)))
+        assertEquals(emptyList(), files.names())
+
+        source.upsert(Todo("a", "Tâche", isDone = false))
+        files.failure = IllegalStateException("Stockage plein")
+        assertFailsWith<IllegalStateException> {
+            source.addAttachment("p2", "a", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1))
+        }
+        assertEquals(emptyList(), source.observeAttachments("a").first())
+        assertEquals(0, source.get("a")?.attachmentCount)
+    }
+
+    @Test
+    fun deletingAnAttachmentOrItsTaskDeletesTheFiles() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Tâche", isDone = false))
+        source.upsert(Todo("b", "Autre", isDone = false))
+        source.addAttachment("p1", "a", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1))
+        source.addAttachment("p2", "a", "Plan.pdf", AttachmentType.Pdf, byteArrayOf(2))
+        source.addAttachment("p3", "b", "Liste.txt", AttachmentType.Text, byteArrayOf(3))
+
+        assertTrue(source.deleteAttachment("p1"))
+        assertFalse(source.deleteAttachment("p1"))
+        assertEquals(listOf("p2", "p3"), files.names().sorted())
+
+        source.delete("a")
+        assertEquals(listOf("p3"), files.names())
+        assertEquals(emptyList(), source.observeAttachments("a").first())
+        assertEquals(1, source.observeAttachments("b").first().size)
+    }
+
+    @Test
+    fun logoutDeletesAttachmentsAndTheirFiles() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Tâche", isDone = false, note = "Personnel"))
+        source.addAttachment("p1", "a", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1))
+        val sync = TodoSyncRepositoryImpl(source, FakeTodoRemoteDataSource(FakeConnectivityObserver(online = true), latencyMillis = 0))
+
+        TodoUserSessionObserver(source, FakeReminderScheduler(), sync).clearUserData()
+
+        assertEquals(emptyList(), newDataSource().observeAttachments("a").first())
+        assertEquals(emptyList(), files.names())
+    }
+
+    @Test
+    fun applyRemoteBringsTheNoteAndIgnoresATooLongOne() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Tâche", isDone = false, reminderAt = 42L))
+        source.addAttachment("p1", "a", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1))
+        source.markSent(source.pendingChanges())
+
+        source.applyRemote(
+            listOf(
+                TodoRecord("a", "Tâche", isDone = false, updatedAt = 3_000L, note = "Écrite ailleurs"),
+                TodoRecord("long", "Tâche", isDone = false, updatedAt = 3_000L, note = "x".repeat(2_001)),
+            ),
+        )
+
+        assertEquals(
+            listOf(Todo("a", "Tâche", isDone = false, reminderAt = 42L, note = "Écrite ailleurs", attachmentCount = 1)),
+            source.observe().first(),
+        )
+    }
+
+    @Test
     fun migrationFromVersion1KeepsTodosWithoutReminder() = scope.runTest {
         val oldDriver = createInMemoryDriver(SchemaV1)
         try {
             oldDriver.execute(null, "INSERT INTO TodoEntity(id, title, is_done) VALUES ('a', 'Ancienne', 1)", 0)
 
             TodoDatabase.Schema.migrate(oldDriver, oldVersion = 1, newVersion = TodoDatabase.Schema.version)
-            val source = SqlDelightTodoLocalDataSource(TodoDatabase(oldDriver), dispatcher)
+            val source = SqlDelightTodoLocalDataSource(TodoDatabase(oldDriver), dispatcher, FakeFileStore())
 
             assertEquals(listOf(Todo("a", "Ancienne", isDone = true)), source.observe().first())
             assertEquals(Todo("a", "Ancienne", isDone = true, reminderAt = 42L), source.setReminder("a", 42L))
             // Version 3 : les tâches d'avant la synchronisation partent au premier envoi, comme les plus anciennes.
             assertEquals(listOf(TodoRecord("a", "Ancienne", isDone = true, updatedAt = 0)), source.pendingChanges())
+            // Version 4 : note vide, et la table des pièces jointes existe.
+            assertEquals("", source.get("a")?.note)
+            assertEquals("Photo.jpg", source.addAttachment("p1", "a", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1))?.fileName)
+            assertEquals(1, source.get("a")?.attachmentCount)
         } finally {
             oldDriver.close()
         }

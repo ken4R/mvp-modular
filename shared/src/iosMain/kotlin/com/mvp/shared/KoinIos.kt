@@ -31,12 +31,16 @@ import com.mvp.feature.settings.domain.usecase.SetNotificationsEnabledUseCase
 import com.mvp.feature.settings.domain.usecase.UnlockAppUseCase
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
 import com.mvp.feature.todo.domain.model.Todo
+import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.model.TodoSyncStatus
 import com.mvp.feature.todo.domain.model.TodoWidgetState
+import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
+import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveTodoAttachmentsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
@@ -45,20 +49,38 @@ import com.mvp.feature.todo.domain.usecase.StartTodoSyncUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
+import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
 import com.mvp.feature.weather.domain.usecase.GetCurrentWeatherUseCase
 import com.mvp.feature.weather.domain.usecase.GetLocalWeatherUseCase
 import com.mvp.feature.weather.domain.usecase.SearchCitiesUseCase
 import com.mvp.shared.di.initKoin
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
+import platform.Foundation.NSData
+import platform.posix.memcpy
 
 /** Appelé une seule fois au lancement de l'app iOS. */
 fun doInitKoin() {
     initKoin()
+}
+
+/**
+ * Contenu d'un fichier choisi en Swift (`Data`), pour `NewTodoAttachment` : une seule copie mémoire, au lieu
+ * d'un octet à la fois depuis Swift.
+ */
+@OptIn(ExperimentalForeignApi::class)
+fun bytesOf(data: NSData): ByteArray {
+    val size = data.length.toInt()
+    val bytes = ByteArray(size)
+    if (size > 0) bytes.usePinned { memcpy(it.addressOf(0), data.bytes, data.length) }
+    return bytes
 }
 
 /** Abonnement à un Flow côté Swift : appeler `cancel()` quand la vue disparaît. */
@@ -78,6 +100,9 @@ object UseCases : KoinComponent {
     fun deleteTodo(): DeleteTodoUseCase = get()
     fun findTodo(): FindTodoUseCase = get()
     fun setTodoReminder(): SetTodoReminderUseCase = get()
+    fun updateTodoNote(): UpdateTodoNoteUseCase = get()
+    fun addTodoAttachment(): AddTodoAttachmentUseCase = get()
+    fun deleteTodoAttachment(): DeleteTodoAttachmentUseCase = get()
     fun syncTodos(): SyncTodosUseCase = get()
 
     fun searchCities(): SearchCitiesUseCase = get()
@@ -136,6 +161,23 @@ object UseCases : KoinComponent {
             .onEach { result ->
                 when (result) {
                     is AppResult.Success -> onTodos(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /** Pièces jointes de la tâche [todoId] (ADR 0014). Les callbacks sont appelés sur le main thread. */
+    fun observeTodoAttachments(
+        todoId: String,
+        onAttachments: (List<TodoAttachment>) -> Unit,
+        onError: (AppError) -> Unit,
+    ): Subscription {
+        val job = get<ObserveTodoAttachmentsUseCase>()(todoId)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onAttachments(result.data)
                     is AppResult.Failure -> onError(result.error)
                 }
             }

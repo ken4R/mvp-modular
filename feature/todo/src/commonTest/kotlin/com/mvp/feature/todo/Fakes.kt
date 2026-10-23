@@ -6,6 +6,7 @@ import com.mvp.core.common.domain.applock.AppLockPreference
 import com.mvp.core.common.domain.connectivity.ConnectivityObserver
 import com.mvp.core.common.domain.notification.NotificationsPreference
 import com.mvp.core.common.domain.session.SessionExpiry
+import com.mvp.core.files.PrivateFileStore
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.reminder.ReminderScheduler
 import kotlinx.coroutines.flow.Flow
@@ -60,4 +61,27 @@ class FakeAppLockPreference(enabled: Boolean) : AppLockPreference {
 class FakeConnectivityObserver(online: Boolean) : ConnectivityObserver {
     val online = MutableStateFlow(online)
     override fun observeIsOnline(): Flow<Boolean> = online
+}
+
+/** Fichiers privés en mémoire, à la place du dossier de l'app. */
+class FakeFileStore : PrivateFileStore {
+    val files = mutableMapOf<String, ByteArray>()
+    var failure: Throwable? = null
+
+    override fun write(name: String, bytes: ByteArray) {
+        failure?.let { throw it }
+        files[name] = bytes.copyOf()
+    }
+
+    override fun read(name: String): ByteArray? = files[name]
+
+    override fun path(name: String): String = "/fake/$name"
+
+    override fun delete(name: String) {
+        files.remove(name)
+    }
+
+    override fun deleteAll() = files.clear()
+
+    override fun names(): List<String> = files.keys.toList()
 }

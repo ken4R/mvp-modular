@@ -64,7 +64,7 @@ internal class SqlDelightTodoLocalDataSource(
     override fun setNote(id: String, note: String): Todo? = modify(id) { it.copy(note = note) }
 
     override fun delete(id: String): Boolean {
-        val removedFiles = queries.transactionWithResult {
+        val removedFiles = queries.transactionWithResult<List<String>?> {
             val existing = queries.selectById(id).executeAsOneOrNull() ?: return@transactionWithResult null
             val attachmentIds = removeAttachmentsOf(id)
             queries.deleteById(id)
@@ -92,7 +92,7 @@ internal class SqlDelightTodoLocalDataSource(
         files.write(id, bytes)
         val addedAt = now()
         val added = try {
-            queries.transactionWithResult {
+            queries.transactionWithResult<Boolean> {
                 // La tâche a pu être supprimée pendant l'écriture du fichier.
                 if (queries.selectById(todoId).executeAsOneOrNull() == null) return@transactionWithResult false
                 attachments.insert(id, todoId, fileName, type.mimeType, bytes.size.toLong(), addedAt)
@@ -110,7 +110,7 @@ internal class SqlDelightTodoLocalDataSource(
     }
 
     override fun deleteAttachment(id: String): Boolean {
-        val existed = attachments.transactionWithResult {
+        val existed = attachments.transactionWithResult<Boolean> {
             val existing = attachments.selectById(id).executeAsOneOrNull()
             if (existing != null) attachments.deleteById(id)
             existing != null
@@ -119,7 +119,10 @@ internal class SqlDelightTodoLocalDataSource(
         return existed
     }
 
-    /** Déconnexion : les tâches, la file d'envoi et les pièces jointes, fichiers compris. */
+    /**
+     * Déconnexion : les tâches, la file d'envoi et les pièces jointes, fichiers compris. Si les fichiers ne
+     * s'effacent pas, l'exception fait échouer la déconnexion, qui pourra être retentée (la base est déjà vide).
+     */
     override fun clear() {
         queries.transaction {
             queries.deleteAll()
@@ -147,7 +150,7 @@ internal class SqlDelightTodoLocalDataSource(
     }
 
     override fun applyRemote(records: List<TodoRecord>) {
-        val removedFiles = queries.transactionWithResult { records.flatMap(::applyRemoteRecord) }
+        val removedFiles = queries.transactionWithResult<List<String>> { records.flatMap(::applyRemoteRecord) }
         removedFiles.forEach(files::delete)
     }
 

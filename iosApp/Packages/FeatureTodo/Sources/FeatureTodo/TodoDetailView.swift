@@ -6,11 +6,13 @@ import DesignSystemUI
 import UniformTypeIdentifiers
 
 /// Fiche d'une tâche (ADR 0014) : note et pièces jointes. Affichée à la place de la liste, dans l'onglet, et
-/// jamais en feuille : elle reste sous le verrou d'AppLockGate et le cache d'aperçu du sélecteur d'apps.
+/// jamais en feuille : elle reste sous le verrou d'AppLockGate. Son contenu est masqué dès que la scène n'est
+/// plus active, verrou activé ou non : l'aperçu du sélecteur d'apps ne montre aucune pièce jointe.
 /// Aperçus dans l'app (photo, PDF, texte), sans confier le fichier à une autre app.
 struct TodoDetailView: View {
     @StateObject private var viewModel: TodoDetailViewModel
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
     @State private var photoItem: PhotosPickerItem?
     @State private var showFileImporter = false
     @State private var previewedId: String?
@@ -43,6 +45,11 @@ struct TodoDetailView: View {
         }
         .padding(DS.Spacing.md)
         .background(Color(argb: colors.background))
+        .overlay {
+            if scenePhase != .active {
+                Color(argb: colors.background).ignoresSafeArea()
+            }
+        }
         .onAppear { viewModel.start() }
         // Retour, changement d'onglet, verrouillage de l'app : la note modifiée est enregistrée.
         .onDisappear { viewModel.stop() }
@@ -217,12 +224,16 @@ private struct AttachmentPreview: View {
     }
 }
 
-/// PDFKit dans SwiftUI : pages défilantes, à la largeur de l'écran.
+/// PDFKit dans SwiftUI : pages défilantes, à la largeur de l'écran. Les liens du document ne s'ouvrent pas :
+/// un PDF reçu ne peut pas lancer Safari vers une adresse de son choix.
 private struct PDFPreview: UIViewRepresentable {
     let url: URL
 
+    func makeCoordinator() -> LinkBlocker { LinkBlocker() }
+
     func makeUIView(context: Context) -> PDFView {
         let view = PDFView()
+        view.delegate = context.coordinator
         view.autoScales = true
         view.displayMode = .singlePageContinuous
         view.document = PDFDocument(url: url)
@@ -232,4 +243,9 @@ private struct PDFPreview: UIViewRepresentable {
     func updateUIView(_ view: PDFView, context: Context) {
         if view.document?.documentURL != url { view.document = PDFDocument(url: url) }
     }
+}
+
+/// Ignore les liens des PDF joints (web, mail, téléphone).
+final class LinkBlocker: NSObject, PDFViewDelegate {
+    func pdfViewWillClick(onLink sender: PDFView, with url: URL) {}
 }

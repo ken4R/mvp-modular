@@ -26,6 +26,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -334,6 +335,23 @@ class SqlDelightTodoLocalDataSourceTest {
         TodoUserSessionObserver(source, FakeReminderScheduler(), sync).clearUserData()
 
         assertEquals(emptyList(), newDataSource().observeAttachments("a").first())
+        assertEquals(emptyList(), files.names())
+    }
+
+    @Test
+    fun logoutFailsIfTheFilesCannotBeErased() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Tâche", isDone = false))
+        source.addAttachment("p1", "a", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1))
+        val sync = TodoSyncRepositoryImpl(source, FakeTodoRemoteDataSource(FakeConnectivityObserver(online = true), latencyMillis = 0))
+        files.failure = IllegalStateException("Dossier impossible à effacer")
+
+        val result = TodoUserSessionObserver(source, FakeReminderScheduler(), sync).clearUserData()
+
+        // La déconnexion n'a pas lieu : la session est gardée et l'effacement pourra être retenté.
+        assertIs<AppResult.Failure>(result)
+        files.failure = null
+        assertEquals(AppResult.Success(Unit), TodoUserSessionObserver(source, FakeReminderScheduler(), sync).clearUserData())
         assertEquals(emptyList(), files.names())
     }
 

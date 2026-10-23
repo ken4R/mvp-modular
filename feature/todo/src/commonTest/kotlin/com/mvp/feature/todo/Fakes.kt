@@ -81,7 +81,10 @@ class FakeFileStore : PrivateFileStore {
         files.remove(name)
     }
 
-    override fun deleteAll() = files.clear()
+    override fun deleteAll() {
+        failure?.let { throw it }
+        files.clear()
+    }
 
     override fun names(): List<String> = files.keys.toList()
 }

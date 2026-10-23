@@ -20,7 +20,7 @@ interface PrivateFileStore {
     /** Supprime le fichier [name] ; rien à faire s'il n'existe pas. */
     fun delete(name: String)
 
-    /** Supprime tout le dossier (déconnexion). */
+    /** Supprime tout le dossier (déconnexion) ; lève une exception s'il en reste quelque chose. */
     fun deleteAll()
 
     /** Noms des fichiers présents (fichiers temporaires exclus). */

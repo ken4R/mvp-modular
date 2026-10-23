@@ -34,6 +34,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.mvp.android.ui.common.RecentsPrivacy
 import com.mvp.android.ui.theme.Radius
 import com.mvp.android.ui.theme.Sizes
 import com.mvp.android.ui.theme.Spacing
@@ -47,13 +48,15 @@ import java.util.Locale
 
 /**
  * Fiche d'une tâche (ADR 0014) : note et pièces jointes. Affichée à la place de la liste, dans l'onglet : elle
- * reste derrière le verrou de l'app. Sélecteurs système sans permission : photos (Photo Picker) et fichiers
+ * reste derrière le verrou de l'app, et l'aperçu des apps récentes est masqué. Sélecteurs système sans permission : photos (Photo Picker) et fichiers
  * (PDF, texte, images).
  */
 @Composable
 fun TodoDetailScreen(todoId: String, onClose: () -> Unit, viewModel: TodoDetailViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(todoId) { viewModel.open(todoId) }
+    // Photos et documents personnels : jamais dans l'aperçu des apps récentes, verrou activé ou non.
+    RecentsPrivacy.HideWhileShown()
     val close = {
         viewModel.close()
         onClose()

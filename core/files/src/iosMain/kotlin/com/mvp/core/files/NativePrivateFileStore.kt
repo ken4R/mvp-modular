@@ -54,7 +54,8 @@ internal class NativePrivateFileStore(private val directory: String) : PrivateFi
     }
 
     override fun deleteAll() {
-        fileManager.removeItemAtPath(directory, error = null)
+        val removed = fileManager.removeItemAtPath(directory, error = null)
+        check(removed || !fileManager.fileExistsAtPath(directory)) { "Dossier impossible à effacer" }
     }
 
     override fun names(): List<String> =

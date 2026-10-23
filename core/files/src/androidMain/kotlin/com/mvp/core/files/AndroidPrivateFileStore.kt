@@ -32,7 +32,7 @@ internal class AndroidPrivateFileStore(private val directory: File) : PrivateFil
     }
 
     override fun deleteAll() {
-        directory.deleteRecursively()
+        if (!directory.deleteRecursively() && directory.exists()) throw IOException("Dossier impossible à effacer")
     }
 
     override fun names(): List<String> = directory.list()?.filter { PrivateFileStore.isValidName(it) }.orEmpty()

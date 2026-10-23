@@ -40,7 +40,7 @@ internal class AndroidLocationProvider(private val context: Context) : LocationP
                 ?: withTimeoutOrNull(LOCATION_TIMEOUT_MS) {
                     // Tous les fournisseurs à la fois : le premier qui répond l'emporte. Sur l'émulateur,
                     // la position simulée n'arrive que par le GPS alors que le fournisseur fused reste muet.
-                    firstNonNull(providers.map { provider -> suspend { requestCurrent(manager, provider) } })
+                    firstNonNull(providers.map { provider -> suspend { requestCurrentOrNull(manager, provider) } })
                 }
             if (location == null) {
                 AppResult.Failure(AppError.Unavailable)
@@ -56,8 +56,9 @@ internal class AndroidLocationProvider(private val context: Context) : LocationP
     private fun isGranted(permission: String) = context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 
     /**
-     * Fournisseurs actifs utilisables : fused (Android 12+), réseau et GPS. Une position approximative suffit ;
-     * avant Android 12, le GPS demande la permission de localisation précise, que l'app ne réclame pas.
+     * Fournisseurs actifs utilisables : fused (Android 12+), réseau et GPS. Une position approximative suffit.
+     * À partir d'Android 12, le GPS est autorisé avec la seule permission approximative : le système dégrade
+     * alors la position (~2 km), inutile de demander ACCESS_FINE_LOCATION. Avant, le GPS l'exigerait.
      */
     private fun enabledProviders(manager: LocationManager): List<String> {
         val candidates = buildList {
@@ -73,7 +74,7 @@ internal class AndroidLocationProvider(private val context: Context) : LocationP
 
     /**
      * Plus récente des dernières positions connues de [providers], si elle a moins de [MAX_LAST_KNOWN_AGE_MS] :
-     * évite d'attendre une nouvelle mesure.
+     * évite d'attendre une nouvelle mesure. La précision n'est pas comparée : la météo arrondit à ~1 km.
      */
     @SuppressLint("MissingPermission")
     private fun recentLastKnown(manager: LocationManager, providers: List<String>): Location? {
@@ -83,6 +84,17 @@ internal class AndroidLocationProvider(private val context: Context) : LocationP
             .filter { (now - it.elapsedRealtimeNanos) / 1_000_000 in 0..MAX_LAST_KNOWN_AGE_MS }
             .maxByOrNull { it.elapsedRealtimeNanos }
     }
+
+    /** Un fournisseur qui échoue ne doit pas faire perdre la course aux autres : il répond simplement `null`. */
+    private suspend fun requestCurrentOrNull(manager: LocationManager, provider: String): Location? =
+        try {
+            requestCurrent(manager, provider)
+        } catch (e: SecurityException) {
+            null
+        } catch (e: IllegalArgumentException) {
+            // Fournisseur retiré entre la liste et la demande.
+            null
+        }
 
     @SuppressLint("MissingPermission")
     private suspend fun requestCurrent(manager: LocationManager, provider: String): Location? =

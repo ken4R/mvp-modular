@@ -16,9 +16,16 @@ struct LoginView: View {
                 Text("Connexion")
                     .font(DS.Typography.titleLarge)
                     .foregroundColor(Color(argb: colors.onBackground))
+                // Même règle que le framework Kotlin (compilé en release pour une archive) : pas de faux service hors Debug.
+                #if DEBUG
                 Text("Prototype sans serveur : n'importe quel e-mail, mot de passe « demo1234 ».")
                     .font(DS.Typography.caption)
                     .foregroundColor(Color(argb: colors.onBackground))
+                #else
+                Text("Connexion indisponible dans cette version : aucun serveur n'est encore branché.")
+                    .font(DS.Typography.caption)
+                    .foregroundColor(Color(argb: colors.onBackground))
+                #endif
 
                 TextField("E-mail", text: $viewModel.email)
                     .textContentType(.username)
@@ -97,6 +104,7 @@ private extension AppError {
         switch self {
         case let validation as AppErrorValidation: return validation.message
         case is AppErrorUnauthorized: return "E-mail ou mot de passe incorrect"
+        case is AppErrorUnavailable: return "Service indisponible"
         case is AppErrorNetwork: return "Problème de connexion"
         case is AppErrorNotFound: return "Compte introuvable"
         default: return "Erreur inattendue"

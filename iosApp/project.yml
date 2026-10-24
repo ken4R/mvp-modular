@@ -28,6 +28,8 @@ packages:
     path: Packages/FeatureTodoCompose
   FeatureTodoWidget:
     path: Packages/FeatureTodoWidget
+  FeatureOnboarding:
+    path: Packages/FeatureOnboarding
 
 settingGroups:
   # Versions communes à l'app et à son extension widget (iOS refuse une extension de version différente).
@@ -84,7 +86,7 @@ targets:
       groups: [app]
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios
-        INFOPLIST_KEY_NSFaceIDUsageDescription: "Face ID protège l'accès à l'app si vous activez le déverrouillage dans Réglages."
+        INFOPLIST_KEY_NSFaceIDUsageDescription: "Face ID protège l'accès à l'app si vous activez le déverrouillage."
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative (environ 1 km) est envoyée au service météo Open-Meteo pour afficher la météo là où vous êtes. Elle n'est pas enregistrée."
     dependencies:
       - target: KotlinShared
@@ -96,6 +98,7 @@ targets:
       - package: FeatureAuth
       - package: FeatureCatalog
       - package: FeatureTodoCompose
+      - package: FeatureOnboarding
       - package: FeatureTodoWidget
         product: FeatureTodoWidget
       # Widget Tâches, embarqué dans l'app (PlugIns/).
@@ -237,3 +240,26 @@ targets:
       - package: SharedKMP
         product: Shared
       - package: FeatureTodoCompose
+
+  # Démo de la présentation du premier lancement (ADR 0016), remontrée à chaque ouverture.
+  OnboardingDemo:
+    type: application
+    platform: iOS
+    sources: [Packages/FeatureOnboarding/Demo]
+    info:
+      path: Generated/OnboardingDemo-Info.plist
+      properties:
+        NSLocationDefaultAccuracyReduced: true
+    settings:
+      groups: [app]
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.demo.onboarding
+        INFOPLIST_KEY_CFBundleDisplayName: Onboarding Demo
+        INFOPLIST_KEY_NSFaceIDUsageDescription: "Face ID protège l'accès à l'app si vous activez le déverrouillage."
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative (environ 1 km) est envoyée au service météo Open-Meteo pour afficher la météo là où vous êtes. Elle n'est pas enregistrée."
+    dependencies:
+      - target: KotlinShared
+      - package: SharedKMP
+        product: Shared
+      - package: FeatureOnboarding
+      - package: DesignSystemUI

@@ -4,6 +4,7 @@ import FeatureAuth
 import FeatureTodo
 import FeatureTodoWidget
 import FeatureSettings
+import FeatureOnboarding
 
 /// App complète : initialise la logique KMP et assemble les features, derrière l'écran de connexion.
 @main
@@ -26,7 +27,11 @@ struct iOSApp: App {
                 SessionGate {
                     // Face ID / Touch ID, si activé dans Réglages : rien n'est affiché avant.
                     AppLockGate {
-                        AppTabsView()
+                        // Présentation du premier lancement, une fois par appareil (ADR 0016) : avant les onglets,
+                        // un lien reçu entre-temps attend dans KMP.
+                        OnboardingGate {
+                            AppTabsView()
+                        }
                     }
                 }
             }

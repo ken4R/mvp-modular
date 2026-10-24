@@ -26,6 +26,10 @@ import com.mvp.feature.catalog.domain.usecase.LoadMoreProductsUseCase
 import com.mvp.feature.catalog.domain.usecase.ObserveCatalogUseCase
 import com.mvp.feature.catalog.domain.usecase.ObserveFilteredCatalogUseCase
 import com.mvp.feature.catalog.domain.usecase.RefreshCatalogUseCase
+import com.mvp.feature.onboarding.domain.usecase.CompleteOnboardingUseCase
+import com.mvp.feature.onboarding.domain.usecase.GetOnboardingStepsUseCase
+import com.mvp.feature.onboarding.domain.usecase.ObserveOnboardingRequiredUseCase
+import com.mvp.feature.onboarding.domain.usecase.RestartOnboardingUseCase
 import com.mvp.feature.settings.domain.model.UserSettings
 import com.mvp.feature.settings.domain.usecase.LockAppUseCase
 import com.mvp.feature.settings.domain.usecase.ObserveAppLockUseCase
@@ -163,6 +167,23 @@ object UseCases : KoinComponent {
 
     fun trackEvent(): TrackEventUseCase = get()
     fun flushAnalytics(): FlushAnalyticsUseCase = get()
+
+    fun getOnboardingSteps(): GetOnboardingStepsUseCase = get()
+    fun completeOnboarding(): CompleteOnboardingUseCase = get()
+    fun restartOnboarding(): RestartOnboardingUseCase = get()
+
+    /** `true` : afficher la présentation avant les onglets (ADR 0016). Les callbacks sont appelés sur le main thread. */
+    fun observeOnboardingRequired(onRequired: (Boolean) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveOnboardingRequiredUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onRequired(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
 
     /** Journal de mesure (builds de debug). Les callbacks sont appelés sur le main thread. */
     fun observeAnalyticsJournal(onJournal: (AnalyticsJournal) -> Unit, onError: (AppError) -> Unit): Subscription {

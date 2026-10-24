@@ -143,6 +143,8 @@ public struct SettingsView: View {
                 }
                 .font(DS.Typography.body)
                 .foregroundColor(Color(argb: colors.onSurface))
+                Button("Revoir la présentation") { Task { await viewModel.restartOnboarding() } }
+                    .tint(Color(argb: colors.primary))
             }
             .listRowBackground(Color(argb: colors.surface))
         }

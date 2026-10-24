@@ -12,6 +12,7 @@ import com.mvp.core.notifications.di.notificationsModule
 import com.mvp.core.securestorage.di.secureStorageModule
 import com.mvp.feature.auth.di.authModule
 import com.mvp.feature.catalog.di.catalogModule
+import com.mvp.feature.onboarding.di.onboardingModule
 import com.mvp.feature.settings.di.settingsModule
 import com.mvp.feature.todo.di.todoModule
 import com.mvp.feature.weather.di.weatherModule
@@ -40,6 +41,7 @@ val sharedModules: List<Module> = listOf(
     settingsModule,
     authModule,
     catalogModule,
+    onboardingModule,
 )
 
 fun initKoin(appDeclaration: KoinAppDeclaration = {}) = startKoin {

@@ -8,17 +8,24 @@ import com.mvp.core.common.domain.result.onFailure
 import com.mvp.core.common.domain.result.onSuccess
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.core.connectivity.domain.usecase.ObserveConnectivityUseCase
+import com.mvp.feature.catalog.domain.model.CatalogFilter
+import com.mvp.feature.catalog.domain.model.CatalogSort
 import com.mvp.feature.catalog.domain.model.Product
 import com.mvp.feature.catalog.domain.model.ProductSummary
 import com.mvp.feature.catalog.domain.usecase.GetProductUseCase
 import com.mvp.feature.catalog.domain.usecase.LoadMoreProductsUseCase
-import com.mvp.feature.catalog.domain.usecase.ObserveCatalogUseCase
+import com.mvp.feature.catalog.domain.usecase.ObserveFilteredCatalogUseCase
 import com.mvp.feature.catalog.domain.usecase.RefreshCatalogUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -31,8 +38,15 @@ data class ProductDetailState(
 )
 
 data class CatalogUiState(
-    /** Produits en cache : affichés même hors ligne. */
+    /** Produits en cache qui correspondent à la recherche et aux filtres : affichés même hors ligne. */
     val products: List<ProductSummary> = emptyList(),
+    /** Nombre de produits en cache, sans filtre : la pagination le suit. */
+    val cachedCount: Int = 0,
+    /** Produits déjà parcourus côté serveur : la pagination le suit (une page de doublons le fait aussi avancer). */
+    val loadedCount: Int = 0,
+    /** Texte du champ de recherche, appliqué à [filter] après une courte pause de saisie. */
+    val query: String = "",
+    val filter: CatalogFilter = CatalogFilter(),
     val hasMore: Boolean = true,
     /** Date du dernier chargement réussi (epoch ms), `null` si le catalogue n'a jamais été chargé. */
     val updatedAt: Long? = null,
@@ -48,8 +62,9 @@ data class CatalogUiState(
     val isOnline: Boolean = true,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CatalogViewModel(
-    observeCatalog: ObserveCatalogUseCase,
+    observeFilteredCatalog: ObserveFilteredCatalogUseCase,
     private val refreshCatalog: RefreshCatalogUseCase,
     private val loadMoreProducts: LoadMoreProductsUseCase,
     private val getProduct: GetProductUseCase,
@@ -60,13 +75,24 @@ class CatalogViewModel(
     val state: StateFlow<CatalogUiState> = _state.asStateFlow()
 
     private var detailRequest: Job? = null
+    private var queryJob: Job? = null
 
     init {
-        observeCatalog(NoParams)
+        // Chaque nouveau filtre remplace l'observation précédente.
+        _state.map { it.filter }
+            .distinctUntilChanged()
+            .flatMapLatest { filter -> observeFilteredCatalog(filter) }
             .onEach { result ->
-                result.onSuccess { catalog ->
+                result.onSuccess { filtered ->
+                    val catalog = filtered.catalog
                     _state.update {
-                        it.copy(products = catalog.products, hasMore = catalog.hasMore, updatedAt = catalog.updatedAt)
+                        it.copy(
+                            products = filtered.products,
+                            cachedCount = catalog.products.size,
+                            loadedCount = catalog.loadedCount,
+                            hasMore = catalog.hasMore,
+                            updatedAt = catalog.updatedAt,
+                        )
                     }
                 }
             }
@@ -87,6 +113,27 @@ class CatalogViewModel(
             }
             .launchIn(viewModelScope)
     }
+
+    fun onQueryChange(query: String) {
+        _state.update { it.copy(query = query) }
+        queryJob?.cancel()
+        queryJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MILLIS)
+            updateFilter { it.copy(query = query) }
+        }
+    }
+
+    fun onToggleTopRated() = updateFilter { it.copy(topRatedOnly = !it.topRatedOnly) }
+
+    fun onSortChange(sort: CatalogSort) = updateFilter { it.copy(sort = sort) }
+
+    /** « Tout afficher » : retire la recherche et le filtre, garde le tri. */
+    fun onClearFilter() {
+        queryJob?.cancel()
+        _state.update { it.copy(query = "", filter = it.filter.copy(query = "", topRatedOnly = false)) }
+    }
+
+    private fun updateFilter(transform: (CatalogFilter) -> CatalogFilter) = _state.update { it.copy(filter = transform(it.filter)) }
 
     fun refresh() {
         if (_state.value.isRefreshing) return
@@ -138,6 +185,9 @@ class CatalogViewModel(
         state.copy(detail = transform(detail))
     }
 }
+
+/** Pause de saisie avant d'appliquer la recherche. */
+private const val SEARCH_DEBOUNCE_MILLIS = 250L
 
 private fun AppError.toMessage(): String = when (this) {
     AppError.Network -> "Pas de connexion internet."

@@ -22,6 +22,11 @@ public struct CatalogView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(Color(argb: colors.background))
                 .navigationTitle("Catalogue")
+                .searchable(text: $viewModel.query, prompt: "Produit ou marque")
+                .autocorrectionDisabled()
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) { filterMenu }
+                }
                 .navigationDestination(for: Int64.self) { id in
                     ProductDetailView(productId: id)
                 }
@@ -44,7 +49,7 @@ public struct CatalogView: View {
 
     @ViewBuilder
     private func content(_ colors: ColorTokens) -> some View {
-        if !viewModel.products.isEmpty {
+        if viewModel.cachedCount > 0 {
             productList(colors)
         } else if viewModel.isRefreshing {
             ProgressView()
@@ -77,6 +82,20 @@ public struct CatalogView: View {
                     .font(DS.Typography.caption)
                     .foregroundColor(Color(argb: colors.error))
             }
+            if viewModel.products.isEmpty {
+                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                    message(
+                        viewModel.hasMore ? "Aucun produit ne correspond parmi ceux déjà chargés." : "Aucun produit ne correspond.",
+                        color: colors.onBackground
+                    )
+                    Button("Tout afficher") {
+                        viewModel.query = ""
+                        viewModel.topRatedOnly = false
+                    }
+                    .buttonStyle(.borderless)
+                }
+                .listRowSeparator(.hidden)
+            }
             ForEach(viewModel.products, id: \.id) { product in
                 NavigationLink(value: product.id) {
                     ProductRow(product: product, colors: colors)
@@ -84,8 +103,9 @@ public struct CatalogView: View {
             }
             if viewModel.hasMore {
                 footer(colors)
-                    // Nouvel identifiant à chaque page ou actualisation : le pied réapparaît, et redemande la suite, s'il reste visible.
-                    .id("\(viewModel.products.count)-\(viewModel.isRefreshing)")
+                    // Nouvel identifiant à chaque page, actualisation ou fin de chargement : le pied réapparaît, et redemande
+                    // la suite, s'il reste visible (une recherche avec peu de résultats parcourt ainsi les pages suivantes).
+                    .id("\(viewModel.loadedCount)-\(viewModel.isRefreshing)-\(viewModel.isLoadingMore)")
             }
         }
         .listStyle(.plain)
@@ -109,6 +129,24 @@ public struct CatalogView: View {
                 .frame(maxWidth: .infinity)
                 .onAppear { Task { await viewModel.loadMore() } }
         }
+    }
+
+    /// Tri et filtre « 4 étoiles et plus ».
+    private var filterMenu: some View {
+        Menu {
+            Toggle("4★ et plus", isOn: $viewModel.topRatedOnly)
+            Picker("Trier", selection: $viewModel.sort) {
+                Text("Ordre du catalogue").tag(CatalogSortOption.serverOrder)
+                Text("Prix croissant").tag(CatalogSortOption.priceAscending)
+                Text("Prix décroissant").tag(CatalogSortOption.priceDescending)
+                Text("Mieux notés").tag(CatalogSortOption.bestRated)
+            }
+        } label: {
+            Image(systemName: viewModel.topRatedOnly || viewModel.sort != .serverOrder
+                ? "line.3.horizontal.decrease.circle.fill"
+                : "line.3.horizontal.decrease.circle")
+        }
+        .accessibilityLabel("Filtrer et trier")
     }
 
     private func offlineBanner(_ error: String) -> String {

@@ -22,6 +22,7 @@ import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveFilteredTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoAttachmentsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
@@ -68,6 +69,8 @@ val todoModule = module {
 
     // Domain
     factory { ObserveTodosUseCase(get(), get<AppDispatchers>().io) }
+    // Recherche et filtres de la liste, faits sur l'appareil.
+    factory { ObserveFilteredTodosUseCase(get(), get<AppDispatchers>().io) }
     // AnalyticsTracker vient de core:analytics : il ne garde rien sans le consentement Analytics.
     factory { AddTodoUseCase(get(), get(), get<AppDispatchers>().io) }
     factory { ToggleTodoUseCase(get(), get(), get<AppDispatchers>().io) }

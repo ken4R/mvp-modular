@@ -1,6 +1,13 @@
 import Foundation
 import Shared
 
+/// État filtré ; la valeur brute est le nom Kotlin de l'entrée de `TodoStatusFilter`, que l'export Swift renomme.
+enum TodoStatusOption: String, CaseIterable {
+    case all = "All"
+    case pending = "Pending"
+    case done = "Done"
+}
+
 /// Bandeau au-dessus de la liste (mode hors ligne, ADR 0012). `canRetry` : bouton « Réessayer ».
 struct SyncBanner: Equatable {
     let message: String
@@ -9,7 +16,15 @@ struct SyncBanner: Equatable {
 
 @MainActor
 final class TodoViewModel: ObservableObject {
+    /// Tâches qui correspondent à la recherche et aux filtres.
     @Published private(set) var todos: [Todo] = []
+    /// Toutes les tâches, sans filtre.
+    @Published private(set) var allTodos: [Todo] = []
+    /// Recherche dans le titre et la note ; appliquée après une courte pause de saisie.
+    @Published var query = "" { didSet { if query != oldValue { observeFiltered(debounced: true) } } }
+    @Published var status: TodoStatusOption = .all { didSet { if status != oldValue { observeFiltered() } } }
+    @Published var withReminder = false { didSet { if withReminder != oldValue { observeFiltered() } } }
+    @Published var withAttachments = false { didSet { if withAttachments != oldValue { observeFiltered() } } }
     @Published var input: String = ""
     @Published private(set) var error: String?
     @Published private(set) var remindersEnabled = true
@@ -19,6 +34,9 @@ final class TodoViewModel: ObservableObject {
     @Published private(set) var syncBanner: SyncBanner?
 
     private var subscription: Subscription?
+    private var debounceTask: Task<Void, Never>?
+    /// Entre `start()` et `stop()` ; `false` aussi pendant `clearFilter()`, qui ne réobserve qu'une fois.
+    private var isObserving = false
     private var remindersSubscription: Subscription?
     private var syncSubscription: Subscription?
     private var focusTask: Task<Void, Never>?
@@ -26,17 +44,15 @@ final class TodoViewModel: ObservableObject {
     /// Des rappels à venir sont posés mais ne partiront pas : la vue invite à activer les notifications.
     var showRemindersDisabledHint: Bool {
         let now = Date()
-        return !remindersEnabled && todos.contains { todo in
+        return !remindersEnabled && allTodos.contains { todo in
             !todo.isDone && (todo.reminderDate.map { $0 > now } ?? false)
         }
     }
 
     func start() {
         guard subscription == nil else { return }
-        subscription = UseCases.shared.observeTodos(
-            onTodos: { [weak self] todos in self?.todos = todos },
-            onError: { [weak self] error in self?.error = error.userMessage }
-        )
+        isObserving = true
+        subscribe()
         remindersSubscription = UseCases.shared.observeRemindersEnabled(
             onEnabled: { [weak self] enabled in self?.remindersEnabled = enabled.boolValue },
             onError: { _ in }
@@ -48,6 +64,9 @@ final class TodoViewModel: ObservableObject {
     }
 
     func stop() {
+        isObserving = false
+        debounceTask?.cancel()
+        debounceTask = nil
         subscription?.cancel()
         subscription = nil
         remindersSubscription?.cancel()
@@ -55,6 +74,53 @@ final class TodoViewModel: ObservableObject {
         syncSubscription?.cancel()
         syncSubscription = nil
     }
+
+    /// Filtre courant ; `isActive` (logique KMP) dit s'il retire des tâches.
+    private var filter: TodoFilter {
+        KoinIosKt.todoFilter(query: query, status: status.rawValue, withReminder: withReminder, withAttachments: withAttachments)
+    }
+
+    /// Retire la recherche et les filtres : toute la liste est affichée.
+    func clearFilter() {
+        let wasObserving = isObserving
+        isObserving = false
+        query = ""
+        status = .all
+        withReminder = false
+        withAttachments = false
+        isObserving = wasObserving
+        debounceTask?.cancel()
+        if wasObserving { subscribe() }
+    }
+
+    /// Remplace l'observation par celle du filtre courant (filtrage fait par la logique KMP).
+    private func observeFiltered(debounced: Bool = false) {
+        guard isObserving else { return }
+        debounceTask?.cancel()
+        if debounced {
+            debounceTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: Self.searchDebounce)
+                if !Task.isCancelled { self?.subscribe() }
+            }
+        } else {
+            subscribe()
+        }
+    }
+
+    private func subscribe() {
+        subscription?.cancel()
+        subscription = UseCases.shared.observeFilteredTodos(
+            filter: filter,
+            onTodos: { [weak self] result in
+                self?.todos = result.todos
+                self?.allTodos = result.all
+            },
+            onError: { [weak self] error in self?.error = error.userMessage }
+        )
+    }
+
+    /// Pause de saisie avant d'appliquer la recherche, en nanosecondes (0,25 s).
+    private static let searchDebounce: UInt64 = 250_000_000
 
     /// Bouton « Réessayer » du bandeau ; sinon la synchronisation réessaie seule, de plus en plus espacée.
     func retrySync() async {
@@ -81,6 +147,8 @@ final class TodoViewModel: ObservableObject {
             return
         }
         guard result != nil else { return }
+        // Les filtres sont retirés pour que la tâche soit dans la liste.
+        if filter.isActive { clearFilter() }
         focusedTodoId = id
         focusTask?.cancel()
         focusTask = Task { [weak self] in

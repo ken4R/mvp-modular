@@ -11,6 +11,7 @@ import com.mvp.feature.catalog.domain.repository.CatalogRepository
 import com.mvp.feature.catalog.domain.usecase.GetProductUseCase
 import com.mvp.feature.catalog.domain.usecase.LoadMoreProductsUseCase
 import com.mvp.feature.catalog.domain.usecase.ObserveCatalogUseCase
+import com.mvp.feature.catalog.domain.usecase.ObserveFilteredCatalogUseCase
 import com.mvp.feature.catalog.domain.usecase.RefreshCatalogUseCase
 import org.koin.dsl.module
 import kotlin.time.Clock
@@ -33,6 +34,7 @@ val catalogModule = module {
 
     // Domain
     factory { ObserveCatalogUseCase(get(), get<AppDispatchers>().io) }
+    factory { ObserveFilteredCatalogUseCase(get(), get<AppDispatchers>().io) }
     factory { RefreshCatalogUseCase(get(), get<AppDispatchers>().io) }
     factory { LoadMoreProductsUseCase(get(), get<AppDispatchers>().io) }
     factory { GetProductUseCase(get(), get<AppDispatchers>().io) }

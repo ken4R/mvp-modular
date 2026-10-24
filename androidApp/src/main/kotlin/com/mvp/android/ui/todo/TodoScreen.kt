@@ -6,6 +6,7 @@ import android.content.Context
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,9 +17,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -34,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mvp.android.ui.common.StatusBanner
@@ -41,6 +46,8 @@ import com.mvp.android.ui.theme.MvpColors
 import com.mvp.android.ui.theme.Radius
 import com.mvp.android.ui.theme.Spacing
 import com.mvp.feature.todo.domain.model.Todo
+import com.mvp.feature.todo.domain.model.TodoFilter
+import com.mvp.feature.todo.domain.model.TodoStatusFilter
 import org.koin.androidx.compose.koinViewModel
 import kotlinx.coroutines.delay
 import java.time.Instant
@@ -97,8 +104,24 @@ fun TodoScreen(
         onPickReminder = { todo -> pickReminder(context, todo.reminderAt) { at -> viewModel.onSetReminder(todo.id, at) } },
         onRemoveReminder = { viewModel.onSetReminder(it, null) },
         onRetrySync = { viewModel.onRetrySync() },
+        filterActions = TodoFilterActions(
+            onQueryChange = viewModel::onQueryChange,
+            onStatusChange = viewModel::onStatusFilterChange,
+            onToggleReminder = viewModel::onToggleReminderFilter,
+            onToggleAttachments = viewModel::onToggleAttachmentFilter,
+            onClear = viewModel::onClearFilter,
+        ),
     )
 }
+
+/** Recherche et filtres de la liste. */
+private class TodoFilterActions(
+    val onQueryChange: (String) -> Unit,
+    val onStatusChange: (TodoStatusFilter) -> Unit,
+    val onToggleReminder: () -> Unit,
+    val onToggleAttachments: () -> Unit,
+    val onClear: () -> Unit,
+)
 
 @Composable
 private fun TodoContent(
@@ -113,6 +136,7 @@ private fun TodoContent(
     onPickReminder: (Todo) -> Unit,
     onRemoveReminder: (String) -> Unit,
     onRetrySync: () -> Unit,
+    filterActions: TodoFilterActions,
 ) {
     Scaffold { padding ->
         Column(
@@ -147,8 +171,18 @@ private fun TodoContent(
                 )
             }
 
-            if (state.todos.isEmpty()) {
-                Text("Aucune tâche pour le moment", style = MaterialTheme.typography.bodyLarge)
+            if (state.allTodos.isNotEmpty()) TodoFilterBar(state.query, state.filter, filterActions)
+
+            when {
+                state.allTodos.isEmpty() -> Text("Aucune tâche pour le moment", style = MaterialTheme.typography.bodyLarge)
+                state.todos.isEmpty() -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Aucune tâche ne correspond",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    TextButton(onClick = filterActions.onClear) { Text("Tout afficher") }
+                }
             }
             LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 items(state.todos, key = { it.id }) { todo ->
@@ -166,6 +200,51 @@ private fun TodoContent(
         }
     }
 }
+
+/** Champ de recherche (titre et note) et filtres cumulables, défilant à l'horizontale sur les petits écrans. */
+@Composable
+private fun TodoFilterBar(query: String, filter: TodoFilter, actions: TodoFilterActions) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = actions.onQueryChange,
+            placeholder = { Text("Rechercher dans les tâches et les notes") },
+            singleLine = true,
+            // Recherche dans des notes parfois personnelles : pas d'autocorrection ni de suggestions apprises.
+            keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Search),
+            trailingIcon = if (query.isNotEmpty()) {
+                { TextButton(onClick = { actions.onQueryChange("") }) { Text("Effacer") } }
+            } else {
+                null
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            STATUS_LABELS.forEach { (status, label) ->
+                FilterChip(
+                    selected = filter.status == status,
+                    onClick = { actions.onStatusChange(status) },
+                    label = { Text(label) },
+                )
+            }
+            FilterChip(selected = filter.withReminder, onClick = actions.onToggleReminder, label = { Text("Avec rappel") })
+            FilterChip(
+                selected = filter.withAttachments,
+                onClick = actions.onToggleAttachments,
+                label = { Text("Avec pièce jointe") },
+            )
+        }
+    }
+}
+
+private val STATUS_LABELS = listOf(
+    TodoStatusFilter.All to "Toutes",
+    TodoStatusFilter.Pending to "À faire",
+    TodoStatusFilter.Done to "Terminées",
+)
 
 @Composable
 private fun TodoRow(

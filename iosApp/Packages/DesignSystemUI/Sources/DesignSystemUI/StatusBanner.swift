@@ -4,6 +4,7 @@ import Shared
 /// Bandeau d'état du réseau ou de la synchronisation (mode hors ligne, ADR 0012), avec une action facultative.
 public struct StatusBanner: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAccent) private var accent
     private let message: String
     private let actionTitle: String?
     private let action: () -> Void
@@ -15,7 +16,7 @@ public struct StatusBanner: View {
     }
 
     public var body: some View {
-        let colors = DS.colors(colorScheme)
+        let colors = DS.colors(colorScheme, accent)
         HStack(spacing: DS.Spacing.sm) {
             Text(message)
                 .font(DS.Typography.caption)

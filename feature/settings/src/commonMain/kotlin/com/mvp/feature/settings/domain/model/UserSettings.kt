@@ -1,5 +1,7 @@
 package com.mvp.feature.settings.domain.model
 
+import com.mvp.core.designsystem.Appearance
+
 /** Profil affiché dans les réglages. L'e-mail est facultatif (chaîne vide si non renseigné). */
 data class UserProfile(val displayName: String, val email: String)
 
@@ -28,14 +30,20 @@ data class UserSettings(
     val consents: List<Consent>,
     /** Face ID / Touch ID / empreinte (ou code de l'appareil) demandé avant d'afficher l'app. */
     val appLockEnabled: Boolean = false,
+    /** Thème et couleur d'accent : préférence de l'appareil, gardée à la déconnexion (ADR 0015). */
+    val appearance: Appearance = Appearance.Default,
 ) {
     companion object {
-        /** Réglages au premier lancement : profil vide, notifications coupées, aucun consentement, pas de verrou. */
+        /**
+         * Réglages au premier lancement : profil vide, notifications coupées, aucun consentement, pas de verrou,
+         * thème de l'appareil et accent bleu.
+         */
         fun initial(): UserSettings = UserSettings(
             profile = UserProfile(displayName = "", email = ""),
             notificationsEnabled = false,
             consents = ConsentType.entries.map { Consent(it, granted = false) },
             appLockEnabled = false,
+            appearance = Appearance.Default,
         )
     }
 }

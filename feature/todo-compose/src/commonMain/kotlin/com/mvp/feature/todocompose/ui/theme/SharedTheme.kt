@@ -12,18 +12,21 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mvp.core.designsystem.Appearance
 import com.mvp.core.designsystem.ColorTokens
 import com.mvp.core.designsystem.DesignSystem
 import com.mvp.core.designsystem.TextStyleToken
 
 /**
  * Thème des écrans Compose Multiplatform, construit uniquement à partir de core:designsystem.
- * Même correspondance que MvpTheme de l'app Android, mais compilé aussi pour iOS.
+ * Même correspondance que MvpTheme de l'app Android, mais compilé aussi pour iOS. [appearance] : thème et
+ * accent choisis dans Réglages (ADR 0015) ; sur iOS, le thème de l'appareil vu ici est déjà celui forcé par SwiftUI.
  */
 @Composable
-internal fun SharedMvpTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+internal fun SharedMvpTheme(appearance: Appearance, content: @Composable () -> Unit) {
+    val darkTheme = appearance.isDark(isSystemInDarkTheme())
     MaterialTheme(
-        colorScheme = DesignSystem.colors(darkTheme).toColorScheme(darkTheme),
+        colorScheme = DesignSystem.colors(darkTheme, appearance.accent).toColorScheme(darkTheme),
         typography = DesignSystem.typography.let {
             Typography(
                 headlineSmall = it.titleLarge.toTextStyle(),

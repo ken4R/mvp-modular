@@ -7,6 +7,7 @@ import DesignSystemUI
 public struct SessionGate<Content: View>: View {
     @StateObject private var viewModel = SessionViewModel()
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAccent) private var accent
     private let content: () -> Content
 
     public init(@ViewBuilder content: @escaping () -> Content) {
@@ -18,7 +19,7 @@ public struct SessionGate<Content: View>: View {
             switch viewModel.state {
             case .loading:
                 // Session pas encore lue : écran vide, pour ne pas faire clignoter la connexion.
-                Color(argb: DS.colors(colorScheme).background).ignoresSafeArea()
+                Color(argb: DS.colors(colorScheme, accent).background).ignoresSafeArea()
             case .loggedOut:
                 LoginView()
             case .loggedIn:

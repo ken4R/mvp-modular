@@ -6,17 +6,25 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -29,7 +37,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -37,9 +49,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mvp.android.ui.applock.rememberDeviceAuthentication
+import com.mvp.android.ui.theme.MvpColors
+import com.mvp.android.ui.theme.Sizes
 import com.mvp.android.ui.theme.Spacing
 import com.mvp.core.analytics.domain.model.AnalyticsJournal
 import com.mvp.core.analytics.domain.model.TrackedEvent
+import com.mvp.core.designsystem.AccentColor
+import com.mvp.core.designsystem.ThemeMode
 import com.mvp.feature.settings.domain.model.Consent
 import com.mvp.feature.settings.domain.model.ConsentTexts
 import com.mvp.feature.settings.domain.model.ConsentType
@@ -94,6 +110,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
         onSaveProfile = { viewModel.onSaveProfile() },
         onNotificationsChange = onNotificationsChange,
         onAppLockChange = onAppLockChange,
+        onThemeModeChange = { viewModel.onThemeModeChange(it) },
+        onAccentChange = { viewModel.onAccentChange(it) },
         onConsentChange = { type, granted -> viewModel.onConsentChange(type, granted) },
         onLogout = viewModel::onLogout,
         showAnalyticsJournal = isDebugBuild,
@@ -111,6 +129,8 @@ private fun SettingsContent(
     onSaveProfile: () -> Unit,
     onNotificationsChange: (Boolean) -> Unit,
     onAppLockChange: (Boolean) -> Unit,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    onAccentChange: (AccentColor) -> Unit,
     onConsentChange: (ConsentType, Boolean) -> Unit,
     onLogout: () -> Unit,
     showAnalyticsJournal: Boolean,
@@ -152,6 +172,10 @@ private fun SettingsContent(
             }
 
             HorizontalDivider()
+            SectionTitle("Apparence")
+            AppearanceSection(state, onThemeModeChange, onAccentChange)
+
+            HorizontalDivider()
             SectionTitle("Notifications")
             SwitchRow(
                 title = "Recevoir des notifications",
@@ -190,7 +214,7 @@ private fun SettingsContent(
             SectionTitle("Compte")
             state.accountEmail?.let { Text("Connecté avec $it", style = MaterialTheme.typography.bodyLarge) }
             Text(
-                "La déconnexion efface les tâches, leurs rappels, le profil et les réglages de cet appareil.",
+                "La déconnexion efface les tâches, leurs rappels, le profil et les réglages de cet appareil (sauf l'apparence).",
                 style = MaterialTheme.typography.bodySmall,
             )
             OutlinedButton(onClick = onLogout, enabled = !state.isLoggingOut) { Text("Se déconnecter") }
@@ -204,6 +228,58 @@ private fun SettingsContent(
         }
     }
 }
+
+/** Thème (appareil, clair, sombre) et couleur d'accent, appliqués tout de suite à toute l'app. */
+@Composable
+private fun AppearanceSection(
+    state: SettingsUiState,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    onAccentChange: (AccentColor) -> Unit,
+) {
+    Text("Thème", style = MaterialTheme.typography.bodyLarge)
+    Row(modifier = Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        ThemeMode.entries.forEach { mode ->
+            FilterChip(
+                selected = state.appearance.themeMode == mode,
+                onClick = { onThemeModeChange(mode) },
+                label = { Text(mode.label) },
+            )
+        }
+    }
+    Text("Couleur d'accent", style = MaterialTheme.typography.bodyLarge)
+    Row(modifier = Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+        AccentColor.entries.forEach { accent ->
+            val selected = state.appearance.accent == accent
+            Box(
+                modifier = Modifier
+                    .size(Sizes.accentSwatch)
+                    .clip(CircleShape)
+                    .then(if (selected) Modifier.border(Sizes.selectionBorder, MaterialTheme.colorScheme.onBackground, CircleShape) else Modifier)
+                    .selectable(selected = selected, role = Role.RadioButton, onClick = { onAccentChange(accent) })
+                    .semantics { contentDescription = accent.label }
+                    .padding(Sizes.selectionBorder + Spacing.xs),
+            ) {
+                Box(Modifier.fillMaxSize().clip(CircleShape).background(MvpColors.accentPreview(accent)))
+            }
+        }
+    }
+}
+
+private val ThemeMode.label: String
+    get() = when (this) {
+        ThemeMode.System -> "Appareil"
+        ThemeMode.Light -> "Clair"
+        ThemeMode.Dark -> "Sombre"
+    }
+
+private val AccentColor.label: String
+    get() = when (this) {
+        AccentColor.Blue -> "Bleu"
+        AccentColor.Teal -> "Sarcelle"
+        AccentColor.Violet -> "Violet"
+        AccentColor.Orange -> "Orange"
+        AccentColor.Pink -> "Rose"
+    }
 
 @Composable
 private fun SectionTitle(text: String) {

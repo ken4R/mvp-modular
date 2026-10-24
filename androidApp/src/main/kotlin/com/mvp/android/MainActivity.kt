@@ -1,14 +1,17 @@
 package com.mvp.android
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.mvp.android.ui.analytics.AnalyticsViewModel
+import com.mvp.android.ui.appearance.AppearanceViewModel
 import com.mvp.android.ui.applock.AppLockViewModel
 import com.mvp.android.ui.applock.LockScreen
 import com.mvp.android.ui.auth.LoginScreen
@@ -44,6 +48,7 @@ import com.mvp.android.ui.theme.MvpTheme
 import com.mvp.android.ui.todo.TodoScreen
 import com.mvp.android.ui.weather.WeatherScreen
 import com.mvp.core.common.domain.analytics.AnalyticsScreen
+import com.mvp.core.designsystem.Appearance
 import com.mvp.core.deeplink.domain.model.DeepLink
 import com.mvp.feature.todocompose.ui.TodoComposeScreen
 import org.koin.androidx.compose.koinViewModel
@@ -61,6 +66,7 @@ class MainActivity : ComponentActivity() {
     private val appLockViewModel: AppLockViewModel by viewModel()
     private val deepLinkViewModel: DeepLinkViewModel by viewModel()
     private val analyticsViewModel: AnalyticsViewModel by viewModel()
+    private val appearanceViewModel: AppearanceViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,7 +74,15 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) handleDeepLink(intent)
         enableEdgeToEdge()
         setContent {
-            MvpTheme {
+            // Thème et accent de Réglages (ADR 0015), aussi sur l'écran de connexion et l'écran verrouillé.
+            val appearance by appearanceViewModel.appearance.collectAsState()
+            val darkTheme = appearance.isDark(isSystemInDarkTheme())
+            // Icônes des barres système lisibles sur le thème choisi, même s'il n'est pas celui de l'appareil.
+            LaunchedEffect(darkTheme) {
+                val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { darkTheme }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            }
+            MvpTheme(appearance) {
                 val sessionViewModel = koinViewModel<SessionViewModel>()
                 val session by sessionViewModel.state.collectAsStateWithLifecycle()
                 // Collecté aussi en arrière-plan : l'écran verrouillé est prêt avant que l'app ne réapparaisse.
@@ -89,7 +103,7 @@ class MainActivity : ComponentActivity() {
                     } else {
                         // Les ViewModels des onglets sont liés à la session : neufs à chaque connexion.
                         CompositionLocalProvider(LocalViewModelStoreOwner provides sessionViewModel.screens) {
-                            AppTabs(deepLinkViewModel, analyticsViewModel)
+                            AppTabs(deepLinkViewModel, analyticsViewModel, appearance)
                         }
                     }
                 }
@@ -140,7 +154,7 @@ class MainActivity : ComponentActivity() {
 private fun Blank() = Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
 
 @Composable
-private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel) {
+private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel, appearance: Appearance) {
     // Revient sur « Tâches » à chaque nouvelle connexion.
     var tab by rememberSaveable { mutableStateOf(Tab.Todo) }
     // Tâche ou produit demandé par le dernier lien, transmis à l'écran de l'onglet qui l'affiche.
@@ -189,7 +203,7 @@ private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel)
         Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
             when (tab) {
                 Tab.Todo -> if (showComposeMultiplatformTodo) {
-                    TodoComposeScreen(onClose = { showComposeMultiplatformTodo = false })
+                    TodoComposeScreen(onClose = { showComposeMultiplatformTodo = false }, appearance = appearance)
                 } else {
                     TodoScreen(
                         focusRequest = todoRequest,

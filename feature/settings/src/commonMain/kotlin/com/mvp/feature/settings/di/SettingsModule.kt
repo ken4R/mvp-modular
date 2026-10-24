@@ -21,10 +21,13 @@ import com.mvp.feature.settings.domain.repository.AppLockRepository
 import com.mvp.feature.settings.domain.repository.SettingsRepository
 import com.mvp.feature.settings.domain.usecase.LockAppUseCase
 import com.mvp.feature.settings.domain.usecase.ObserveAppLockUseCase
+import com.mvp.feature.settings.domain.usecase.ObserveAppearanceUseCase
 import com.mvp.feature.settings.domain.usecase.ObserveSettingsUseCase
+import com.mvp.feature.settings.domain.usecase.SetAccentColorUseCase
 import com.mvp.feature.settings.domain.usecase.SetAppLockEnabledUseCase
 import com.mvp.feature.settings.domain.usecase.SetConsentUseCase
 import com.mvp.feature.settings.domain.usecase.SetNotificationsEnabledUseCase
+import com.mvp.feature.settings.domain.usecase.SetThemeModeUseCase
 import com.mvp.feature.settings.domain.usecase.UnlockAppUseCase
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
 import org.koin.dsl.bind
@@ -63,4 +66,8 @@ val settingsModule = module {
     factory { SetAppLockEnabledUseCase(get(), get(), get<AppDispatchers>().io) }
     factory { LockAppUseCase(get(), get<AppDispatchers>().io) }
     factory { UnlockAppUseCase(get(), get<AppDispatchers>().io) }
+    // Apparence (ADR 0015) : lue par la racine des apps et l'écran Compose Multiplatform.
+    factory { ObserveAppearanceUseCase(get(), get<AppDispatchers>().io) }
+    factory { SetThemeModeUseCase(get(), get<AppDispatchers>().io) }
+    factory { SetAccentColorUseCase(get(), get<AppDispatchers>().io) }
 }

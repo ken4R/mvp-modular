@@ -12,6 +12,7 @@ import UniformTypeIdentifiers
 struct TodoDetailView: View {
     @StateObject private var viewModel: TodoDetailViewModel
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAccent) private var accent
     @Environment(\.scenePhase) private var scenePhase
     @State private var photoItem: PhotosPickerItem?
     @State private var showFileImporter = false
@@ -25,7 +26,7 @@ struct TodoDetailView: View {
     }
 
     var body: some View {
-        let colors = DS.colors(colorScheme)
+        let colors = DS.colors(colorScheme, accent)
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             if let previewed = viewModel.attachments.first(where: { $0.id == previewedId }) {
                 header(previewed.fileName, action: "Fermer", colors: colors) { previewedId = nil }

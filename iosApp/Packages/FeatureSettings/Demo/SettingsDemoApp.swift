@@ -12,9 +12,12 @@ struct SettingsDemoApp: App {
 
     var body: some Scene {
         WindowGroup {
-            // Verrou Face ID / Touch ID : s'active depuis la section Sécurité.
-            AppLockGate {
-                SettingsView()
+            // Thème et accent : se changent depuis la section Apparence.
+            AppearanceRoot {
+                // Verrou Face ID / Touch ID : s'active depuis la section Sécurité.
+                AppLockGate {
+                    SettingsView()
+                }
             }
         }
     }

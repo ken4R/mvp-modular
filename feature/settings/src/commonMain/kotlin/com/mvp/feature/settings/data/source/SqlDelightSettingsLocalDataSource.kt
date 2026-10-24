@@ -2,6 +2,9 @@ package com.mvp.feature.settings.data.source
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import com.mvp.core.designsystem.AccentColor
+import com.mvp.core.designsystem.Appearance
+import com.mvp.core.designsystem.ThemeMode
 import com.mvp.feature.settings.data.db.SettingsDatabase
 import com.mvp.feature.settings.domain.model.Consent
 import com.mvp.feature.settings.domain.model.ConsentTexts
@@ -54,6 +57,9 @@ private const val KEY_LEGACY_DISPLAY_NAME = "profile.display_name"
 private const val KEY_LEGACY_EMAIL = "profile.email"
 private const val KEY_NOTIFICATIONS = "notifications.enabled"
 private const val KEY_APP_LOCK = "app_lock.enabled"
+// Valeur : nom de l'entrée de l'enum (ne pas renommer les entrées sans migration).
+private const val KEY_THEME_MODE = "appearance.theme_mode"
+private const val KEY_ACCENT = "appearance.accent"
 private fun consentKey(type: ConsentType) = "consent.${type.name}"
 private fun consentDecidedAtKey(type: ConsentType) = "consent.${type.name}.decided_at"
 private fun consentTextVersionKey(type: ConsentType) = "consent.${type.name}.text_version"
@@ -65,6 +71,11 @@ private fun Map<String, String>.toSettings(): UserSettings {
         notificationsEnabled = this[KEY_NOTIFICATIONS]?.toBooleanStrictOrNull() ?: defaults.notificationsEnabled,
         consents = defaults.consents.map { default -> readConsent(default) },
         appLockEnabled = this[KEY_APP_LOCK]?.toBooleanStrictOrNull() ?: defaults.appLockEnabled,
+        // Une valeur inconnue (entrée retirée dans une version suivante) revient à la valeur par défaut.
+        appearance = Appearance(
+            themeMode = ThemeMode.entries.firstOrNull { it.name == this[KEY_THEME_MODE] } ?: defaults.appearance.themeMode,
+            accent = AccentColor.entries.firstOrNull { it.name == this[KEY_ACCENT] } ?: defaults.appearance.accent,
+        ),
     )
 }
 
@@ -89,4 +100,6 @@ private fun UserSettings.toEntries(): List<Pair<String, String>> = buildList {
         consent.textVersion?.let { add(consentTextVersionKey(consent.type) to it.toString()) }
     }
     add(KEY_APP_LOCK to appLockEnabled.toString())
+    add(KEY_THEME_MODE to appearance.themeMode.name)
+    add(KEY_ACCENT to appearance.accent.name)
 }

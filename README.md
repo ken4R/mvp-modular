@@ -75,9 +75,11 @@ Règles de dépendance :
 
 Source unique des valeurs visuelles, partagée par les deux plateformes : couleurs claires/sombres (ARGB), typographie, espacements et rayons, via l'objet `DesignSystem`.
 - **Android** : `MvpTheme` (`androidApp/.../ui/theme/MvpTheme.kt`) construit le `MaterialTheme` à partir des tokens ; `Spacing.md` etc. pour les dimensions.
-- **iOS** : `DS` (package SPM `iosApp/Packages/DesignSystemUI`) expose `DS.colors(scheme)`, `DS.Spacing`, `DS.Typography`.
+- **iOS** : `DS` (package SPM `iosApp/Packages/DesignSystemUI`) expose `DS.colors(colorScheme, accent)` (accent lu dans `@Environment(\.dsAccent)`), `DS.Spacing`, `DS.Typography`.
 
 Changer une couleur ou une taille dans le module KMP met à jour les deux apps.
+
+Thème et accent ([ADR 0015](docs/adr/0015-theme-apparence.md)) : `ThemeMode` (appareil / clair / sombre) et `AccentColor` (5 accents) choisis dans Réglages, enregistrés par `feature:settings` (`ObserveAppearanceUseCase`) et appliqués à la racine des apps : `MvpTheme(appearance)` sur Android, `AppearanceRoot` + `@Environment(\.dsAccent)` sur iOS (`DS.colors(colorScheme, accent)`), `TodoComposeScreen(appearance)` pour l'écran Compose. L'accent ne change que `primary`, `onPrimary` et `highlight`.
 
 ## Feature `todo`
 

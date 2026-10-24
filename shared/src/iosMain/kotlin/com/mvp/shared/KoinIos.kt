@@ -10,6 +10,7 @@ import com.mvp.core.common.domain.session.UserAccount
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.core.connectivity.domain.usecase.ObserveConnectivityUseCase
 import com.mvp.core.deeplink.domain.model.DeepLink
+import com.mvp.core.designsystem.Appearance
 import com.mvp.core.deeplink.domain.usecase.ConsumeDeepLinkUseCase
 import com.mvp.core.deeplink.domain.usecase.ObservePendingDeepLinkUseCase
 import com.mvp.core.deeplink.domain.usecase.OpenDeepLinkUseCase
@@ -28,10 +29,13 @@ import com.mvp.feature.catalog.domain.usecase.RefreshCatalogUseCase
 import com.mvp.feature.settings.domain.model.UserSettings
 import com.mvp.feature.settings.domain.usecase.LockAppUseCase
 import com.mvp.feature.settings.domain.usecase.ObserveAppLockUseCase
+import com.mvp.feature.settings.domain.usecase.ObserveAppearanceUseCase
 import com.mvp.feature.settings.domain.usecase.ObserveSettingsUseCase
+import com.mvp.feature.settings.domain.usecase.SetAccentColorUseCase
 import com.mvp.feature.settings.domain.usecase.SetAppLockEnabledUseCase
 import com.mvp.feature.settings.domain.usecase.SetConsentUseCase
 import com.mvp.feature.settings.domain.usecase.SetNotificationsEnabledUseCase
+import com.mvp.feature.settings.domain.usecase.SetThemeModeUseCase
 import com.mvp.feature.settings.domain.usecase.UnlockAppUseCase
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
 import com.mvp.feature.todo.domain.model.FilteredTodos
@@ -142,6 +146,8 @@ object UseCases : KoinComponent {
     fun setNotificationsEnabled(): SetNotificationsEnabledUseCase = get()
     fun setConsent(): SetConsentUseCase = get()
     fun setAppLockEnabled(): SetAppLockEnabledUseCase = get()
+    fun setThemeMode(): SetThemeModeUseCase = get()
+    fun setAccentColor(): SetAccentColorUseCase = get()
     fun lockApp(): LockAppUseCase = get()
     fun unlockApp(): UnlockAppUseCase = get()
 
@@ -307,6 +313,19 @@ object UseCases : KoinComponent {
             .onEach { result ->
                 when (result) {
                     is AppResult.Success -> onSettings(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /** Thème et accent choisis dans Réglages (ADR 0015). Les callbacks sont appelés sur le main thread. */
+    fun observeAppearance(onAppearance: (Appearance) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveAppearanceUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onAppearance(result.data)
                     is AppResult.Failure -> onError(result.error)
                 }
             }

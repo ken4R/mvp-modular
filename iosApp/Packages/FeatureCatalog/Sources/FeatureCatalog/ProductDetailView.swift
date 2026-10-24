@@ -6,13 +6,14 @@ import DesignSystemUI
 struct ProductDetailView: View {
     @StateObject private var viewModel: ProductDetailViewModel
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAccent) private var accent
 
     init(productId: Int64) {
         _viewModel = StateObject(wrappedValue: ProductDetailViewModel(productId: productId))
     }
 
     var body: some View {
-        let colors = DS.colors(colorScheme)
+        let colors = DS.colors(colorScheme, accent)
         ScrollView {
             VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                 switch viewModel.state {

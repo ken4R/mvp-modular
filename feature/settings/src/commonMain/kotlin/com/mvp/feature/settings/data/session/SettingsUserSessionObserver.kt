@@ -9,8 +9,13 @@ import com.mvp.feature.settings.data.source.SettingsLocalDataSource
 import com.mvp.feature.settings.domain.model.UserProfile
 import com.mvp.feature.settings.domain.model.UserSettings
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
+import kotlinx.coroutines.flow.first
 
-/** Les réglages suivent la session : profil pré-rempli à la connexion, tout effacé à la déconnexion. */
+/**
+ * Les réglages suivent la session : profil pré-rempli à la connexion, tout effacé à la déconnexion, sauf
+ * l'apparence (thème, accent) : préférence de l'appareil sans donnée personnelle, gardée pour l'écran de
+ * connexion et le compte suivant (ADR 0015).
+ */
 internal class SettingsUserSessionObserver(
     private val settings: SettingsLocalDataSource,
     private val profile: ProfileLocalDataSource,
@@ -38,11 +43,13 @@ internal class SettingsUserSessionObserver(
      */
     override suspend fun clearUserData(): AppResult<Unit> = safeCall {
         profile.clear()
-        settings.update { UserSettings.initial().copy(appLockEnabled = it.appLockEnabled) }
+        settings.update { UserSettings.initial().copy(appLockEnabled = it.appLockEnabled, appearance = it.appearance) }
     }
 
-    /** Session effacée : plus rien à protéger, la base des réglages est vidée. */
+    /** Session effacée : plus rien à protéger, la base des réglages est vidée, puis l'apparence réécrite. */
     override suspend fun onLogout() {
+        val appearance = settings.observe().first().appearance
         settings.clear()
+        if (appearance != UserSettings.initial().appearance) settings.update { it.copy(appearance = appearance) }
     }
 }

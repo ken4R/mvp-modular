@@ -21,10 +21,13 @@ struct iOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            SessionGate {
-                // Face ID / Touch ID, si activé dans Réglages : rien n'est affiché avant.
-                AppLockGate {
-                    AppTabsView()
+            // Thème et accent de Réglages, aussi sur l'écran de connexion et l'écran verrouillé.
+            AppearanceRoot {
+                SessionGate {
+                    // Face ID / Touch ID, si activé dans Réglages : rien n'est affiché avant.
+                    AppLockGate {
+                        AppTabsView()
+                    }
                 }
             }
             // Liens mvpmodular://… (schéma déclaré dans project.yml) : reçus même déconnecté ou verrouillé,

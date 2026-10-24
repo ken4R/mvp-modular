@@ -6,8 +6,9 @@ import Shared
 public enum DS {
     private static let tokens = DesignSystem.shared
 
-    public static func colors(_ scheme: ColorScheme) -> ColorTokens {
-        tokens.colors(darkTheme: scheme == .dark)
+    /// Palette du thème [scheme] avec l'accent choisi dans Réglages (`@Environment(\.dsAccent)`).
+    public static func colors(_ scheme: ColorScheme, _ accent: DSAccent = .Blue) -> ColorTokens {
+        tokens.colors(darkTheme: scheme == .dark, accent: accent.kotlin)
     }
 
     public enum Spacing {
@@ -27,6 +28,8 @@ public enum DS {
     public enum Size {
         public static var thumbnail: CGFloat { CGFloat(tokens.sizes.thumbnail) }
         public static var heroImage: CGFloat { CGFloat(tokens.sizes.heroImage) }
+        public static var accentSwatch: CGFloat { CGFloat(tokens.sizes.accentSwatch) }
+        public static var selectionBorder: CGFloat { CGFloat(tokens.sizes.selectionBorder) }
     }
 
     public enum Typography {

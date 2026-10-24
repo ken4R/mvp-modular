@@ -21,4 +21,8 @@ data class SizeTokens(
     val thumbnail: Float = 64f,
     /** Hauteur de la grande image en tête d'un écran de détail. */
     val heroImage: Float = 280f,
+    /** Pastille du choix de couleur d'accent (Réglages), bordure comprise. */
+    val accentSwatch: Float = 44f,
+    /** Épaisseur de la bordure d'un élément choisi (pastille d'accent). */
+    val selectionBorder: Float = 3f,
 )

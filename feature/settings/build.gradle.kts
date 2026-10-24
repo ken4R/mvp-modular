@@ -7,6 +7,8 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(projects.core.common)
+            // Apparence (thème, accent) : types de core:designsystem, sans plateforme.
+            api(projects.core.designsystem)
             implementation(projects.core.database)
             implementation(projects.core.securestorage)
         }

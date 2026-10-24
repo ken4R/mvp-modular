@@ -72,10 +72,11 @@ struct RemoteImage: View {
     let url: String?
     @State private var image: UIImage?
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAccent) private var accent
 
     var body: some View {
         Rectangle()
-            .fill(Color(argb: DS.colors(colorScheme).surface))
+            .fill(Color(argb: DS.colors(colorScheme, accent).surface))
             .overlay {
                 if let image {
                     Image(uiImage: image)

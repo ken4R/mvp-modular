@@ -6,6 +6,7 @@ import DesignSystemUI
 public struct WeatherView: View {
     @StateObject private var viewModel: WeatherViewModel
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAccent) private var accent
     @FocusState private var searchFocused: Bool
 
     /// - Parameter initialQuery: ville recherchée à l'ouverture (utilisé par la démo).
@@ -14,7 +15,7 @@ public struct WeatherView: View {
     }
 
     public var body: some View {
-        let colors = DS.colors(colorScheme)
+        let colors = DS.colors(colorScheme, accent)
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             Text("Météo")
                 .font(DS.Typography.titleLarge)

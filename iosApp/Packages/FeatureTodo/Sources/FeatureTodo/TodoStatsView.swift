@@ -42,6 +42,8 @@ struct TodoStatsView: View {
 
     @ViewBuilder
     private func content(_ weeks: [StatsWeek], colors: ColorTokens) -> some View {
+        let shortDate = Self.formatter("d/MM")
+        let longDate = Self.formatter("d MMMM")
         Text("Tâches terminées par semaine")
             .font(DS.Typography.titleMedium)
             .foregroundColor(Color(argb: colors.onBackground))
@@ -50,7 +52,7 @@ struct TodoStatsView: View {
             .foregroundColor(Color(argb: colors.onBackground))
         Chart(weeks) { week in
             BarMark(
-                x: .value("Semaine", Self.shortDate.string(from: week.start)),
+                x: .value("Semaine", shortDate.string(from: week.start)),
                 y: .value("Tâches terminées", week.count)
             )
             .foregroundStyle(Color(argb: week.isCurrent ? colors.primary : colors.secondary))
@@ -59,13 +61,13 @@ struct TodoStatsView: View {
                     .font(DS.Typography.caption)
                     .foregroundColor(Color(argb: colors.onBackground))
             }
-            .accessibilityLabel(week.isCurrent ? "Cette semaine" : "Semaine du \(Self.longDate.string(from: week.start))")
+            .accessibilityLabel(week.isCurrent ? "Cette semaine" : "Semaine du \(longDate.string(from: week.start))")
             .accessibilityValue(Self.tasks(week.count))
         }
-        // Graduations entières seulement : pas de « 0,5 tâche ».
+        // Graduations entières seulement (au plus 5) : pas de « 0,5 tâche ».
         .chartYScale(domain: 0...max(viewModel.best, 1))
         .chartYAxis {
-            AxisMarks(values: .automatic(desiredCount: min(max(viewModel.best, 1), 4))) { value in
+            AxisMarks(values: Self.ticks(best: viewModel.best)) { value in
                 AxisGridLine()
                 if let count = value.as(Int.self) { AxisValueLabel("\(count)") }
             }
@@ -95,8 +97,10 @@ struct TodoStatsView: View {
         }
     }
 
-    private static var shortDate: DateFormatter { formatter("d/MM") }
-    private static var longDate: DateFormatter { formatter("d MMMM") }
+    private static func ticks(best: Int) -> [Int] {
+        let top = max(best, 1)
+        return Array(stride(from: 0, through: top, by: max(1, (top + 3) / 4)))
+    }
 
     /// Recréé à chaque affichage : le fuseau courant de l'appareil, comme le calcul des semaines (KMP).
     private static func formatter(_ format: String) -> DateFormatter {

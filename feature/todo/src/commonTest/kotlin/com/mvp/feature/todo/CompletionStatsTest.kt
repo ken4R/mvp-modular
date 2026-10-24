@@ -11,6 +11,8 @@ import com.mvp.feature.todo.domain.usecase.ObserveCompletionStatsUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -83,6 +85,21 @@ class CompletionStatsTest {
 
         times.value = emptyList()
         assertEquals(0, stats().total)
+    }
+
+    @Test
+    fun movesToTheNextWeekOnMondayMidnightWithoutAnyChange() = scope.runTest {
+        // Dimanche midi de la semaine 10 ; l'heure avance avec le temps virtuel du test.
+        val start = FixedWeekCalendar.weekStart(10) + 6 * DAY + 12 * HOUR
+        val ticking = ObserveCompletionStatsUseCase(repository, FixedWeekCalendar, { start + testScheduler.currentTime }, dispatcher)
+        times.value = listOf(start)
+
+        val (before, after) = ticking(NoParams).take(2).toList().map { it.getOrNull()!! }
+
+        assertEquals(WeekCompletion(FixedWeekCalendar.weekStart(10), 1), before.weeks.last())
+        assertEquals(WeekCompletion(FixedWeekCalendar.weekStart(11), 0), after.weeks.last())
+        assertEquals(1, after.weeks[after.weeks.lastIndex - 1].count)
+        assertEquals(12 * HOUR, testScheduler.currentTime)
     }
 
     @Test

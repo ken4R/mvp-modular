@@ -8,12 +8,14 @@ import com.mvp.feature.todo.domain.model.CompletionStats
 import com.mvp.feature.todo.domain.model.WeekCompletion
 import com.mvp.feature.todo.domain.repository.TodoStatsRepository
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 
 /**
  * Tâches terminées par semaine sur les [WEEK_COUNT] dernières semaines (ADR 0019), recalculées à chaque changement
- * des tâches. Une tâche terminée hors de ces semaines (plus ancienne, ou datée dans le futur par une horloge
+ * des tâches et au début de chaque semaine (lundi 00:00), même si l'écran reste ouvert. Une tâche terminée hors de ces semaines (plus ancienne, ou datée dans le futur par une horloge
  * déréglée) ne compte pas. [now] : heure courante (epoch ms), lue à chaque calcul.
  */
 class ObserveCompletionStatsUseCase(
@@ -24,7 +26,17 @@ class ObserveCompletionStatsUseCase(
 ) : FlowUseCase<NoParams, CompletionStats>(dispatcher) {
 
     override fun execute(params: NoParams): Flow<AppResult<CompletionStats>> =
-        repository.observeCompletionTimes().map { times -> AppResult.Success(stats(times)) }
+        combine(repository.observeCompletionTimes(), weekChanges()) { times, _ -> AppResult.Success(stats(times)) }
+
+    /** Émet tout de suite, puis à chaque lundi 00:00 local. */
+    private fun weekChanges(): Flow<Unit> = flow {
+        while (true) {
+            emit(Unit)
+            val current = now()
+            // Au moins 1 ms : un calendrier qui ne trouverait pas de semaine suivante ne fait pas tourner la boucle à vide.
+            delay(maxOf(calendar.shiftWeeks(calendar.weekStartOf(current), 1) - current, 1L))
+        }
+    }
 
     private fun stats(times: List<Long>): CompletionStats {
         val currentWeek = calendar.weekStartOf(now())

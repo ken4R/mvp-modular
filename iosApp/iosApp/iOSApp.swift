@@ -58,7 +58,7 @@ struct iOSApp: App {
 
     private static func refreshFeatureFlags() {
         Task { @MainActor in
-            _ = try? await UseCases.shared.refreshRemoteFlags().invoke(params: RefreshRemoteFlagsUseCaseParams(force: false))
+            _ = try? await UseCases.shared.refreshRemoteFlags().invoke(params: KoinIosKt.refreshFlagsParams(force: false))
         }
     }
 }

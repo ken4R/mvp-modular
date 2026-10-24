@@ -131,6 +131,13 @@ fun consentType(name: String): ConsentType? = ConsentType.entries.firstOrNull { 
  */
 fun featureFlag(key: String): FeatureFlag? = FeatureFlag.fromKey(key)
 
+/** Paramètres du réglage local d'un flag (menu debug), construits ici : Swift ne voit pas les classes imbriquées sous ce nom. */
+fun featureFlagOverride(flag: FeatureFlag, enabled: Boolean): SetFeatureFlagOverrideUseCase.Params =
+    SetFeatureFlagOverrideUseCase.Params(flag, enabled)
+
+/** Paramètres du rafraîchissement des flags distants ; [force] passe outre le délai de 15 minutes. */
+fun refreshFlagsParams(force: Boolean): RefreshRemoteFlagsUseCase.Params = RefreshRemoteFlagsUseCase.Params(force)
+
 /** Appelé une seule fois au lancement de l'app iOS. */
 fun doInitKoin() {
     initKoin()

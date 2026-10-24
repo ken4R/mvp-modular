@@ -4,7 +4,7 @@ import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.core.common.domain.usecase.UseCase
-import com.mvp.core.featureflags.domain.model.FeatureFlag
+import com.mvp.core.featureflags.domain.model.FeatureFlagOverride
 import com.mvp.core.featureflags.domain.repository.FeatureFlagRepository
 import kotlinx.coroutines.CoroutineDispatcher
 
@@ -14,11 +14,9 @@ internal val releaseBuildError = AppError.Validation("Réglage réservé aux bui
 class SetFeatureFlagOverrideUseCase(
     private val repository: FeatureFlagRepository,
     dispatcher: CoroutineDispatcher,
-) : UseCase<SetFeatureFlagOverrideUseCase.Params, Unit>(dispatcher) {
+) : UseCase<FeatureFlagOverride, Unit>(dispatcher) {
 
-    data class Params(val flag: FeatureFlag, val enabled: Boolean?)
-
-    override suspend fun execute(params: Params): AppResult<Unit> {
+    override suspend fun execute(params: FeatureFlagOverride): AppResult<Unit> {
         if (!repository.isDevBuild) return AppResult.Failure(releaseBuildError)
         repository.setOverride(params.flag.key, params.enabled)
         return AppResult.Success(Unit)

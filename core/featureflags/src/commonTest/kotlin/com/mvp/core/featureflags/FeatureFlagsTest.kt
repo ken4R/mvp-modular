@@ -11,7 +11,9 @@ import com.mvp.core.featureflags.data.store.FlagStore
 import com.mvp.core.featureflags.domain.model.FeatureFlag
 import com.mvp.core.featureflags.domain.model.FeatureFlagResolver
 import com.mvp.core.featureflags.domain.model.FlagInputs
+import com.mvp.core.featureflags.domain.model.FeatureFlagOverride
 import com.mvp.core.featureflags.domain.model.FlagOrigin
+import com.mvp.core.featureflags.domain.model.RemoteFlagsRefresh
 import com.mvp.core.featureflags.domain.usecase.ClearFeatureFlagOverridesUseCase
 import com.mvp.core.featureflags.domain.usecase.ObserveFeatureFlagUseCase
 import com.mvp.core.featureflags.domain.usecase.ObserveFeatureFlagsUseCase
@@ -133,14 +135,14 @@ class FeatureFlagsTest {
         val observe = ObserveFeatureFlagUseCase(repo, dispatcher)
         assertEquals(AppResult.Success(true), observe(FeatureFlag.Catalog).first())
 
-        assertEquals(AppResult.Success(true), RefreshRemoteFlagsUseCase(repo, { clock }, dispatcher)(RefreshRemoteFlagsUseCase.Params()))
+        assertEquals(AppResult.Success(true), RefreshRemoteFlagsUseCase(repo, { clock }, dispatcher)(RemoteFlagsRefresh()))
         assertEquals(AppResult.Success(false), observe(FeatureFlag.Catalog).first())
 
         // Lancement suivant hors ligne : la dernière valeur connue s'applique.
         remote.failure = IllegalStateException("hors ligne")
         val nextLaunch = repository(isDevBuild = false)
         assertEquals(AppResult.Success(false), ObserveFeatureFlagUseCase(nextLaunch, dispatcher)(FeatureFlag.Catalog).first())
-        val refresh = RefreshRemoteFlagsUseCase(nextLaunch, { clock }, dispatcher)(RefreshRemoteFlagsUseCase.Params(force = true))
+        val refresh = RefreshRemoteFlagsUseCase(nextLaunch, { clock }, dispatcher)(RemoteFlagsRefresh(force = true))
         assertIs<AppResult.Failure>(refresh)
         assertEquals(AppResult.Success(false), ObserveFeatureFlagUseCase(nextLaunch, dispatcher)(FeatureFlag.Catalog).first())
     }
@@ -149,12 +151,12 @@ class FeatureFlagsTest {
     fun refreshIsSkippedWithinFifteenMinutesUnlessForced() = scope.runTest {
         val repo = repository(isDevBuild = true)
         val refresh = RefreshRemoteFlagsUseCase(repo, { clock }, dispatcher)
-        assertEquals(AppResult.Success(true), refresh(RefreshRemoteFlagsUseCase.Params()))
+        assertEquals(AppResult.Success(true), refresh(RemoteFlagsRefresh()))
         clock += 60_000
-        assertEquals(AppResult.Success(false), refresh(RefreshRemoteFlagsUseCase.Params()))
-        assertEquals(AppResult.Success(true), refresh(RefreshRemoteFlagsUseCase.Params(force = true)))
+        assertEquals(AppResult.Success(false), refresh(RemoteFlagsRefresh()))
+        assertEquals(AppResult.Success(true), refresh(RemoteFlagsRefresh(force = true)))
         clock += RefreshRemoteFlagsUseCase.DEFAULT_MIN_INTERVAL_MILLIS
-        assertEquals(AppResult.Success(true), refresh(RefreshRemoteFlagsUseCase.Params()))
+        assertEquals(AppResult.Success(true), refresh(RemoteFlagsRefresh()))
         assertEquals(3, remote.calls)
     }
 
@@ -162,7 +164,7 @@ class FeatureFlagsTest {
     fun overridesWorkInDebugAndAreClearedByReset() = scope.runTest {
         val repo = repository(isDevBuild = true)
         val set = SetFeatureFlagOverrideUseCase(repo, dispatcher)
-        assertEquals(AppResult.Success(Unit), set(SetFeatureFlagOverrideUseCase.Params(FeatureFlag.PreviewBanner, true)))
+        assertEquals(AppResult.Success(Unit), set(FeatureFlagOverride(FeatureFlag.PreviewBanner, true)))
         assertEquals(AppResult.Success(true), ObserveFeatureFlagUseCase(repo, dispatcher)(FeatureFlag.PreviewBanner).first())
 
         val states = (ObserveFeatureFlagsUseCase(repo, dispatcher)(NoParams).first() as AppResult.Success).data
@@ -182,7 +184,7 @@ class FeatureFlagsTest {
         FlagStore(files).writeOverrides(mapOf("catalog" to false, "preview_banner" to true))
         val repo = repository(isDevBuild = false)
 
-        val result = SetFeatureFlagOverrideUseCase(repo, dispatcher)(SetFeatureFlagOverrideUseCase.Params(FeatureFlag.PreviewBanner, true))
+        val result = SetFeatureFlagOverrideUseCase(repo, dispatcher)(FeatureFlagOverride(FeatureFlag.PreviewBanner, true))
         assertIs<AppError.Validation>((result as AppResult.Failure).error)
         assertIs<AppResult.Failure>(ClearFeatureFlagOverridesUseCase(repo, dispatcher)(NoParams))
         assertEquals(AppResult.Success(true), ObserveFeatureFlagUseCase(repo, dispatcher)(FeatureFlag.Catalog).first())

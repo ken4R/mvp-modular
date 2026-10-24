@@ -30,7 +30,7 @@ final class FeatureFlagsViewModel: ObservableObject {
     }
 
     func setOverride(_ state: FeatureFlagState, enabled: Bool) async {
-        let params = KoinIosKt.featureFlagOverride(flag: state.flag, enabled: enabled)
+        let params = FeatureFlagOverride(flag: state.flag, enabled: KotlinBoolean(bool: enabled))
         let result = try? await UseCases.shared.setFeatureFlagOverride().invoke(params: params)
         message = result is AppResultFailure ? "Réglage réservé aux builds de debug" : nil
     }
@@ -43,7 +43,7 @@ final class FeatureFlagsViewModel: ObservableObject {
     /// « Rafraîchir le distant » : passe outre le délai de 15 minutes.
     func forceRefresh() async {
         refreshing = true
-        let result = try? await UseCases.shared.refreshRemoteFlags().invoke(params: KoinIosKt.refreshFlagsParams(force: true))
+        let result = try? await UseCases.shared.refreshRemoteFlags().invoke(params: RemoteFlagsRefresh(force: true))
         message = result is AppResultSuccess<AnyObject>
             ? "Flags distants à jour"
             : "Flags distants injoignables ou refusés : dernières valeurs connues gardées"

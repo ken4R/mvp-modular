@@ -35,6 +35,12 @@ enum class FlagOrigin {
     ReleaseLocked,
 }
 
+/** Réglage local d'un flag (menu debug) ; `enabled = null` revient à la valeur normale. */
+data class FeatureFlagOverride(val flag: FeatureFlag, val enabled: Boolean?)
+
+/** Rafraîchissement des flags distants ; [force] passe outre le délai de 15 minutes (menu debug). */
+data class RemoteFlagsRefresh(val force: Boolean = false)
+
 data class FeatureFlagState(val flag: FeatureFlag, val enabled: Boolean, val origin: FlagOrigin)
 
 /** Valeurs connues à un instant : distantes (cache) et réglages locaux, par clé. */

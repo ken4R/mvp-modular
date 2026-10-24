@@ -6,8 +6,10 @@ import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.core.featureflags.domain.model.FeatureFlag
+import com.mvp.core.featureflags.domain.model.FeatureFlagOverride
 import com.mvp.core.featureflags.domain.model.FeatureFlagState
 import com.mvp.core.featureflags.domain.model.FeatureStage
+import com.mvp.core.featureflags.domain.model.RemoteFlagsRefresh
 import com.mvp.core.featureflags.domain.usecase.ClearFeatureFlagOverridesUseCase
 import com.mvp.core.featureflags.domain.usecase.ObserveFeatureFlagsUseCase
 import com.mvp.core.featureflags.domain.usecase.RefreshRemoteFlagsUseCase
@@ -53,12 +55,12 @@ class FeatureFlagsViewModel(
     }
 
     /** Au lancement et au retour au premier plan ; ne lit le distant qu'une fois toutes les 15 minutes. */
-    fun refresh() = viewModelScope.launch { refreshRemote(RefreshRemoteFlagsUseCase.Params()) }
+    fun refresh() = viewModelScope.launch { refreshRemote(RemoteFlagsRefresh()) }
 
     /** « Rafraîchir le distant » du menu debug : passe outre le délai et dit si la lecture a marché. */
     fun forceRefresh() = viewModelScope.launch {
         _state.update { it.copy(refreshing = true, message = null) }
-        val message = when (val result = refreshRemote(RefreshRemoteFlagsUseCase.Params(force = true))) {
+        val message = when (val result = refreshRemote(RemoteFlagsRefresh(force = true))) {
             is AppResult.Success -> "Flags distants à jour"
             is AppResult.Failure -> result.error.toMessage()
         }
@@ -66,7 +68,7 @@ class FeatureFlagsViewModel(
     }
 
     fun onOverride(flag: FeatureFlag, enabled: Boolean) = viewModelScope.launch {
-        (setOverride(SetFeatureFlagOverrideUseCase.Params(flag, enabled)) as? AppResult.Failure)?.let { showError(it.error) }
+        (setOverride(FeatureFlagOverride(flag, enabled)) as? AppResult.Failure)?.let { showError(it.error) }
     }
 
     fun onReset() = viewModelScope.launch {

@@ -14,11 +14,16 @@ final class TodoDetailViewModel: ObservableObject {
     @Published private(set) var attachments: [TodoAttachment] = []
     @Published private(set) var isAdding = false
     @Published private(set) var error: String?
+    /// Contenus prêts pour ShareLink (ADR 0017), recalculés à chaque changement de la tâche : sans la note, et
+    /// avec la note enregistrée (`nil` si la tâche n'en a pas).
+    @Published private(set) var share: TodoShare?
+    @Published private(set) var shareWithNote: TodoShare?
 
     private let todoId: String
     private var noteLoaded = false
     private var todosSubscription: Subscription?
     private var attachmentsSubscription: Subscription?
+    private var shareTask: Task<Void, Never>?
 
     init(todoId: String) {
         self.todoId = todoId
@@ -56,6 +61,8 @@ final class TodoDetailViewModel: ObservableObject {
         todosSubscription = nil
         attachmentsSubscription?.cancel()
         attachmentsSubscription = nil
+        shareTask?.cancel()
+        shareTask = nil
     }
 
     private func apply(_ todo: Todo?) {
@@ -66,6 +73,31 @@ final class TodoDetailViewModel: ObservableObject {
             noteDraft = todo.note
             noteLoaded = true
         }
+        prepareShare(todo)
+    }
+
+    /// ShareLink a besoin de son contenu avant le tap : les deux variantes sont préparées par KMP à l'avance.
+    private func prepareShare(_ todo: Todo?) {
+        shareTask?.cancel()
+        guard let todo else {
+            share = nil
+            shareWithNote = nil
+            return
+        }
+        let todoId = todo.id
+        let hasNote = !todo.note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        shareTask = Task { [weak self] in
+            let plain = await Self.loadShare(todoId: todoId, includeNote: false)
+            let withNote = hasNote ? await Self.loadShare(todoId: todoId, includeNote: true) : nil
+            guard !Task.isCancelled, let self else { return }
+            self.share = plain
+            self.shareWithNote = withNote
+        }
+    }
+
+    private static func loadShare(todoId: String, includeNote: Bool) async -> TodoShare? {
+        let result = try? await UseCases.shared.shareTodo().invoke(params: TodoShareRequest(todoId: todoId, includeNote: includeNote))
+        return (result as? AppResultSuccess<AnyObject>)?.data as? TodoShare
     }
 
     func saveNote() async {

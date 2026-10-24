@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ajout d'une tâche à la voix (ADR 0018).
+     - App Action CREATE_THING : « Hey Google, crée … dans MVP Modular » ; le texte dicté arrive dans l'extra
+       « title ». Google Assistant ne la propose qu'une fois l'app publiée sur le Play Store (ou avec l'outil de
+       test App Actions d'Android Studio, même compte Google que la Play Console).
+     - Raccourci statique « Nouvelle tâche » : appui long sur l'icône de l'app.
+     Les deux ouvrent MainActivity par un intent explicite ; le titre n'est que prérempli dans « Nouvelle tâche »,
+     après la connexion et le verrou. Action et extra : constantes de MainActivity. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <capability android:name="actions.intent.CREATE_THING">
+        <intent
+            android:action="com.mvp.android.action.NEW_TASK"
+            android:targetClass="com.mvp.android.MainActivity"
+            android:targetPackage="com.mvp.android">
+            <parameter
+                android:name="thing.name"
+                android:key="title" />
+        </intent>
+    </capability>
+
+    <shortcut
+        android:enabled="true"
+        android:shortcutId="new_task"
+        android:shortcutLongLabel="@string/shortcut_new_task_long"
+        android:shortcutShortLabel="@string/shortcut_new_task_short">
+        <intent
+            android:action="com.mvp.android.action.NEW_TASK"
+            android:targetClass="com.mvp.android.MainActivity"
+            android:targetPackage="com.mvp.android" />
+        <capability-binding android:key="actions.intent.CREATE_THING" />
+    </shortcut>
+</shortcuts>

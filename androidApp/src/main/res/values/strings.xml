@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="todo_widget_description">Vos tâches à faire, le rappel le plus proche en premier.</string>
+    <!-- Raccourci de l'icône de l'app (res/xml/shortcuts.xml, ADR 0018) -->
+    <string name="shortcut_new_task_short">Nouvelle tâche</string>
+    <string name="shortcut_new_task_long">Ajouter une tâche</string>
 </resources>

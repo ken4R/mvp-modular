@@ -79,5 +79,7 @@ class DeepLinksTest {
             DeepLink.Settings,
         ).forEach { assertEquals(it, DeepLinks.parse(DeepLinks.url(it))) }
         assertEquals("mvpmodular://tasks/abc-123", DeepLinks.url(DeepLink.Tasks("abc-123")))
+        // Le titre dicté ne sort jamais dans un lien (ADR 0018).
+        assertEquals("mvpmodular://tasks", DeepLinks.url(DeepLink.NewTask("Code de la porte 4521")))
     }
 }

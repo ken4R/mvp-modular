@@ -30,6 +30,7 @@ import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
 import com.mvp.feature.todo.domain.usecase.ShareTodoUseCase
+import com.mvp.feature.todo.domain.usecase.StartTodoDraftUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoSyncUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodosUseCase
@@ -94,6 +95,8 @@ val todoModule = module {
     factory { DeleteTodoAttachmentUseCase(get(), get<AppDispatchers>().io) }
     // Partage d'une tâche par la feuille de partage du système (ADR 0017).
     factory { ShareTodoUseCase(get(), get<AppDispatchers>().io) }
+    // Ajout à la voix (Siri, Google Assistant ; ADR 0018) : PendingDeepLinkRepository vient de core:deeplink.
+    factory { StartTodoDraftUseCase(get(), get<AppDispatchers>().default) }
 }
 
 /** Dossier des fichiers des pièces jointes, effacé à la déconnexion. */

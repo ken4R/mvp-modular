@@ -28,6 +28,8 @@ struct AppTabsView: View {
     /// Tâche ou produit demandé par le dernier lien, remis à `nil` par l'écran qui l'affiche.
     @State private var todoRequest: String?
     @State private var productRequest: Int64?
+    /// Titre dicté par le raccourci Siri (ADR 0018), remis à `nil` par l'écran Tâches.
+    @State private var draftRequest: String?
     /// Onglet Tâches : écran SwiftUI ou sa version Compose Multiplatform (ADR 0010). Affichée dans l'onglet,
     /// pas en feuille : une feuille passerait au-dessus du cache d'aperçu et du verrou d'AppLockGate.
     @State private var showComposeTodo = false
@@ -38,7 +40,11 @@ struct AppTabsView: View {
                 if showComposeTodo {
                     TodoComposeView(onClose: { showComposeTodo = false })
                 } else {
-                    TodoListView(focusRequest: $todoRequest, onOpenComposeMultiplatform: { showComposeTodo = true })
+                    TodoListView(
+                        focusRequest: $todoRequest,
+                        draftRequest: $draftRequest,
+                        onOpenComposeMultiplatform: { showComposeTodo = true }
+                    )
                 }
             }
             .tabItem { Label("Tâches", systemImage: "checklist") }
@@ -84,6 +90,9 @@ struct AppTabsView: View {
             productRequest = catalog.productId?.int64Value
         case is DeepLinkSettings:
             tab = .settings
+        case let draft as DeepLinkNewTask:
+            tab = .todo
+            draftRequest = draft.title
         default:
             tab = .todo
         }

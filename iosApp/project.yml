@@ -6,6 +6,8 @@
 name: iosApp
 options:
   bundleIdPrefix: com.mvp
+  # App en français : Siri lit les phrases des raccourcis (AddTodoIntent.swift, ADR 0018) dans cette langue.
+  developmentLanguage: fr
   deploymentTarget:
     iOS: "16.0"
 
@@ -86,6 +88,8 @@ targets:
       groups: [app]
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios
+        # Nom sous l'icône, et nom que Siri attend dans « Ajoute une tâche dans MVP Modular » (ADR 0018).
+        INFOPLIST_KEY_CFBundleDisplayName: MVP Modular
         INFOPLIST_KEY_NSFaceIDUsageDescription: "Face ID protège l'accès à l'app si vous activez le déverrouillage."
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative (environ 1 km) est envoyée au service météo Open-Meteo pour afficher la météo là où vous êtes. Elle n'est pas enregistrée."
     dependencies:

@@ -55,9 +55,10 @@ object DeepLinks {
         }
     }
 
-    /** Lien vers [link], au format lu par [parse]. */
+    /** Lien vers [link], au format lu par [parse]. Le titre d'une [DeepLink.NewTask] n'est jamais mis dans un lien. */
     fun url(link: DeepLink): String = PREFIX + when (link) {
         is DeepLink.Tasks -> "tasks" + link.todoId?.let { "/$it" }.orEmpty()
+        is DeepLink.NewTask -> "tasks"
         DeepLink.Weather -> "weather"
         is DeepLink.Catalog -> "catalog" + link.productId?.let { "/products/$it" }.orEmpty()
         DeepLink.Settings -> "settings"

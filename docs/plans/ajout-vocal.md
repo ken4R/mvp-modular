@@ -14,6 +14,7 @@ Objectif : « Dis Siri, ajoute une tâche dans MVP Modular » / « Hey Google, c
 - iOS, Siri en français (Réglages > Siri > Langue) : « Dis Siri, ajoute une tâche dans MVP Modular », dicter le titre : même résultat.
 - Verrou activé, app en arrière-plan : lancer le raccourci : Face ID d'abord, puis le champ prérempli. Déconnecté : écran de connexion d'abord, puis le champ prérempli. Titre en attente sur l'écran verrouillé, puis « Se déconnecter » : après la reconnexion, le champ est vide (titre oublié).
 - Titre de plus de 80 caractères ou sur plusieurs lignes : une seule ligne, coupée à 80.
+- Texte déjà saisi dans « Nouvelle tâche », puis raccourci avec un titre : le titre dicté le remplace (voulu, ADR 0018).
 - Android, raccourci statique : appui long sur l'icône, « Nouvelle tâche » : l'app s'ouvre sur Tâches, le texte déjà saisi est gardé.
 - Android, titre : `adb shell am start -n com.mvp.android/.MainActivity -a com.mvp.android.action.NEW_TASK --es title "Acheter du pain"` : champ prérempli, avec les mêmes règles de verrou et de connexion. Rouvrir l'app depuis les apps récentes : le titre ne revient pas.
 - Android, Google Assistant : seulement avec le plugin de test App Actions d'Android Studio (compte de la Play Console) ou une fois l'app publiée.

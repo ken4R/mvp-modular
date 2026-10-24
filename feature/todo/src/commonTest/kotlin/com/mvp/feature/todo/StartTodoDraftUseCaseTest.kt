@@ -29,11 +29,11 @@ class StartTodoDraftUseCaseTest {
     }
 
     @Test
-    fun lineBreaksAndControlCharactersBecomeSpaces() = scope.runTest {
-        startDraft("Appeler\nle\t\u0000 plombier​")
+    fun lineBreaksControlAndFormatCharactersBecomeSpaces() = scope.runTest {
+        startDraft("Appeler\nle\t\u0000 plombier\u200B \u202Eniap")
 
-        // Les caractères invisibles non-contrôle (espace sans chasse) restent : le champ les affiche tels quels.
-        assertEquals(DeepLink.NewTask("Appeler le plombier​"), pending.value.value)
+        // Espace sans chasse et inversion du sens d'affichage retirés aussi.
+        assertEquals(DeepLink.NewTask("Appeler le plombier niap"), pending.value.value)
     }
 
     @Test
@@ -41,6 +41,13 @@ class StartTodoDraftUseCaseTest {
         startDraft("a".repeat(5_000))
 
         assertEquals(AddTodoUseCase.MAX_TITLE_LENGTH, (pending.value.value as DeepLink.NewTask).title.length)
+    }
+
+    @Test
+    fun emojiCutInHalfIsDropped() = scope.runTest {
+        startDraft("a".repeat(AddTodoUseCase.MAX_TITLE_LENGTH - 1) + "\uD83D\uDE00")
+
+        assertEquals(DeepLink.NewTask("a".repeat(AddTodoUseCase.MAX_TITLE_LENGTH - 1)), pending.value.value)
     }
 
     @Test

@@ -21,5 +21,8 @@ sealed interface DeepLink {
      * Onglet Tâches, le champ « Nouvelle tâche » prérempli avec [title] (raccourci vocal Siri / Assistant, ADR 0018).
      * Jamais lu dans une URL : seul le raccourci de l'app le pose. Rien n'est ajouté sans le bouton « Ajouter ».
      */
-    data class NewTask(val title: String) : DeepLink
+    data class NewTask(val title: String) : DeepLink {
+        // Le titre dicté reste hors des journaux, même si un lien en attente est un jour journalisé.
+        override fun toString() = "NewTask(title=<${title.length} caractères>)"
+    }
 }

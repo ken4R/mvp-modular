@@ -376,6 +376,72 @@ class SqlDelightTodoLocalDataSourceTest {
     }
 
     @Test
+    fun completionTimeIsSetWhenDoneKeptByOtherChangesAndClearedWhenUndone() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Tâche", isDone = false))
+        source.upsert(Todo("b", "Déjà faite", isDone = true))
+        assertEquals(listOf(1_000L), source.observeCompletionTimes().first())
+
+        clock = 2_000L
+        source.toggle("a")
+        clock = 3_000L
+        // Rappel, titre ou note d'une tâche déjà terminée : l'heure de fin ne bouge pas.
+        source.setReminder("a", 42L)
+        source.setNote("a", "Note")
+        assertEquals(listOf(1_000L, 2_000L), newDataSource().observeCompletionTimes().first().sorted())
+
+        // Rouverte puis terminée de nouveau : la nouvelle heure ; supprimée : elle ne compte plus.
+        source.toggle("a")
+        assertEquals(listOf(1_000L), source.observeCompletionTimes().first())
+        clock = 4_000L
+        source.toggle("a")
+        source.delete("b")
+        assertEquals(listOf(4_000L), source.observeCompletionTimes().first())
+    }
+
+    @Test
+    fun applyRemoteDatesATodoDoneElsewhereAndKeepsTheLocalCompletionTime() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Faite ici", isDone = true))
+        source.upsert(Todo("b", "À faire", isDone = false))
+        source.markSent(source.pendingChanges())
+
+        source.applyRemote(
+            listOf(
+                TodoRecord("a", "Renommée ailleurs", isDone = true, updatedAt = 5_000L),
+                TodoRecord("b", "À faire", isDone = true, updatedAt = 6_000L),
+                TodoRecord("c", "Créée faite ailleurs", isDone = true, updatedAt = 7_000L),
+                TodoRecord("d", "Créée à faire ailleurs", isDone = false, updatedAt = 7_000L),
+            ),
+        )
+        assertEquals(listOf(1_000L, 6_000L, 7_000L), source.observeCompletionTimes().first().sorted())
+
+        source.applyRemote(listOf(TodoRecord("c", "Rouverte ailleurs", isDone = false, updatedAt = 8_000L)))
+        assertEquals(listOf(1_000L, 6_000L), source.observeCompletionTimes().first().sorted())
+    }
+
+    @Test
+    fun migrationToVersion5DatesDoneTodosByTheirLastChange() = scope.runTest {
+        val oldDriver = createInMemoryDriver(SchemaV1)
+        try {
+            TodoDatabase.Schema.migrate(oldDriver, oldVersion = 1, newVersion = 4)
+            oldDriver.execute(
+                null,
+                "INSERT INTO TodoEntity(id, title, is_done, updated_at) VALUES " +
+                    "('done', 'Faite', 1, 900), ('old', 'Faite avant la synchronisation', 1, 0), ('todo', 'À faire', 0, 800)",
+                0,
+            )
+
+            TodoDatabase.Schema.migrate(oldDriver, oldVersion = 4, newVersion = TodoDatabase.Schema.version)
+            val source = SqlDelightTodoLocalDataSource(TodoDatabase(oldDriver), dispatcher, FakeFileStore())
+
+            assertEquals(listOf(900L), source.observeCompletionTimes().first())
+        } finally {
+            oldDriver.close()
+        }
+    }
+
+    @Test
     fun migrationFromVersion1KeepsTodosWithoutReminder() = scope.runTest {
         val oldDriver = createInMemoryDriver(SchemaV1)
         try {
@@ -392,6 +458,8 @@ class SqlDelightTodoLocalDataSourceTest {
             assertEquals("", source.get("a")?.note)
             assertEquals("Photo.jpg", source.addAttachment("p1", "a", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1))?.fileName)
             assertEquals(1, source.get("a")?.attachmentCount)
+            // Version 5 : terminée avant la synchronisation, sans heure de fin, elle ne compte pas.
+            assertEquals(emptyList(), source.observeCompletionTimes().first())
         } finally {
             oldDriver.close()
         }

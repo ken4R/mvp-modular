@@ -4,13 +4,16 @@
 -- updated_at : heure de la dernière modification du titre, de l'état ou de la note (epoch ms), qui départage les
 -- conflits de synchronisation ; le rappel reste propre à l'appareil et ne la change pas (migration 2.sqm, ADR 0012).
 -- note : texte libre, synchronisé comme le titre, vide par défaut (migration 3.sqm, ADR 0014).
+-- completed_at : heure à laquelle la tâche a été terminée (epoch ms), NULL si elle ne l'est pas ; propre à l'appareil
+-- comme le rappel, elle sert aux statistiques (migration 4.sqm, ADR 0019).
 CREATE TABLE TodoEntity (
     id TEXT NOT NULL PRIMARY KEY,
     title TEXT NOT NULL,
     is_done INTEGER NOT NULL DEFAULT 0,
     reminder_at INTEGER,
     updated_at INTEGER NOT NULL DEFAULT 0,
-    note TEXT NOT NULL DEFAULT ''
+    note TEXT NOT NULL DEFAULT '',
+    completed_at INTEGER
 );
 
 -- Avec le nombre de pièces jointes (TodoAttachmentEntity.sq) : la jointure fait réémettre la liste quand on en
@@ -33,10 +36,15 @@ selectById:
 SELECT * FROM TodoEntity WHERE id = ?;
 
 insert:
-INSERT INTO TodoEntity(id, title, is_done, reminder_at, updated_at, note) VALUES (?, ?, ?, ?, ?, ?);
+INSERT INTO TodoEntity(id, title, is_done, reminder_at, updated_at, note, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?);
 
 update:
-UPDATE TodoEntity SET title = ?, is_done = ?, reminder_at = ?, updated_at = ?, note = ? WHERE id = ?;
+UPDATE TodoEntity SET title = ?, is_done = ?, reminder_at = ?, updated_at = ?, note = ?, completed_at = ? WHERE id = ?;
+
+-- Statistiques (ADR 0019) : heures des tâches terminées. Une tâche supprimée ne compte plus. COALESCE : colonne
+-- non nulle pour SQLDelight (le WHERE exclut déjà NULL).
+selectCompletionTimes:
+SELECT COALESCE(completed_at, 0) AS completed_at FROM TodoEntity WHERE is_done = 1 AND completed_at IS NOT NULL;
 
 deleteById:
 DELETE FROM TodoEntity WHERE id = ?;

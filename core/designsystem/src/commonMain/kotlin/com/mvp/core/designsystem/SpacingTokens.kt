@@ -25,4 +25,6 @@ data class SizeTokens(
     val accentSwatch: Float = 44f,
     /** Épaisseur de la bordure d'un élément choisi (pastille d'accent). */
     val selectionBorder: Float = 3f,
+    /** Hauteur de la zone de tracé d'un graphique (statistiques des tâches). */
+    val chart: Float = 220f,
 )

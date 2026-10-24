@@ -72,6 +72,7 @@ object Sizes {
     val heroImage = DesignSystem.sizes.heroImage.dp
     val accentSwatch = DesignSystem.sizes.accentSwatch.dp
     val selectionBorder = DesignSystem.sizes.selectionBorder.dp
+    val chart = DesignSystem.sizes.chart.dp
 }
 
 /** Couleurs du design system sans rôle Material 3 équivalent : `MvpColors.highlight`. */

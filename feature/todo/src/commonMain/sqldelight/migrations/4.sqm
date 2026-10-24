@@ -1,0 +1,6 @@
+-- Version 4 -> 5 : heure à laquelle chaque tâche a été terminée, pour les statistiques (ADR 0019).
+ALTER TABLE TodoEntity ADD COLUMN completed_at INTEGER;
+
+-- Les tâches déjà terminées n'ont pas d'heure exacte : on prend celle de leur dernière modification (titre, état
+-- ou note). Celles d'avant la synchronisation (heure 0) restent sans heure et ne comptent pas.
+UPDATE TodoEntity SET completed_at = updated_at WHERE is_done = 1 AND updated_at > 0;

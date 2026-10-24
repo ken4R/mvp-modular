@@ -7,6 +7,7 @@ import com.mvp.core.files.PrivateFileStore
 import com.mvp.feature.todo.data.db.TodoAttachmentEntity
 import com.mvp.feature.todo.data.db.TodoDatabase
 import com.mvp.feature.todo.data.db.TodoEntity
+import com.mvp.feature.todo.data.stats.TodoStatsLocalDataSource
 import com.mvp.feature.todo.data.sync.TodoRecord
 import com.mvp.feature.todo.data.sync.TodoSyncLocalDataSource
 import com.mvp.feature.todo.domain.model.AttachmentType
@@ -26,14 +27,15 @@ import kotlin.time.ExperimentalTime
  * l'état ou de la note entre dans la file d'envoi de la synchronisation dans la même transaction (ADR 0012) ;
  * le rappel et les pièces jointes, propres à l'appareil, n'y entrent pas. Le contenu des pièces jointes est dans
  * [files], un fichier par pièce jointe nommé par son id (ADR 0014) : écrit avant sa ligne, supprimé après elle,
- * donc une ligne a toujours son fichier. [now] date les modifications (epoch ms).
+ * donc une ligne a toujours son fichier. L'heure à laquelle une tâche est terminée est gardée sur l'appareil pour
+ * les statistiques (ADR 0019). [now] date les modifications (epoch ms).
  */
 internal class SqlDelightTodoLocalDataSource(
     database: TodoDatabase,
     private val dispatcher: CoroutineDispatcher,
     private val files: PrivateFileStore,
     private val now: () -> Long = ::systemNow,
-) : TodoLocalDataSource, TodoSyncLocalDataSource {
+) : TodoLocalDataSource, TodoSyncLocalDataSource, TodoStatsLocalDataSource {
 
     private val queries = database.todoEntityQueries
     private val pending = database.todoPendingChangeQueries
@@ -48,7 +50,8 @@ internal class SqlDelightTodoLocalDataSource(
         val existing = queries.selectById(todo.id).executeAsOneOrNull()
         if (existing == null) {
             val changedAt = now()
-            queries.insert(todo.id, todo.title, todo.isDone.toLong(), todo.reminderAt, changedAt, todo.note)
+            val completedAt = changedAt.takeIf { todo.isDone }
+            queries.insert(todo.id, todo.title, todo.isDone.toLong(), todo.reminderAt, changedAt, todo.note, completedAt)
             enqueue(todo.id, changedAt)
         } else {
             write(existing, todo)
@@ -132,6 +135,9 @@ internal class SqlDelightTodoLocalDataSource(
         files.deleteAll()
     }
 
+    override fun observeCompletionTimes(): Flow<List<Long>> =
+        queries.selectCompletionTimes().asFlow().mapToList(dispatcher).distinctUntilChanged()
+
     override fun observePendingCount(): Flow<Int> =
         pending.count().asFlow().mapToOne(dispatcher).map { it.toInt() }
 
@@ -170,10 +176,15 @@ internal class SqlDelightTodoLocalDataSource(
                 queries.deleteById(record.id)
                 return attachmentIds
             }
-            local == null ->
-                queries.insert(record.id, record.title, record.isDone.toLong(), null, record.updatedAt, record.note)
-            else ->
-                queries.update(record.title, record.isDone.toLong(), local.reminder_at, record.updatedAt, record.note, record.id)
+            // Terminée ailleurs : à l'heure de la modification reçue, l'approximation la plus proche (ADR 0019).
+            local == null -> queries.insert(
+                record.id, record.title, record.isDone.toLong(), null, record.updatedAt, record.note,
+                record.updatedAt.takeIf { record.isDone },
+            )
+            else -> queries.update(
+                record.title, record.isDone.toLong(), local.reminder_at, record.updatedAt, record.note,
+                completedAt(local, record.isDone, record.updatedAt), record.id,
+            )
         }
         return emptyList()
     }
@@ -188,8 +199,21 @@ internal class SqlDelightTodoLocalDataSource(
     private fun write(existing: TodoEntity, todo: Todo) {
         val synced = existing.title != todo.title || (existing.is_done != 0L) != todo.isDone || existing.note != todo.note
         val updatedAt = if (synced) changedAfter(existing) else existing.updated_at
-        queries.update(todo.title, todo.isDone.toLong(), todo.reminderAt, updatedAt, todo.note, todo.id)
+        queries.update(
+            todo.title, todo.isDone.toLong(), todo.reminderAt, updatedAt, todo.note,
+            completedAt(existing, todo.isDone, updatedAt), todo.id,
+        )
         if (synced) enqueue(todo.id, updatedAt)
+    }
+
+    /**
+     * Heure de fin de la tâche après une modification datée [changedAt] : `null` si elle n'est plus terminée, celle
+     * déjà gardée si elle l'était déjà, sinon [changedAt] (elle vient d'être terminée).
+     */
+    private fun completedAt(existing: TodoEntity, isDone: Boolean, changedAt: Long): Long? = when {
+        !isDone -> null
+        existing.is_done != 0L -> existing.completed_at
+        else -> changedAt
     }
 
     /** Retire les lignes des pièces jointes de la tâche [todoId] ; renvoie leurs ids, dont les fichiers restent à supprimer. */
@@ -224,7 +248,8 @@ internal class SqlDelightTodoLocalDataSource(
 }
 
 private fun toTodo(entity: TodoEntity, attachmentCount: Long) = rowToTodo(
-    entity.id, entity.title, entity.is_done, entity.reminder_at, entity.updated_at, entity.note, attachmentCount,
+    entity.id, entity.title, entity.is_done, entity.reminder_at, entity.updated_at, entity.note, entity.completed_at,
+    attachmentCount,
 )
 
 /** Une ligne de `selectAll` ou `selectWithAttachmentCountById` (colonnes de TodoEntity + nombre de pièces jointes). */
@@ -236,6 +261,7 @@ private fun rowToTodo(
     reminderAt: Long?,
     updatedAt: Long,
     note: String,
+    completedAt: Long?,
     attachmentCount: Long,
 ) = Todo(id = id, title = title, isDone = isDone != 0L, reminderAt = reminderAt, note = note, attachmentCount = attachmentCount.toInt())
 

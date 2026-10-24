@@ -6,7 +6,9 @@ import com.mvp.android.ui.applock.DeviceAuthResult
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.result.getOrNull
 import com.mvp.core.common.domain.result.onFailure
+import com.mvp.core.common.domain.result.onSuccess
 import com.mvp.core.common.domain.usecase.NoParams
+import com.mvp.feature.auth.domain.usecase.ObserveSessionUseCase
 import com.mvp.feature.onboarding.domain.model.OnboardingDevice
 import com.mvp.feature.onboarding.domain.model.OnboardingStep
 import com.mvp.feature.onboarding.domain.usecase.CompleteOnboardingUseCase
@@ -21,6 +23,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
@@ -31,11 +36,14 @@ data class OnboardingUiState(
     /** Étapes de cet appareil (vide tant qu'elles ne sont pas lues). */
     val steps: List<OnboardingStep> = emptyList(),
     val index: Int = 0,
-    /** Une action est en cours (enregistrement) : les boutons sont désactivés. */
+    /** Une action est en cours (enregistrement), ou la présentation est terminée : les boutons sont désactivés. */
     val busy: Boolean = false,
+    /** Terminée et enregistrée : les onglets vont remplacer l'écran, plus rien ne doit être enregistré d'ici là. */
+    val finished: Boolean = false,
     val error: String? = null,
 ) {
     val step: OnboardingStep? get() = steps.getOrNull(index)
+    val enabled: Boolean get() = !busy && !finished
 }
 
 /**
@@ -45,6 +53,7 @@ data class OnboardingUiState(
  */
 class OnboardingViewModel(
     observeRequired: ObserveOnboardingRequiredUseCase,
+    observeSession: ObserveSessionUseCase,
     private val getSteps: GetOnboardingStepsUseCase,
     private val complete: CompleteOnboardingUseCase,
     private val setNotificationsEnabled: SetNotificationsEnabledUseCase,
@@ -61,8 +70,18 @@ class OnboardingViewModel(
      */
     val required: StateFlow<Boolean?> = observeRequired(NoParams)
         .map { it.getOrNull() ?: false }
-        .onEach { required -> if (required) _state.update { it.copy(index = 0, busy = false, error = null) } }
+        .onEach { required -> if (required) restart() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    init {
+        // Lié à l'activité : un autre compte (déconnexion depuis l'écran verrouillé) repart de la première étape.
+        observeSession(NoParams)
+            .map { it.getOrNull() }
+            .distinctUntilChanged()
+            .drop(1)
+            .onEach { restart() }
+            .launchIn(viewModelScope)
+    }
 
     /** À appeler une fois à l'affichage : le verrou n'est proposé que si l'appareil a une biométrie ou un code. */
     fun loadSteps(appLockAvailable: Boolean) = viewModelScope.launch {
@@ -107,13 +126,17 @@ class OnboardingViewModel(
 
     // Une fois enregistrée, `required` passe à false et l'app affiche les onglets.
     private suspend fun finish() {
-        complete(NoParams).onFailure { showSaveError() }
+        complete(NoParams)
+            .onSuccess { _state.update { it.copy(finished = true) } }
+            .onFailure { showSaveError() }
     }
+
+    private fun restart() = _state.update { it.copy(index = 0, finished = false, error = null) }
 
     private fun showSaveError() = _state.update { it.copy(error = "Impossible d'enregistrer, réessayez") }
 
     private fun runBusy(block: suspend () -> Unit) {
-        if (_state.value.busy) return
+        if (!_state.value.enabled) return
         _state.update { it.copy(busy = true, error = null) }
         viewModelScope.launch {
             try {

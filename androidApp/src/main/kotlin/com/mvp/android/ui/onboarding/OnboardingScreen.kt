@@ -98,7 +98,7 @@ fun OnboardingScreen(viewModel: OnboardingViewModel) {
         step = step,
         position = state.index + 1,
         count = state.steps.size,
-        busy = state.busy,
+        enabled = state.enabled,
         error = state.error,
         onAccept = onAccept,
         onDecline = onDecline,
@@ -111,7 +111,7 @@ private fun OnboardingContent(
     step: OnboardingStep,
     position: Int,
     count: Int,
-    busy: Boolean,
+    enabled: Boolean,
     error: String?,
     onAccept: () -> Unit,
     onDecline: () -> Unit,
@@ -133,7 +133,7 @@ private fun OnboardingContent(
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = onSkip, enabled = !busy) { Text(OnboardingTexts.skipLabel) }
+            TextButton(onClick = onSkip, enabled = enabled) { Text(OnboardingTexts.skipLabel) }
         }
         Column(
             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
@@ -159,12 +159,12 @@ private fun OnboardingContent(
         }
         // Consentement : accepter et refuser ont le même poids visuel (refuser doit être aussi simple qu'accepter).
         if (step == OnboardingStep.Analytics) {
-            OutlinedButton(onClick = onAccept, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(text.acceptLabel) }
+            OutlinedButton(onClick = onAccept, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text(text.acceptLabel) }
         } else {
-            Button(onClick = onAccept, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(text.acceptLabel) }
+            Button(onClick = onAccept, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text(text.acceptLabel) }
         }
         text.declineLabel?.let { label ->
-            OutlinedButton(onClick = onDecline, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(label) }
+            OutlinedButton(onClick = onDecline, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text(label) }
         }
     }
 }

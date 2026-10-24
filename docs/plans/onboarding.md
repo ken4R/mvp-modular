@@ -17,6 +17,8 @@ Objectif : au premier lancement, présenter l'app et expliquer chaque autorisati
 - Mesure d'audience : « Accepter » et « Refuser » ont le même poids ; le choix apparaît daté dans Réglages → Consentements.
 - « Passer » à n'importe quelle étape : les onglets s'affichent, rien d'autre n'est changé.
 - Redémarrer l'app : plus de présentation. Se déconnecter puis se reconnecter (même compte ou un autre) : plus de présentation.
-- Réglages → « Revoir la présentation » : elle repart de la première étape, puis revient aux onglets.
+- Réglages → « Revoir la présentation » : elle repart de la première étape, puis revient aux onglets, sur « Tâches ».
+- iOS, localisation coupée pour tout l'iPhone : « Autoriser la position » passe à la suite sans attendre ; « Passer » reste actif pendant une demande système.
+- Double tap sur le dernier bouton : le consentement n'est enregistré qu'une fois (boutons désactivés jusqu'aux onglets).
 - Lien `mvpmodular://tasks` reçu pendant la présentation : il s'ouvre une fois la présentation terminée.
 - Thème sombre et accent choisis : la présentation les suit. VoiceOver / TalkBack : le titre de chaque étape est annoncé comme un titre.

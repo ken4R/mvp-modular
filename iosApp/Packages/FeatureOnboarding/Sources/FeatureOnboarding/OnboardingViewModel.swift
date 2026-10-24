@@ -14,6 +14,10 @@ final class OnboardingViewModel: ObservableObject {
     /// Une demande ou un enregistrement est en cours : les boutons sont désactivés.
     @Published private(set) var busy = false
     @Published private(set) var error: String?
+    /// Terminée et enregistrée : OnboardingGate va afficher l'app, plus rien ne doit être enregistré d'ici là.
+    @Published private(set) var finished = false
+
+    var enabled: Bool { !busy && !finished }
 
     private let location = LocationAuthorization()
 
@@ -31,7 +35,7 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     func accept() async {
-        guard let page, !busy else { return }
+        guard let page, enabled else { return }
         busy = true
         defer { busy = false }
         error = nil
@@ -50,6 +54,8 @@ final class OnboardingViewModel: ObservableObject {
             await location.request()
             await advance()
         case .AppLock:
+            // Plus de code sur l'iPhone (retiré entre-temps) : rien à activer, on passe à la suite.
+            guard PermissionRequests.deviceAuthenticationAvailable else { return await advance() }
             // Annulé : l'utilisateur reste sur l'étape, il peut réessayer ou choisir « Plus tard ».
             guard await PermissionRequests.authenticate(reason: "Activer le déverrouillage de l'app") else { return }
             await save(try? await UseCases.shared.setAppLockEnabled().invoke(params: KotlinBoolean(bool: true)))
@@ -59,19 +65,28 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     func decline() async {
-        guard let page, !busy else { return }
+        guard let page, enabled else { return }
         busy = true
         defer { busy = false }
         error = nil
         if page == .Analytics { await saveConsent(granted: false) } else { await advance() }
     }
 
-    /// « Passer » : la présentation n'est plus montrée sur cet appareil.
+    /// « Passer » : la présentation n'est plus montrée sur cet appareil. Possible aussi pendant une demande système
+    /// qui ne répond pas (localisation), pour ne jamais rester bloqué sur une étape.
     func skip() async {
-        guard !busy else { return }
+        guard !finished else { return }
+        error = nil
+        await finish()
+    }
+
+    /// Étapes vides et enregistrement raté : seul « Réessayer » est affiché.
+    func retry() async {
+        guard enabled else { return }
         busy = true
         defer { busy = false }
-        await finish()
+        error = nil
+        if steps.isEmpty { await load() } else { await finish() }
     }
 
     /// Accepté ou refusé explicitement : le choix est daté avec la version du texte affiché (ConsentTexts, KMP).
@@ -95,6 +110,10 @@ final class OnboardingViewModel: ObservableObject {
     /// Une fois enregistré, OnboardingGate affiche l'app.
     private func finish() async {
         let result = try? await UseCases.shared.completeOnboarding().invoke(params: NoParams.shared)
-        if result == nil || result is AppResultFailure { error = "Impossible d'enregistrer, réessayez" }
+        if result == nil || result is AppResultFailure {
+            error = "Impossible d'enregistrer, réessayez"
+        } else {
+            finished = true
+        }
     }
 }

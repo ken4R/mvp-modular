@@ -35,6 +35,9 @@ final class LocationAuthorization: NSObject, CLLocationManagerDelegate {
 
     func request() async {
         guard manager.authorizationStatus == .notDetermined, continuation == nil else { return }
+        // Localisation coupée pour tout l'iPhone : iOS propose de la réactiver sans répondre pour l'app, l'attente
+        // ne finirait pas. Lu hors du main thread, où l'appel peut bloquer l'interface.
+        guard await Task.detached(operation: { CLLocationManager.locationServicesEnabled() }).value else { return }
         await withCheckedContinuation { continuation in
             self.continuation = continuation
             manager.delegate = self

@@ -14,6 +14,19 @@ struct OnboardingView: View {
         Group {
             if let step = viewModel.step, let page = viewModel.page {
                 content(step: step, page: page, colors)
+            } else if let error = viewModel.error {
+                // Rien à montrer et l'enregistrement a échoué : sans ce bouton, l'écran resterait vide.
+                VStack(spacing: DS.Spacing.md) {
+                    Text(error)
+                        .font(DS.Typography.body)
+                        .foregroundColor(Color(argb: colors.error))
+                    Button("Réessayer") { Task { await viewModel.retry() } }
+                        .tint(Color(argb: colors.primary))
+                        .disabled(!viewModel.enabled)
+                }
+                .padding(DS.Spacing.lg)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(argb: colors.background))
             } else {
                 Color(argb: colors.background).ignoresSafeArea()
             }
@@ -32,7 +45,8 @@ struct OnboardingView: View {
                 Button(OnboardingTexts.shared.skipLabel) { Task { await viewModel.skip() } }
                     .font(DS.Typography.label)
                     .foregroundColor(Color(argb: colors.primary))
-                    .disabled(viewModel.busy)
+                    // Actif pendant une demande système : on ne reste jamais bloqué sur une étape.
+                    .disabled(viewModel.finished)
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: DS.Spacing.md) {
@@ -85,7 +99,7 @@ struct OnboardingView: View {
         }
         .controlSize(.large)
         .tint(Color(argb: colors.primary))
-        .disabled(viewModel.busy)
+        .disabled(!viewModel.enabled)
         if prominent {
             button.buttonStyle(.borderedProminent)
         } else {

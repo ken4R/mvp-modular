@@ -28,6 +28,7 @@ public struct OnboardingGate<Content: View>: View {
             }
         }
         .onAppear { gate.start() }
+        .onDisappear { gate.stop() }
     }
 }
 
@@ -46,7 +47,8 @@ private final class OnboardingGateModel: ObservableObject {
         )
     }
 
-    deinit {
+    func stop() {
         subscription?.cancel()
+        subscription = nil
     }
 }

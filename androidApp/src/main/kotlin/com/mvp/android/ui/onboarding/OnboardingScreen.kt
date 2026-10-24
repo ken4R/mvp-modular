@@ -40,7 +40,6 @@ import com.mvp.android.ui.theme.Spacing
 import com.mvp.feature.onboarding.domain.model.OnboardingStep
 import com.mvp.feature.onboarding.domain.model.OnboardingTexts
 import com.mvp.feature.settings.domain.model.ConsentTexts
-import com.mvp.feature.settings.domain.model.ConsentType
 
 /**
  * Présentation du premier lancement (ADR 0016) : une étape par écran, chaque autorisation expliquée avant que
@@ -87,11 +86,11 @@ fun OnboardingScreen(viewModel: OnboardingViewModel) {
                 locationLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
             }
             OnboardingStep.AppLock -> authenticate()
-            OnboardingStep.Analytics -> viewModel.onAnalyticsChoice(true)
+            OnboardingStep.Analytics, OnboardingStep.CrashReports -> viewModel.onConsentChoice(step, true)
         }
     }
     val onDecline: () -> Unit = {
-        if (step == OnboardingStep.Analytics) viewModel.onAnalyticsChoice(false) else viewModel.onNext()
+        if (step.consentType != null) viewModel.onConsentChoice(step, false) else viewModel.onNext()
     }
 
     OnboardingContent(
@@ -148,9 +147,9 @@ private fun OnboardingContent(
             )
             Text(text.body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onBackground)
             // L'accord porte sur ce texte précis (versionné), le même que dans Réglages > Consentements.
-            if (step == OnboardingStep.Analytics) {
+            step.consentType?.let { type ->
                 Text(
-                    ConsentTexts.of(ConsentType.Analytics).summary,
+                    ConsentTexts.of(type).summary,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
@@ -158,7 +157,7 @@ private fun OnboardingContent(
             error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
         }
         // Consentement : accepter et refuser ont le même poids visuel (refuser doit être aussi simple qu'accepter).
-        if (step == OnboardingStep.Analytics) {
+        if (step.consentType != null) {
             OutlinedButton(onClick = onAccept, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text(text.acceptLabel) }
         } else {
             Button(onClick = onAccept, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text(text.acceptLabel) }

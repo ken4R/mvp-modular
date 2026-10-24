@@ -6,7 +6,14 @@ import com.mvp.core.designsystem.Appearance
 data class UserProfile(val displayName: String, val email: String)
 
 /** Consentements demandés à l'utilisateur (RGPD) : chacun est refusé tant qu'il n'est pas accordé. */
-enum class ConsentType { Analytics, Marketing, Personalization }
+enum class ConsentType {
+    Analytics,
+
+    /** Rapports de plantage (ADR 0020), séparé de la mesure d'audience : l'un peut être accepté sans l'autre. */
+    CrashReports,
+    Marketing,
+    Personalization,
+}
 
 /**
  * Dernier choix de l'utilisateur pour un consentement. [decidedAt] (epoch ms) et [textVersion]

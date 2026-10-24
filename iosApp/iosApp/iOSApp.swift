@@ -13,6 +13,9 @@ struct iOSApp: App {
 
     init() {
         KoinIosKt.doInitKoin()
+        // Plantages : enregistrés seulement avec le consentement Rapports de plantage, ceux du lancement précédent
+        // partent maintenant (ADR 0020).
+        Task { @MainActor in _ = try? await UseCases.shared.startCrashReporting().invoke(params: NoParams.shared) }
         TodoReminders.start()
         // Mode hors ligne : les modifications des tâches partent dès que le réseau revient (ADR 0012).
         TodoSync.start()

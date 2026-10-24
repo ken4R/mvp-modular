@@ -3,11 +3,13 @@ package com.mvp.feature.settings.di
 import com.mvp.core.common.dispatcher.AppDispatchers
 import com.mvp.core.common.domain.analytics.AnalyticsConsent
 import com.mvp.core.common.domain.applock.AppLockPreference
+import com.mvp.core.common.domain.crash.CrashReportingConsent
 import com.mvp.core.common.domain.notification.NotificationsPreference
 import com.mvp.core.common.domain.session.UserSessionObserver
 import com.mvp.core.database.DatabaseDriverFactory
 import com.mvp.feature.settings.data.analytics.SettingsAnalyticsConsent
 import com.mvp.feature.settings.data.applock.SettingsAppLockPreference
+import com.mvp.feature.settings.data.crash.SettingsCrashReportingConsent
 import com.mvp.feature.settings.data.db.SettingsDatabase
 import com.mvp.feature.settings.data.notification.SettingsNotificationsPreference
 import com.mvp.feature.settings.data.repository.AppLockRepositoryImpl
@@ -53,6 +55,8 @@ val settingsModule = module {
     single<NotificationsPreference> { SettingsNotificationsPreference(get()) }
     // Lu par core:analytics avant de garder ou d'envoyer un événement.
     single<AnalyticsConsent> { SettingsAnalyticsConsent(get()) }
+    // Suivi par core:crashreporting : rien n'est enregistré au plantage sans ce consentement (ADR 0020).
+    single<CrashReportingConsent> { SettingsCrashReportingConsent(get()) }
     // Lu par feature:todo : verrou activé, le widget Tâches ne montre aucune tâche (ADR 0011).
     single<AppLockPreference> { SettingsAppLockPreference(get()) }
 
@@ -60,8 +64,8 @@ val settingsModule = module {
     factory { ObserveSettingsUseCase(get(), get<AppDispatchers>().io) }
     factory { UpdateProfileUseCase(get(), get<AppDispatchers>().io) }
     factory { SetNotificationsEnabledUseCase(get(), get<AppDispatchers>().io) }
-    // AnalyticsConsentObserver vient de core:analytics : retirer le consentement vide sa file d'attente.
-    factory { SetConsentUseCase(get(), getAll(), systemNow, get<AppDispatchers>().io) }
+    // Observateurs de core:analytics et core:crashreporting : retirer un consentement vide ce qui attendait.
+    factory { SetConsentUseCase(get(), getAll(), getAll(), systemNow, get<AppDispatchers>().io) }
     factory { ObserveAppLockUseCase(get(), get<AppDispatchers>().io) }
     factory { SetAppLockEnabledUseCase(get(), get(), get<AppDispatchers>().io) }
     factory { LockAppUseCase(get(), get<AppDispatchers>().io) }

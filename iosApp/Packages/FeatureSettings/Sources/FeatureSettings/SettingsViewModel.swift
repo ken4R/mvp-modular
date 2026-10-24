@@ -19,10 +19,13 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var error: String?
     /// Journal de mesure, montré dans les builds de debug seulement.
     @Published private(set) var analyticsJournal: AnalyticsJournal?
+    /// Rapports de plantage « envoyés », montrés dans les builds de debug seulement.
+    @Published private(set) var crashJournal: [CrashReport] = []
 
     private var subscription: Subscription?
     private var sessionSubscription: Subscription?
     private var journalSubscription: Subscription?
+    private var crashJournalSubscription: Subscription?
     /// Le formulaire de profil n'est pré-rempli qu'une fois, pour ne pas écraser la saisie en cours.
     private var profileLoaded = false
 
@@ -41,6 +44,10 @@ final class SettingsViewModel: ObservableObject {
             onJournal: { [weak self] journal in self?.analyticsJournal = journal },
             onError: { _ in }
         )
+        crashJournalSubscription = UseCases.shared.observeCrashJournal(
+            onJournal: { [weak self] reports in self?.crashJournal = reports },
+            onError: { _ in }
+        )
         #endif
     }
 
@@ -51,6 +58,8 @@ final class SettingsViewModel: ObservableObject {
         sessionSubscription = nil
         journalSubscription?.cancel()
         journalSubscription = nil
+        crashJournalSubscription?.cancel()
+        crashJournalSubscription = nil
     }
 
     /// Efface les données locales puis la session ; l'app revient alors sur l'écran de connexion.
@@ -150,6 +159,12 @@ final class SettingsViewModel: ObservableObject {
     /// Journal de mesure (debug) : un événement de test, ignoré sans consentement comme les autres.
     func sendTestEvent() async {
         _ = try? await UseCases.shared.trackEvent().invoke(params: AnalyticsEvent.DebugTest.shared)
+    }
+
+    /// Suivi des plantages (debug) : exception Kotlin non rattrapable, l'app s'arrête. Avec le consentement
+    /// Rapports de plantage, le rapport apparaît dans le journal au lancement suivant (ADR 0020).
+    func crashForTest() {
+        UseCases.shared.crashForTest()
     }
 
     func flushAnalytics() async {

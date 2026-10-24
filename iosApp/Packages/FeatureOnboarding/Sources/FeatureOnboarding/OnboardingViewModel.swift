@@ -4,7 +4,15 @@ import Shared
 /// Étapes de la présentation (OnboardingStep, KMP). L'export renomme les entrées des enums Kotlin :
 /// les cas Swift portent les noms Kotlin en `rawValue`.
 enum OnboardingPage: String {
-    case Welcome, Notifications, Location, AppLock, Analytics
+    case Welcome, Notifications, Location, AppLock, Analytics, CrashReports
+
+    /// Consentement demandé par cette étape (même nom Kotlin que l'étape), `nil` pour les autres.
+    var consentType: ConsentType? {
+        switch self {
+        case .Analytics, .CrashReports: return KoinIosKt.consentType(name: rawValue)
+        case .Welcome, .Notifications, .Location, .AppLock: return nil
+        }
+    }
 }
 
 @MainActor
@@ -59,8 +67,8 @@ final class OnboardingViewModel: ObservableObject {
             // Annulé : l'utilisateur reste sur l'étape, il peut réessayer ou choisir « Plus tard ».
             guard await PermissionRequests.authenticate(reason: "Activer le déverrouillage de l'app") else { return }
             await save(try? await UseCases.shared.setAppLockEnabled().invoke(params: KotlinBoolean(bool: true)))
-        case .Analytics:
-            await saveConsent(granted: true)
+        case .Analytics, .CrashReports:
+            await saveConsent(page, granted: true)
         }
     }
 
@@ -69,7 +77,7 @@ final class OnboardingViewModel: ObservableObject {
         busy = true
         defer { busy = false }
         error = nil
-        if page == .Analytics { await saveConsent(granted: false) } else { await advance() }
+        if page.consentType != nil { await saveConsent(page, granted: false) } else { await advance() }
     }
 
     /// « Passer » : la présentation n'est plus montrée sur cet appareil. Possible aussi pendant une demande système
@@ -90,8 +98,9 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     /// Accepté ou refusé explicitement : le choix est daté avec la version du texte affiché (ConsentTexts, KMP).
-    private func saveConsent(granted: Bool) async {
-        let choice = ConsentChoice(type: .analytics, granted: granted)
+    private func saveConsent(_ page: OnboardingPage, granted: Bool) async {
+        guard let type = page.consentType else { return await advance() }
+        let choice = ConsentChoice(type: type, granted: granted)
         await save(try? await UseCases.shared.setConsent().invoke(params: choice))
     }
 

@@ -143,7 +143,9 @@ class OnboardingUseCasesTest {
 
         assertEquals(OnboardingStep.entries.toList(), withLock)
         assertEquals(
-            listOf(OnboardingStep.Welcome, OnboardingStep.Notifications, OnboardingStep.Location, OnboardingStep.Analytics),
+            listOf(OnboardingStep.Welcome, OnboardingStep.Notifications, OnboardingStep.Location, OnboardingStep.Analytics,
+                OnboardingStep.CrashReports,
+            ),
             withoutLock,
         )
     }

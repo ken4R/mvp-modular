@@ -38,6 +38,7 @@ include(":core:deeplink")
 include(":core:analytics")
 include(":core:connectivity")
 include(":core:files")
+include(":core:crashreporting")
 
 // Features
 include(":feature:todo")

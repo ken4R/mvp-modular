@@ -113,7 +113,10 @@ class OnboardingViewModel(
     }
 
     /** Accepté ou refusé explicitement : le choix est daté avec la version du texte affiché (ConsentTexts). */
-    fun onAnalyticsChoice(granted: Boolean) = runBusy { save(setConsent(ConsentChoice(ConsentType.Analytics, granted))) }
+    fun onConsentChoice(step: OnboardingStep, granted: Boolean) {
+        val type = step.consentType ?: return onNext()
+        runBusy { save(setConsent(ConsentChoice(type, granted))) }
+    }
 
     private suspend fun save(result: AppResult<Unit>) {
         if (result is AppResult.Success) advance() else showSaveError()
@@ -147,3 +150,11 @@ class OnboardingViewModel(
         }
     }
 }
+
+/** Consentement demandé par cette étape (Mesure d'audience, Rapports de plantage), `null` pour les autres. */
+val OnboardingStep.consentType: ConsentType?
+    get() = when (this) {
+        OnboardingStep.Analytics -> ConsentType.Analytics
+        OnboardingStep.CrashReports -> ConsentType.CrashReports
+        OnboardingStep.Welcome, OnboardingStep.Notifications, OnboardingStep.Location, OnboardingStep.AppLock -> null
+    }

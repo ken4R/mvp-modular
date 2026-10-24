@@ -2,8 +2,8 @@ package com.mvp.feature.onboarding.domain.model
 
 /**
  * Texte d'une étape. [declineLabel] est `null` quand il n'y a rien à refuser (accueil).
- * Le consentement Mesure d'audience est montré avec son propre texte versionné (ConsentTexts, feature:settings) :
- * l'accord porte sur ce texte-là.
+ * Les consentements (Mesure d'audience, Rapports de plantage) sont montrés avec leur propre texte versionné
+ * (ConsentTexts, feature:settings) : l'accord porte sur ce texte-là.
  */
 data class OnboardingText(
     val title: String,
@@ -52,6 +52,13 @@ object OnboardingTexts {
             title = "Mesure d'audience",
             body = "Nous aider à améliorer l'app avec des statistiques d'usage ? Refuser ne change rien à ce que vous " +
                 "pouvez faire. Vous pourrez changer d'avis dans Réglages > Consentements.",
+            acceptLabel = "Accepter",
+            declineLabel = "Refuser",
+        )
+        OnboardingStep.CrashReports -> OnboardingText(
+            title = "Rapports de plantage",
+            body = "Si l'app plante, envoyer un rapport pour nous aider à corriger le problème ? C'est indépendant de " +
+                "la mesure d'audience. Vous pourrez changer d'avis dans Réglages > Consentements.",
             acceptLabel = "Accepter",
             declineLabel = "Refuser",
         )

@@ -18,6 +18,7 @@ import com.mvp.feature.catalog.domain.usecase.ObserveFilteredCatalogUseCase
 import com.mvp.feature.catalog.domain.usecase.RefreshCatalogUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,6 +42,10 @@ data class CatalogUiState(
     val products: List<ProductSummary> = emptyList(),
     /** Nombre de produits en cache, sans filtre : la pagination le suit. */
     val cachedCount: Int = 0,
+    /** Produits déjà parcourus côté serveur : la pagination le suit (une page de doublons le fait aussi avancer). */
+    val loadedCount: Int = 0,
+    /** Texte du champ de recherche, appliqué à [filter] après une courte pause de saisie. */
+    val query: String = "",
     val filter: CatalogFilter = CatalogFilter(),
     val hasMore: Boolean = true,
     /** Date du dernier chargement réussi (epoch ms), `null` si le catalogue n'a jamais été chargé. */
@@ -70,6 +75,7 @@ class CatalogViewModel(
     val state: StateFlow<CatalogUiState> = _state.asStateFlow()
 
     private var detailRequest: Job? = null
+    private var queryJob: Job? = null
 
     init {
         // Chaque nouveau filtre remplace l'observation précédente.
@@ -83,6 +89,7 @@ class CatalogViewModel(
                         it.copy(
                             products = filtered.products,
                             cachedCount = catalog.products.size,
+                            loadedCount = catalog.loadedCount,
                             hasMore = catalog.hasMore,
                             updatedAt = catalog.updatedAt,
                         )
@@ -107,13 +114,24 @@ class CatalogViewModel(
             .launchIn(viewModelScope)
     }
 
-    fun onQueryChange(query: String) = updateFilter { it.copy(query = query) }
+    fun onQueryChange(query: String) {
+        _state.update { it.copy(query = query) }
+        queryJob?.cancel()
+        queryJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MILLIS)
+            updateFilter { it.copy(query = query) }
+        }
+    }
 
     fun onToggleTopRated() = updateFilter { it.copy(topRatedOnly = !it.topRatedOnly) }
 
     fun onSortChange(sort: CatalogSort) = updateFilter { it.copy(sort = sort) }
 
-    fun onClearFilter() = updateFilter { CatalogFilter() }
+    /** « Tout afficher » : retire la recherche et le filtre, garde le tri. */
+    fun onClearFilter() {
+        queryJob?.cancel()
+        _state.update { it.copy(query = "", filter = it.filter.copy(query = "", topRatedOnly = false)) }
+    }
 
     private fun updateFilter(transform: (CatalogFilter) -> CatalogFilter) = _state.update { it.copy(filter = transform(it.filter)) }
 
@@ -167,6 +185,9 @@ class CatalogViewModel(
         state.copy(detail = transform(detail))
     }
 }
+
+/** Pause de saisie avant d'appliquer la recherche. */
+private const val SEARCH_DEBOUNCE_MILLIS = 250L
 
 private fun AppError.toMessage(): String = when (this) {
     AppError.Network -> "Pas de connexion internet."

@@ -103,9 +103,9 @@ public struct CatalogView: View {
             }
             if viewModel.hasMore {
                 footer(colors)
-                    // Nouvel identifiant à chaque page ou actualisation : le pied réapparaît, et redemande la suite, s'il reste
-                    // visible (une recherche avec peu de résultats parcourt ainsi les pages suivantes).
-                    .id("\(viewModel.cachedCount)-\(viewModel.isRefreshing)")
+                    // Nouvel identifiant à chaque page, actualisation ou fin de chargement : le pied réapparaît, et redemande
+                    // la suite, s'il reste visible (une recherche avec peu de résultats parcourt ainsi les pages suivantes).
+                    .id("\(viewModel.loadedCount)-\(viewModel.isRefreshing)-\(viewModel.isLoadingMore)")
             }
         }
         .listStyle(.plain)

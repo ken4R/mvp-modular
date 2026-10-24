@@ -68,8 +68,9 @@ final class TodoViewModel: ObservableObject {
         syncSubscription = nil
     }
 
-    var isFiltering: Bool {
-        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || status != .all || withReminder || withAttachments
+    /// Filtre courant ; `isActive` (logique KMP) dit s'il retire des tâches.
+    private var filter: TodoFilter {
+        TodoFilter(query: query, status: status, withReminder: withReminder, withAttachments: withAttachments)
     }
 
     /// Retire la recherche et les filtres : toute la liste est affichée.
@@ -100,7 +101,6 @@ final class TodoViewModel: ObservableObject {
     }
 
     private func subscribe() {
-        let filter = TodoFilter(query: query, status: status, withReminder: withReminder, withAttachments: withAttachments)
         subscription?.cancel()
         subscription = UseCases.shared.observeFilteredTodos(
             filter: filter,
@@ -141,7 +141,7 @@ final class TodoViewModel: ObservableObject {
         }
         guard result != nil else { return }
         // Les filtres sont retirés pour que la tâche soit dans la liste.
-        if isFiltering { clearFilter() }
+        if filter.isActive { clearFilter() }
         focusedTodoId = id
         focusTask?.cancel()
         focusTask = Task { [weak self] in

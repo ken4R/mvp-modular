@@ -7,6 +7,8 @@ final class CatalogViewModel: ObservableObject {
     @Published private(set) var products: [ProductSummary] = []
     /// Nombre de produits en cache, sans filtre : la pagination le suit.
     @Published private(set) var cachedCount = 0
+    /// Produits déjà parcourus côté serveur : le pied de liste le suit (une page de doublons le fait aussi avancer).
+    @Published private(set) var loadedCount = 0
     /// Recherche dans le nom et la marque, sur les pages déjà chargées ; appliquée après une courte pause de saisie.
     @Published var query = "" { didSet { if query != oldValue { observeFiltered(debounced: true) } } }
     /// Note d'au moins 4 sur 5.
@@ -55,10 +57,6 @@ final class CatalogViewModel: ObservableObject {
         connectivitySubscription = nil
     }
 
-    var isFiltering: Bool {
-        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || topRatedOnly
-    }
-
     /// Remplace l'observation par celle du filtre courant (filtrage et tri faits par la logique KMP).
     private func observeFiltered(debounced: Bool = false) {
         guard isObserving else { return }
@@ -82,6 +80,7 @@ final class CatalogViewModel: ObservableObject {
                 let catalog = filtered.catalog
                 self?.products = filtered.products
                 self?.cachedCount = catalog.products.count
+                self?.loadedCount = Int(catalog.loadedCount)
                 self?.hasMore = catalog.hasMore
                 self?.updatedAt = catalog.updatedAt.map { Date(timeIntervalSince1970: Double($0.int64Value) / 1000) }
             },

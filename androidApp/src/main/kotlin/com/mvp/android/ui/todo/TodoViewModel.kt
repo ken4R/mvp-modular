@@ -22,6 +22,8 @@ import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +40,8 @@ data class TodoUiState(
     val todos: List<Todo> = emptyList(),
     /** Toutes les tâches, sans filtre. */
     val allTodos: List<Todo> = emptyList(),
+    /** Texte du champ de recherche, appliqué à [filter] après une courte pause de saisie. */
+    val query: String = "",
     val filter: TodoFilter = TodoFilter(),
     val input: String = "",
     val error: String? = null,
@@ -89,6 +93,7 @@ class TodoViewModel(
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(TodoUiState())
+    private var queryJob: Job? = null
     val state: StateFlow<TodoUiState> = _state.asStateFlow()
 
     init {
@@ -120,13 +125,23 @@ class TodoViewModel(
      */
     fun focus(id: String) = viewModelScope.launch {
         findTodo(id)
-            .onSuccess { todo -> _state.update { it.copy(focusedTodoId = todo.id, filter = TodoFilter()) } }
+            .onSuccess { todo ->
+                queryJob?.cancel()
+                _state.update { it.copy(focusedTodoId = todo.id, query = "", filter = TodoFilter()) }
+            }
             .onFailure(::showError)
     }
 
     fun clearFocus() = _state.update { it.copy(focusedTodoId = null) }
 
-    fun onQueryChange(query: String) = updateFilter { it.copy(query = query) }
+    fun onQueryChange(query: String) {
+        _state.update { it.copy(query = query) }
+        queryJob?.cancel()
+        queryJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MILLIS)
+            updateFilter { it.copy(query = query) }
+        }
+    }
 
     fun onStatusFilterChange(status: TodoStatusFilter) = updateFilter { it.copy(status = status) }
 
@@ -134,7 +149,10 @@ class TodoViewModel(
 
     fun onToggleAttachmentFilter() = updateFilter { it.copy(withAttachments = !it.withAttachments) }
 
-    fun onClearFilter() = updateFilter { TodoFilter() }
+    fun onClearFilter() {
+        queryJob?.cancel()
+        _state.update { it.copy(query = "", filter = TodoFilter()) }
+    }
 
     private fun updateFilter(transform: (TodoFilter) -> TodoFilter) = _state.update { it.copy(filter = transform(it.filter)) }
 
@@ -162,6 +180,9 @@ class TodoViewModel(
 
     private fun showError(error: AppError) = _state.update { it.copy(error = error.toMessage()) }
 }
+
+/** Pause de saisie avant d'appliquer la recherche. */
+private const val SEARCH_DEBOUNCE_MILLIS = 250L
 
 private fun AppError.toMessage(): String = when (this) {
     is AppError.Validation -> message

@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
@@ -37,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mvp.android.ui.common.StatusBanner
@@ -169,7 +171,7 @@ private fun TodoContent(
                 )
             }
 
-            if (state.allTodos.isNotEmpty()) TodoFilterBar(state.filter, filterActions)
+            if (state.allTodos.isNotEmpty()) TodoFilterBar(state.query, state.filter, filterActions)
 
             when {
                 state.allTodos.isEmpty() -> Text("Aucune tâche pour le moment", style = MaterialTheme.typography.bodyLarge)
@@ -201,14 +203,16 @@ private fun TodoContent(
 
 /** Champ de recherche (titre et note) et filtres cumulables, défilant à l'horizontale sur les petits écrans. */
 @Composable
-private fun TodoFilterBar(filter: TodoFilter, actions: TodoFilterActions) {
+private fun TodoFilterBar(query: String, filter: TodoFilter, actions: TodoFilterActions) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         OutlinedTextField(
-            value = filter.query,
+            value = query,
             onValueChange = actions.onQueryChange,
             placeholder = { Text("Rechercher dans les tâches et les notes") },
             singleLine = true,
-            trailingIcon = if (filter.query.isNotEmpty()) {
+            // Recherche dans des notes parfois personnelles : le clavier n'en apprend rien.
+            keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Search),
+            trailingIcon = if (query.isNotEmpty()) {
                 { TextButton(onClick = { actions.onQueryChange("") }) { Text("Effacer") } }
             } else {
                 null

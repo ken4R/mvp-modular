@@ -7,9 +7,9 @@ Objectif : retrouver une tâche ou un produit par quelques mots, et réduire la 
 3. **`feature:catalog`** : `CatalogFilter` (recherche dans le nom et la marque, « 4★ et plus », `CatalogSort` ordre du serveur / prix croissant / prix décroissant / mieux notés, tris stables), `FilteredCatalog` (produits filtrés + cache complet), `ObserveFilteredCatalogUseCase`. La recherche porte sur les pages déjà chargées ; en bas de la liste, la page suivante est chargée comme sans filtre, et filtrée à son tour. Test `CatalogFilterUseCaseTest`.
 4. **`shared`** : `UseCases.observeFilteredTodos(filter, ...)`, `observeFilteredCatalog(filter, ...)` ; un nouveau filtre = un nouvel abonnement.
 5. **Android** : `TodoScreen` (champ de recherche + puces de filtre sous l'ajout), `CatalogScreen` (champ de recherche + puces « 4★ et plus » et tris ; un second tap sur le tri choisi revient à l'ordre du serveur). Les ViewModels gardent le filtre dans leur état et passent d'une observation à l'autre (`flatMapLatest`).
-6. **iOS** : `TodoListView` (champ de recherche, sélecteur segmenté de l'état, boutons bascule rappel / pièce jointe), `CatalogView` (`.searchable` + menu « Filtrer et trier »). Recherche appliquée après 0,25 s de pause de saisie.
+6. **iOS** : `TodoListView` (champ de recherche, sélecteur segmenté de l'état, boutons bascule rappel / pièce jointe), `CatalogView` (`.searchable` + menu « Filtrer et trier »).
 
-Un lien profond vers une tâche retire les filtres, pour que la tâche soit dans la liste. L'écran Compose Multiplatform (ADR 0010) n'a pas la recherche.
+Sur les deux plateformes, la recherche est appliquée après 0,25 s de pause de saisie, et le clavier n'apprend pas les mots cherchés (autocorrection désactivée). « Tout afficher » retire la recherche et les filtres et garde le tri. Un lien profond vers une tâche retire les filtres, pour que la tâche soit dans la liste. L'écran Compose Multiplatform (ADR 0010) n'a pas la recherche.
 
 ## Recette manuelle (simulateur / émulateur)
 

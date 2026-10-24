@@ -1,12 +1,12 @@
 package com.mvp.feature.todo
 
-import com.mvp.core.common.domain.result.getOrNull
 import com.mvp.core.common.domain.result.AppResult
+import com.mvp.core.common.domain.result.getOrNull
 import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.FilteredTodos
 import com.mvp.feature.todo.domain.model.Todo
-import com.mvp.feature.todo.domain.model.TodoFilter
 import com.mvp.feature.todo.domain.model.TodoAttachment
+import com.mvp.feature.todo.domain.model.TodoFilter
 import com.mvp.feature.todo.domain.model.TodoStatusFilter
 import com.mvp.feature.todo.domain.repository.TodoRepository
 import com.mvp.feature.todo.domain.usecase.ObserveFilteredTodosUseCase

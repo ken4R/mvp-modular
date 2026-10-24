@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.ImeAction
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.mvp.android.ui.common.StatusBanner
@@ -115,7 +117,7 @@ private fun CatalogListView(
             Text("Catalogue", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = Spacing.md))
             if (!state.isOnline) StatusBanner("Hors ligne · catalogue enregistré, actualisé au retour du réseau")
             // Liste en cache affichée malgré l'échec : on dit d'où elle vient.
-            if (state.cachedCount > 0) CatalogFilterBar(state.filter, filterActions)
+            if (state.cachedCount > 0) CatalogFilterBar(state.query, state.filter, filterActions)
             if (state.refreshError != null && state.cachedCount > 0) {
                 Text(
                     "${state.refreshError} Liste enregistrée${state.updatedAt?.let { " le ${dateTime(it)}" }.orEmpty()}.",
@@ -181,9 +183,9 @@ private fun ProductList(
                         }
                     } else {
                         // Le pied de liste n'est composé qu'en arrivant en bas : c'est lui qui demande la page suivante,
-                        // et la redemande après chaque page ou actualisation s'il reste visible (une recherche avec peu de
-                        // résultats parcourt ainsi les pages suivantes).
-                        LaunchedEffect(state.cachedCount, state.isRefreshing) { onLoadMore() }
+                        // et la redemande après chaque page, actualisation ou fin de chargement s'il reste visible (une
+                        // recherche avec peu de résultats parcourt ainsi les pages suivantes).
+                        LaunchedEffect(state.loadedCount, state.isRefreshing, state.isLoadingMore) { onLoadMore() }
                         CircularProgressIndicator()
                     }
                 }
@@ -194,14 +196,16 @@ private fun ProductList(
 
 /** Champ de recherche (nom et marque), filtre « bien notés » et tri, défilant à l'horizontale sur les petits écrans. */
 @Composable
-private fun CatalogFilterBar(filter: CatalogFilter, actions: CatalogFilterActions) {
+private fun CatalogFilterBar(query: String, filter: CatalogFilter, actions: CatalogFilterActions) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         OutlinedTextField(
-            value = filter.query,
+            value = query,
             onValueChange = actions.onQueryChange,
             placeholder = { Text("Rechercher un produit ou une marque") },
             singleLine = true,
-            trailingIcon = if (filter.query.isNotEmpty()) {
+            // Recherche dans des notes parfois personnelles : le clavier n'en apprend rien.
+            keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Search),
+            trailingIcon = if (query.isNotEmpty()) {
                 { TextButton(onClick = { actions.onQueryChange("") }) { Text("Effacer") } }
             } else {
                 null

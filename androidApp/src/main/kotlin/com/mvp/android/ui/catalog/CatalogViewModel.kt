@@ -8,17 +8,23 @@ import com.mvp.core.common.domain.result.onFailure
 import com.mvp.core.common.domain.result.onSuccess
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.core.connectivity.domain.usecase.ObserveConnectivityUseCase
+import com.mvp.feature.catalog.domain.model.CatalogFilter
+import com.mvp.feature.catalog.domain.model.CatalogSort
 import com.mvp.feature.catalog.domain.model.Product
 import com.mvp.feature.catalog.domain.model.ProductSummary
 import com.mvp.feature.catalog.domain.usecase.GetProductUseCase
 import com.mvp.feature.catalog.domain.usecase.LoadMoreProductsUseCase
-import com.mvp.feature.catalog.domain.usecase.ObserveCatalogUseCase
+import com.mvp.feature.catalog.domain.usecase.ObserveFilteredCatalogUseCase
 import com.mvp.feature.catalog.domain.usecase.RefreshCatalogUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -31,8 +37,11 @@ data class ProductDetailState(
 )
 
 data class CatalogUiState(
-    /** Produits en cache : affichés même hors ligne. */
+    /** Produits en cache qui correspondent à la recherche et aux filtres : affichés même hors ligne. */
     val products: List<ProductSummary> = emptyList(),
+    /** Nombre de produits en cache, sans filtre : la pagination le suit. */
+    val cachedCount: Int = 0,
+    val filter: CatalogFilter = CatalogFilter(),
     val hasMore: Boolean = true,
     /** Date du dernier chargement réussi (epoch ms), `null` si le catalogue n'a jamais été chargé. */
     val updatedAt: Long? = null,
@@ -48,8 +57,9 @@ data class CatalogUiState(
     val isOnline: Boolean = true,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CatalogViewModel(
-    observeCatalog: ObserveCatalogUseCase,
+    observeFilteredCatalog: ObserveFilteredCatalogUseCase,
     private val refreshCatalog: RefreshCatalogUseCase,
     private val loadMoreProducts: LoadMoreProductsUseCase,
     private val getProduct: GetProductUseCase,
@@ -62,11 +72,20 @@ class CatalogViewModel(
     private var detailRequest: Job? = null
 
     init {
-        observeCatalog(NoParams)
+        // Chaque nouveau filtre remplace l'observation précédente.
+        _state.map { it.filter }
+            .distinctUntilChanged()
+            .flatMapLatest { filter -> observeFilteredCatalog(filter) }
             .onEach { result ->
-                result.onSuccess { catalog ->
+                result.onSuccess { filtered ->
+                    val catalog = filtered.catalog
                     _state.update {
-                        it.copy(products = catalog.products, hasMore = catalog.hasMore, updatedAt = catalog.updatedAt)
+                        it.copy(
+                            products = filtered.products,
+                            cachedCount = catalog.products.size,
+                            hasMore = catalog.hasMore,
+                            updatedAt = catalog.updatedAt,
+                        )
                     }
                 }
             }
@@ -87,6 +106,16 @@ class CatalogViewModel(
             }
             .launchIn(viewModelScope)
     }
+
+    fun onQueryChange(query: String) = updateFilter { it.copy(query = query) }
+
+    fun onToggleTopRated() = updateFilter { it.copy(topRatedOnly = !it.topRatedOnly) }
+
+    fun onSortChange(sort: CatalogSort) = updateFilter { it.copy(sort = sort) }
+
+    fun onClearFilter() = updateFilter { CatalogFilter() }
+
+    private fun updateFilter(transform: (CatalogFilter) -> CatalogFilter) = _state.update { it.copy(filter = transform(it.filter)) }
 
     fun refresh() {
         if (_state.value.isRefreshing) return

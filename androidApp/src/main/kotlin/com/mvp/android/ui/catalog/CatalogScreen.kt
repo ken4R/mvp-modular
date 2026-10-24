@@ -3,6 +3,7 @@ package com.mvp.android.ui.catalog
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,8 +21,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,6 +42,8 @@ import com.mvp.android.ui.common.StatusBanner
 import com.mvp.android.ui.theme.Radius
 import com.mvp.android.ui.theme.Sizes
 import com.mvp.android.ui.theme.Spacing
+import com.mvp.feature.catalog.domain.model.CatalogFilter
+import com.mvp.feature.catalog.domain.model.CatalogSort
 import com.mvp.feature.catalog.domain.model.Product
 import com.mvp.feature.catalog.domain.model.ProductSummary
 import org.koin.androidx.compose.koinViewModel
@@ -74,9 +79,23 @@ fun CatalogScreen(
             onLoadMore = viewModel::loadMore,
             onRetryLoadMore = viewModel::retryLoadMore,
             onOpen = viewModel::openProduct,
+            filterActions = CatalogFilterActions(
+                onQueryChange = viewModel::onQueryChange,
+                onToggleTopRated = viewModel::onToggleTopRated,
+                onSortChange = viewModel::onSortChange,
+                onClear = viewModel::onClearFilter,
+            ),
         )
     }
 }
+
+/** Recherche, filtre et tri de la liste. */
+private class CatalogFilterActions(
+    val onQueryChange: (String) -> Unit,
+    val onToggleTopRated: () -> Unit,
+    val onSortChange: (CatalogSort) -> Unit,
+    val onClear: () -> Unit,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,6 +105,7 @@ private fun CatalogListView(
     onLoadMore: () -> Unit,
     onRetryLoadMore: () -> Unit,
     onOpen: (Long) -> Unit,
+    filterActions: CatalogFilterActions,
 ) {
     Scaffold { padding ->
         Column(
@@ -95,7 +115,8 @@ private fun CatalogListView(
             Text("Catalogue", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = Spacing.md))
             if (!state.isOnline) StatusBanner("Hors ligne · catalogue enregistré, actualisé au retour du réseau")
             // Liste en cache affichée malgré l'échec : on dit d'où elle vient.
-            if (state.refreshError != null && state.products.isNotEmpty()) {
+            if (state.cachedCount > 0) CatalogFilterBar(state.filter, filterActions)
+            if (state.refreshError != null && state.cachedCount > 0) {
                 Text(
                     "${state.refreshError} Liste enregistrée${state.updatedAt?.let { " le ${dateTime(it)}" }.orEmpty()}.",
                     style = MaterialTheme.typography.bodySmall,
@@ -103,12 +124,12 @@ private fun CatalogListView(
                 )
             }
             PullToRefreshBox(
-                isRefreshing = state.isRefreshing && state.products.isNotEmpty(),
+                isRefreshing = state.isRefreshing && state.cachedCount > 0,
                 onRefresh = onRefresh,
                 modifier = Modifier.fillMaxSize(),
             ) {
                 when {
-                    state.products.isNotEmpty() -> ProductList(state, onLoadMore, onRetryLoadMore, onOpen)
+                    state.cachedCount > 0 -> ProductList(state, onLoadMore, onRetryLoadMore, onOpen, filterActions.onClear)
                     state.isRefreshing -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
@@ -132,8 +153,20 @@ private fun ProductList(
     onLoadMore: () -> Unit,
     onRetryLoadMore: () -> Unit,
     onOpen: (Long) -> Unit,
+    onClearFilter: () -> Unit,
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
+        if (state.products.isEmpty()) {
+            item(key = "no-match") {
+                Column(Modifier.padding(vertical = Spacing.sm)) {
+                    Text(
+                        if (state.hasMore) "Aucun produit ne correspond parmi ceux déjà chargés." else "Aucun produit ne correspond.",
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    TextButton(onClick = onClearFilter) { Text("Tout afficher") }
+                }
+            }
+        }
         items(state.products, key = { it.id }) { product ->
             ProductRow(product, onClick = { onOpen(product.id) })
             HorizontalDivider()
@@ -148,8 +181,9 @@ private fun ProductList(
                         }
                     } else {
                         // Le pied de liste n'est composé qu'en arrivant en bas : c'est lui qui demande la page suivante,
-                        // et la redemande après chaque page ou actualisation s'il reste visible.
-                        LaunchedEffect(state.products.size, state.isRefreshing) { onLoadMore() }
+                        // et la redemande après chaque page ou actualisation s'il reste visible (une recherche avec peu de
+                        // résultats parcourt ainsi les pages suivantes).
+                        LaunchedEffect(state.cachedCount, state.isRefreshing) { onLoadMore() }
                         CircularProgressIndicator()
                     }
                 }
@@ -157,6 +191,45 @@ private fun ProductList(
         }
     }
 }
+
+/** Champ de recherche (nom et marque), filtre « bien notés » et tri, défilant à l'horizontale sur les petits écrans. */
+@Composable
+private fun CatalogFilterBar(filter: CatalogFilter, actions: CatalogFilterActions) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        OutlinedTextField(
+            value = filter.query,
+            onValueChange = actions.onQueryChange,
+            placeholder = { Text("Rechercher un produit ou une marque") },
+            singleLine = true,
+            trailingIcon = if (filter.query.isNotEmpty()) {
+                { TextButton(onClick = { actions.onQueryChange("") }) { Text("Effacer") } }
+            } else {
+                null
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            FilterChip(selected = filter.topRatedOnly, onClick = actions.onToggleTopRated, label = { Text("4★ et plus") })
+            SORT_LABELS.forEach { (sort, label) ->
+                FilterChip(
+                    selected = filter.sort == sort,
+                    // Un second tap sur le tri choisi revient à l'ordre du serveur.
+                    onClick = { actions.onSortChange(if (filter.sort == sort) CatalogSort.ServerOrder else sort) },
+                    label = { Text(label) },
+                )
+            }
+        }
+    }
+}
+
+private val SORT_LABELS = listOf(
+    CatalogSort.PriceAscending to "Prix croissant",
+    CatalogSort.PriceDescending to "Prix décroissant",
+    CatalogSort.BestRated to "Mieux notés",
+)
 
 @Composable
 private fun ProductRow(product: ProductSummary, onClick: () -> Unit) {

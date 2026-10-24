@@ -3,8 +3,15 @@ import Shared
 
 @MainActor
 final class CatalogViewModel: ObservableObject {
-    /// Produits en cache : affichés même hors ligne.
+    /// Produits en cache qui correspondent à la recherche et aux filtres : affichés même hors ligne.
     @Published private(set) var products: [ProductSummary] = []
+    /// Nombre de produits en cache, sans filtre : la pagination le suit.
+    @Published private(set) var cachedCount = 0
+    /// Recherche dans le nom et la marque, sur les pages déjà chargées ; appliquée après une courte pause de saisie.
+    @Published var query = "" { didSet { if query != oldValue { observeFiltered(debounced: true) } } }
+    /// Note d'au moins 4 sur 5.
+    @Published var topRatedOnly = false { didSet { if topRatedOnly != oldValue { observeFiltered() } } }
+    @Published var sort: CatalogSort = .serverOrder { didSet { if sort != oldValue { observeFiltered() } } }
     @Published private(set) var hasMore = true
     /// Date du dernier chargement réussi, nil si le catalogue n'a jamais été chargé.
     @Published private(set) var updatedAt: Date?
@@ -18,20 +25,17 @@ final class CatalogViewModel: ObservableObject {
     @Published private(set) var isOnline = true
 
     private var subscription: Subscription?
+    private var debounceTask: Task<Void, Never>?
+    /// Entre `start()` et `stop()`.
+    private var isObserving = false
     private var connectivitySubscription: Subscription?
     private var didRefreshOnce = false
 
     /// Affiche le cache tout de suite, puis recharge la première page en arrière-plan (au premier affichage seulement).
     func start() {
         guard subscription == nil else { return }
-        subscription = UseCases.shared.observeCatalog(
-            onCatalog: { [weak self] catalog in
-                self?.products = catalog.products
-                self?.hasMore = catalog.hasMore
-                self?.updatedAt = catalog.updatedAt.map { Date(timeIntervalSince1970: Double($0.int64Value) / 1000) }
-            },
-            onError: { _ in }
-        )
+        isObserving = true
+        subscribe()
         connectivitySubscription = UseCases.shared.observeConnectivity(
             onOnline: { [weak self] online in self?.connectivityChanged(online.boolValue) },
             onError: { _ in }
@@ -42,11 +46,51 @@ final class CatalogViewModel: ObservableObject {
     }
 
     func stop() {
+        isObserving = false
+        debounceTask?.cancel()
+        debounceTask = nil
         subscription?.cancel()
         subscription = nil
         connectivitySubscription?.cancel()
         connectivitySubscription = nil
     }
+
+    var isFiltering: Bool {
+        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || topRatedOnly
+    }
+
+    /// Remplace l'observation par celle du filtre courant (filtrage et tri faits par la logique KMP).
+    private func observeFiltered(debounced: Bool = false) {
+        guard isObserving else { return }
+        debounceTask?.cancel()
+        if debounced {
+            debounceTask = Task { [weak self] in
+                try? await Task.sleep(nanoseconds: Self.searchDebounce)
+                if !Task.isCancelled { self?.subscribe() }
+            }
+        } else {
+            subscribe()
+        }
+    }
+
+    private func subscribe() {
+        let filter = CatalogFilter(query: query, topRatedOnly: topRatedOnly, sort: sort)
+        subscription?.cancel()
+        subscription = UseCases.shared.observeFilteredCatalog(
+            filter: filter,
+            onCatalog: { [weak self] filtered in
+                let catalog = filtered.catalog
+                self?.products = filtered.products
+                self?.cachedCount = catalog.products.count
+                self?.hasMore = catalog.hasMore
+                self?.updatedAt = catalog.updatedAt.map { Date(timeIntervalSince1970: Double($0.int64Value) / 1000) }
+            },
+            onError: { _ in }
+        )
+    }
+
+    /// Pause de saisie avant d'appliquer la recherche, en nanosecondes (0,25 s).
+    private static let searchDebounce: UInt64 = 250_000_000
 
     /// Retour du réseau : ce qui a échoué hors ligne est relancé sans attendre l'utilisateur.
     private func connectivityChanged(_ online: Bool) {

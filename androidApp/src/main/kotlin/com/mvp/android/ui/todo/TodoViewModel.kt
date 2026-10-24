@@ -8,27 +8,37 @@ import com.mvp.core.common.domain.result.onFailure
 import com.mvp.core.common.domain.result.onSuccess
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.feature.todo.domain.model.Todo
+import com.mvp.feature.todo.domain.model.TodoFilter
 import com.mvp.feature.todo.domain.model.TodoReminder
+import com.mvp.feature.todo.domain.model.TodoStatusFilter
 import com.mvp.feature.todo.domain.model.TodoSyncStatus
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveFilteredTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
-import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class TodoUiState(
+    /** Tâches qui correspondent à la recherche et aux filtres. */
     val todos: List<Todo> = emptyList(),
+    /** Toutes les tâches, sans filtre. */
+    val allTodos: List<Todo> = emptyList(),
+    val filter: TodoFilter = TodoFilter(),
     val input: String = "",
     val error: String? = null,
     val remindersEnabled: Boolean = true,
@@ -55,7 +65,7 @@ data class TodoUiState(
     val showRemindersDisabledHint: Boolean
         get() {
             val now = System.currentTimeMillis()
-            return !remindersEnabled && todos.any { todo -> !todo.isDone && todo.reminderAt.let { it != null && it > now } }
+            return !remindersEnabled && allTodos.any { todo -> !todo.isDone && todo.reminderAt.let { it != null && it > now } }
         }
 }
 
@@ -65,8 +75,9 @@ data class SyncBanner(val message: String, val canRetry: Boolean)
 private fun pendingText(count: Int): String =
     if (count == 1) "1 modification en attente" else "$count modifications en attente"
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class TodoViewModel(
-    observeTodos: ObserveTodosUseCase,
+    observeFilteredTodos: ObserveFilteredTodosUseCase,
     observeRemindersEnabled: ObserveRemindersEnabledUseCase,
     observeSyncStatus: ObserveTodoSyncStatusUseCase,
     private val syncTodos: SyncTodosUseCase,
@@ -81,10 +92,13 @@ class TodoViewModel(
     val state: StateFlow<TodoUiState> = _state.asStateFlow()
 
     init {
-        observeTodos(NoParams)
+        // Chaque nouveau filtre remplace l'observation précédente.
+        _state.map { it.filter }
+            .distinctUntilChanged()
+            .flatMapLatest { filter -> observeFilteredTodos(filter) }
             .onEach { result ->
                 when (result) {
-                    is AppResult.Success -> _state.update { it.copy(todos = result.data) }
+                    is AppResult.Success -> _state.update { it.copy(todos = result.data.todos, allTodos = result.data.all) }
                     is AppResult.Failure -> showError(result.error)
                 }
             }
@@ -100,14 +114,29 @@ class TodoViewModel(
     /** Bouton « Réessayer » du bandeau ; sinon la synchronisation réessaie seule, de plus en plus espacée. */
     fun onRetrySync() = viewModelScope.launch { syncTodos(NoParams) }
 
-    /** Un lien demande la tâche [id] : mise en évidence si elle existe ; sinon l'écran reste sur la liste et le dit. */
+    /**
+     * Un lien demande la tâche [id] : mise en évidence si elle existe, les filtres retirés pour qu'elle soit dans la
+     * liste ; sinon l'écran reste sur la liste et le dit.
+     */
     fun focus(id: String) = viewModelScope.launch {
         findTodo(id)
-            .onSuccess { todo -> _state.update { it.copy(focusedTodoId = todo.id) } }
+            .onSuccess { todo -> _state.update { it.copy(focusedTodoId = todo.id, filter = TodoFilter()) } }
             .onFailure(::showError)
     }
 
     fun clearFocus() = _state.update { it.copy(focusedTodoId = null) }
+
+    fun onQueryChange(query: String) = updateFilter { it.copy(query = query) }
+
+    fun onStatusFilterChange(status: TodoStatusFilter) = updateFilter { it.copy(status = status) }
+
+    fun onToggleReminderFilter() = updateFilter { it.copy(withReminder = !it.withReminder) }
+
+    fun onToggleAttachmentFilter() = updateFilter { it.copy(withAttachments = !it.withAttachments) }
+
+    fun onClearFilter() = updateFilter { TodoFilter() }
+
+    private fun updateFilter(transform: (TodoFilter) -> TodoFilter) = _state.update { it.copy(filter = transform(it.filter)) }
 
     fun onInputChange(value: String) = _state.update { it.copy(input = value, error = null) }
 

@@ -6,6 +6,7 @@ public struct TodoListView: View {
     @StateObject private var viewModel = TodoViewModel()
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var inputFocused: Bool
+    @FocusState private var searchFocused: Bool
     /// Tâche dont on choisit le rappel (feuille ouverte).
     @State private var reminderTodo: Todo?
     /// Tâche dont la fiche (note et pièces jointes, ADR 0014) est affichée à la place de la liste.
@@ -76,10 +77,23 @@ public struct TodoListView: View {
                     .foregroundColor(Color(argb: colors.primary))
             }
 
-            if viewModel.todos.isEmpty {
+            if !viewModel.allTodos.isEmpty {
+                filterBar(colors)
+            }
+
+            if viewModel.allTodos.isEmpty {
                 Text("Aucune tâche pour le moment")
                     .font(DS.Typography.body)
                     .foregroundColor(Color(argb: colors.onBackground))
+            } else if viewModel.todos.isEmpty {
+                HStack(spacing: DS.Spacing.sm) {
+                    Text("Aucune tâche ne correspond")
+                        .font(DS.Typography.body)
+                        .foregroundColor(Color(argb: colors.onBackground))
+                    Button("Tout afficher") { viewModel.clearFilter() }
+                        .font(DS.Typography.label)
+                        .tint(Color(argb: colors.primary))
+                }
             }
             ScrollViewReader { proxy in
                 List {
@@ -94,6 +108,7 @@ public struct TodoListView: View {
                             },
                             onOpen: {
                                 inputFocused = false
+                                searchFocused = false
                                 openedTodoId = todo.id
                             }
                         )
@@ -124,6 +139,46 @@ public struct TodoListView: View {
         }
     }
 
+    /// Recherche (titre et note) et filtres cumulables.
+    private func filterBar(_ colors: ColorTokens) -> some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            HStack(spacing: DS.Spacing.sm) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(Color(argb: colors.onSurface))
+                    .accessibilityHidden(true)
+                TextField("Rechercher dans les tâches et les notes", text: $viewModel.query)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($searchFocused)
+                    .submitLabel(.search)
+                    .onSubmit { searchFocused = false }
+                    .autocorrectionDisabled()
+                if !viewModel.query.isEmpty {
+                    Button { viewModel.query = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(Color(argb: colors.onSurface))
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Effacer la recherche")
+                }
+            }
+
+            Picker("État", selection: $viewModel.status) {
+                Text("Toutes").tag(TodoStatusFilter.all)
+                Text("À faire").tag(TodoStatusFilter.pending)
+                Text("Terminées").tag(TodoStatusFilter.done)
+            }
+            .pickerStyle(.segmented)
+
+            HStack(spacing: DS.Spacing.sm) {
+                Toggle(isOn: $viewModel.withReminder) { Label("Avec rappel", systemImage: "bell") }
+                Toggle(isOn: $viewModel.withAttachments) { Label("Avec pièce jointe", systemImage: "paperclip") }
+            }
+            .toggleStyle(.button)
+            .font(DS.Typography.label)
+            .tint(Color(argb: colors.primary))
+        }
+    }
+
     private func takeFocusRequest() {
         guard let id = focusRequest else { return }
         focusRequest = nil
@@ -137,6 +192,7 @@ public struct TodoListView: View {
     /// encore intercepter le tap suivant sur une ligne de la liste.
     private func add() {
         inputFocused = false
+        searchFocused = false
         Task { await viewModel.add() }
     }
 }

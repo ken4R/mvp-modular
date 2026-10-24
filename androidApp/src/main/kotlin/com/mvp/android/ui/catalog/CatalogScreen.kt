@@ -203,7 +203,7 @@ private fun CatalogFilterBar(query: String, filter: CatalogFilter, actions: Cata
             onValueChange = actions.onQueryChange,
             placeholder = { Text("Rechercher un produit ou une marque") },
             singleLine = true,
-            // Recherche dans des notes parfois personnelles : le clavier n'en apprend rien.
+            // Recherche dans des notes parfois personnelles : pas d'autocorrection ni de suggestions apprises.
             keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Search),
             trailingIcon = if (query.isNotEmpty()) {
                 { TextButton(onClick = { actions.onQueryChange("") }) { Text("Effacer") } }

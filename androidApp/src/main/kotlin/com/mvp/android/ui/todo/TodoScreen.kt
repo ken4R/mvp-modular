@@ -210,7 +210,7 @@ private fun TodoFilterBar(query: String, filter: TodoFilter, actions: TodoFilter
             onValueChange = actions.onQueryChange,
             placeholder = { Text("Rechercher dans les tâches et les notes") },
             singleLine = true,
-            // Recherche dans des notes parfois personnelles : le clavier n'en apprend rien.
+            // Recherche dans des notes parfois personnelles : pas d'autocorrection ni de suggestions apprises.
             keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Search),
             trailingIcon = if (query.isNotEmpty()) {
                 { TextButton(onClick = { actions.onQueryChange("") }) { Text("Effacer") } }

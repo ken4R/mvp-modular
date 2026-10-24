@@ -117,6 +117,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
         showAnalyticsJournal = isDebugBuild,
         onSendTestEvent = { viewModel.onSendTestEvent() },
         onFlushAnalytics = { viewModel.onFlushAnalytics() },
+        onRestartOnboarding = { viewModel.onRestartOnboarding() },
     )
 }
 
@@ -136,6 +137,7 @@ private fun SettingsContent(
     showAnalyticsJournal: Boolean,
     onSendTestEvent: () -> Unit,
     onFlushAnalytics: () -> Unit,
+    onRestartOnboarding: () -> Unit,
 ) {
     Scaffold { padding ->
         Column(
@@ -225,6 +227,7 @@ private fun SettingsContent(
                 Text("Version", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 Text(appVersion, style = MaterialTheme.typography.bodyLarge)
             }
+            OutlinedButton(onClick = onRestartOnboarding) { Text("Revoir la présentation") }
         }
     }
 }

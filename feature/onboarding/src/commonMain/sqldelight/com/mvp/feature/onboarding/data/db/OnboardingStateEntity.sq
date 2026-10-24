@@ -1,0 +1,15 @@
+-- État de la présentation en clé / valeur : préférence de l'appareil, pas du compte (ADR 0016).
+-- Une clé absente vaut « jamais vue ».
+CREATE TABLE OnboardingStateEntity (
+    state_key TEXT NOT NULL PRIMARY KEY,
+    state_value TEXT NOT NULL
+);
+
+selectByKey:
+SELECT state_value FROM OnboardingStateEntity WHERE state_key = ?;
+
+upsert:
+INSERT OR REPLACE INTO OnboardingStateEntity(state_key, state_value) VALUES (?, ?);
+
+deleteByKey:
+DELETE FROM OnboardingStateEntity WHERE state_key = ?;

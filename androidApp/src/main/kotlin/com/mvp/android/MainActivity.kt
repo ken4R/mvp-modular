@@ -43,6 +43,8 @@ import com.mvp.android.ui.auth.SessionViewModel
 import com.mvp.android.ui.catalog.CatalogScreen
 import com.mvp.android.ui.common.RecentsPrivacy
 import com.mvp.android.ui.deeplink.DeepLinkViewModel
+import com.mvp.android.ui.onboarding.OnboardingScreen
+import com.mvp.android.ui.onboarding.OnboardingViewModel
 import com.mvp.android.ui.settings.SettingsScreen
 import com.mvp.android.ui.theme.MvpTheme
 import com.mvp.android.ui.todo.TodoScreen
@@ -67,6 +69,8 @@ class MainActivity : ComponentActivity() {
     private val deepLinkViewModel: DeepLinkViewModel by viewModel()
     private val analyticsViewModel: AnalyticsViewModel by viewModel()
     private val appearanceViewModel: AppearanceViewModel by viewModel()
+    // Présentation du premier lancement : vue une fois par appareil, pas par session (ADR 0016).
+    private val onboardingViewModel: OnboardingViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,6 +91,7 @@ class MainActivity : ComponentActivity() {
                 val session by sessionViewModel.state.collectAsStateWithLifecycle()
                 // Collecté aussi en arrière-plan : l'écran verrouillé est prêt avant que l'app ne réapparaisse.
                 val appLock by appLockViewModel.state.collectAsState()
+                val onboardingRequired by onboardingViewModel.required.collectAsStateWithLifecycle()
                 // Masqué aussi pendant l'affichage d'un écran sensible (fiche d'une tâche et ses pièces jointes).
                 val sensitiveScreens by RecentsPrivacy.hasSensitiveScreen.collectAsState()
                 val hidden = appLock.enabled || sensitiveScreens > 0
@@ -100,6 +105,9 @@ class MainActivity : ComponentActivity() {
                         Blank()
                     } else if (appLock.locked) {
                         LockScreen(appLock, appLockViewModel::consumeAutoPrompt, appLockViewModel::onAuthResult, appLockViewModel::onLogout)
+                    } else if (onboardingRequired != false) {
+                        // Après la connexion : les choix sont enregistrés pour ce compte. Un lien reçu attend les onglets.
+                        if (onboardingRequired == null) Blank() else OnboardingScreen(onboardingViewModel)
                     } else {
                         // Les ViewModels des onglets sont liés à la session : neufs à chaque connexion.
                         CompositionLocalProvider(LocalViewModelStoreOwner provides sessionViewModel.screens) {

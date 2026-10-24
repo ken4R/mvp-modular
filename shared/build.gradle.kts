@@ -28,6 +28,7 @@ kotlin {
             export(projects.feature.settings)
             export(projects.feature.auth)
             export(projects.feature.catalog)
+            export(projects.feature.onboarding)
             xcFramework.add(this)
         }
     }
@@ -44,6 +45,7 @@ kotlin {
             api(projects.feature.settings)
             api(projects.feature.auth)
             api(projects.feature.catalog)
+            api(projects.feature.onboarding)
             // Écran Compose Multiplatform (ADR 0010) : api pour que l'app Android l'affiche ; pas exporté vers
             // Swift (les @Composable n'y servent à rien), iOS passe par ComposeScreens (iosMain).
             api(projects.feature.todoCompose)

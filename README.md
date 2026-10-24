@@ -17,6 +17,7 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
          feature:todo        feature:weather          feature:settings   feature:auth   feature:catalog
          (modèle à copier)   (réseau : Open-Meteo)                       (connexion, session)
          feature:todo-compose ← écran Tâches en Compose Multiplatform (UI partagée, ADR 0010)
+         feature:onboarding   ← présentation du premier lancement (ADR 0016)
          ├─ domain : entités, interfaces de repository, use cases
          ├─ data   : repository, data sources (SQLite / HTTP)
          └─ di     : module Koin
@@ -129,6 +130,15 @@ Catalogue de produits : liste paginée avec images, fiche détail, consultable h
 - **iOS** : package SPM `iosApp/Packages/FeatureCatalog` (`CatalogView` dans une `NavigationStack`, `ProductDetailView`, `ImageLoader` avec cache disque), onglet « Catalogue », app de démo `CatalogDemo`.
 - **Android** : `ui/catalog/CatalogViewModel.kt` + `CatalogScreen.kt`, onglet « Catalogue » entre « Météo » et « Réglages » ; images avec Coil 3 (module réseau Ktor).
 
+## Feature `onboarding`
+
+Présentation du premier lancement ([plan](docs/plans/onboarding.md), [ADR 0016](docs/adr/0016-presentation-premier-lancement.md)) : accueil, puis notifications, position, verrou Face ID / empreinte (si l'appareil le permet) et mesure d'audience, chacun expliqué avant la demande du système. Tout se remet à plus tard, « Passer » termine tout de suite.
+
+- **Domain** : `OnboardingStep`, `OnboardingTexts` (communs aux deux apps), `ObserveOnboardingRequiredUseCase`, `CompleteOnboardingUseCase`, `RestartOnboardingUseCase` (Réglages > « Revoir la présentation »), `GetOnboardingStepsUseCase`.
+- **Data** : base `onboarding.db` (version vue), sans `UserSessionObserver` : vue une fois par appareil, gardée à la déconnexion. Les choix passent par les use cases de `feature:settings` (notifications, verrou, consentement).
+- **Android** : `ui/onboarding/` (`OnboardingScreen` + `OnboardingViewModel`), affiché par `MainActivity` après la connexion et le verrou, avant les onglets.
+- **iOS** : package SPM `iosApp/Packages/FeatureOnboarding` (`OnboardingGate { ... }` autour des onglets, dans `AppLockGate`), app de démo `OnboardingDemo`.
+
 ## Écran en Compose Multiplatform (`feature:todo-compose`)
 
 Expérience de comparaison ([ADR 0010](docs/adr/0010-ecran-compose-multiplatform.md), [plan](docs/plans/ecran-compose-multiplatform.md)) : l'écran Tâches écrit **une seule fois** en Compose Multiplatform, UI comprise, à côté des écrans natifs qui restent la référence.
@@ -153,6 +163,7 @@ iosApp/
    ├─ FeatureSettings/          ← même structure, démo SettingsDemo
    ├─ FeatureAuth/              ← écran de connexion + SessionGate, démo AuthDemo
    ├─ FeatureCatalog/           ← liste paginée + fiche + cache d'images, démo CatalogDemo
+   ├─ FeatureOnboarding/        ← présentation du premier lancement + OnboardingGate, démo OnboardingDemo
    ├─ FeatureTodoCompose/       ← écran Tâches en Compose Multiplatform (UIViewController), démo TodoComposeDemo
    └─ FeatureTodoWidget/        ← widget Tâches : recopie pour l'extension (Sources/) + extension WidgetKit (Widget/)
 ```

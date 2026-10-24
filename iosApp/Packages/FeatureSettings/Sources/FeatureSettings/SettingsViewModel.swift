@@ -141,6 +141,12 @@ final class SettingsViewModel: ObservableObject {
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
+    /// La présentation du premier lancement remplace tout de suite les onglets (ADR 0016).
+    func restartOnboarding() async {
+        let result = try? await UseCases.shared.restartOnboarding().invoke(params: NoParams.shared)
+        if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
+    }
+
     /// Journal de mesure (debug) : un événement de test, ignoré sans consentement comme les autres.
     func sendTestEvent() async {
         _ = try? await UseCases.shared.trackEvent().invoke(params: AnalyticsEvent.DebugTest.shared)

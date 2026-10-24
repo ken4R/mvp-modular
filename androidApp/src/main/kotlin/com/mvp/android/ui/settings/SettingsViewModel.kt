@@ -18,6 +18,7 @@ import com.mvp.core.designsystem.Appearance
 import com.mvp.core.designsystem.ThemeMode
 import com.mvp.feature.auth.domain.usecase.LogoutUseCase
 import com.mvp.feature.auth.domain.usecase.ObserveSessionUseCase
+import com.mvp.feature.onboarding.domain.usecase.RestartOnboardingUseCase
 import com.mvp.feature.settings.domain.model.Consent
 import com.mvp.feature.settings.domain.model.ConsentChoice
 import com.mvp.feature.settings.domain.model.ConsentType
@@ -65,6 +66,7 @@ class SettingsViewModel(
     observeAnalyticsJournal: ObserveAnalyticsJournalUseCase,
     private val trackEvent: TrackEventUseCase,
     private val flushAnalytics: FlushAnalyticsUseCase,
+    private val restartOnboarding: RestartOnboardingUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
@@ -175,6 +177,9 @@ class SettingsViewModel(
     fun onSendTestEvent() = viewModelScope.launch { trackEvent(AnalyticsEvent.DebugTest) }
 
     fun onFlushAnalytics() = viewModelScope.launch { flushAnalytics(NoParams).onFailure(::showError) }
+
+    /** La présentation du premier lancement remplace tout de suite les onglets (ADR 0016). */
+    fun onRestartOnboarding() = viewModelScope.launch { restartOnboarding(NoParams).onFailure(::showError) }
 
     /** Efface les données locales puis la session ; l'app revient alors sur l'écran de connexion. */
     fun onLogout() {

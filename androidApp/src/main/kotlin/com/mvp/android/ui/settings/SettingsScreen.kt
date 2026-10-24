@@ -275,7 +275,7 @@ private val ThemeMode.label: String
 private val AccentColor.label: String
     get() = when (this) {
         AccentColor.Blue -> "Bleu"
-        AccentColor.Teal -> "Sarcelle"
+        AccentColor.Green -> "Vert"
         AccentColor.Violet -> "Violet"
         AccentColor.Orange -> "Orange"
         AccentColor.Pink -> "Rose"

@@ -114,15 +114,37 @@ class AppearanceUseCasesTest {
         stack.repository.updateProfile(UserProfile("Youssef", "y@example.com"))
         stack.repository.setNotificationsEnabled(true)
         stack.setThemeMode(ThemeMode.Dark)
-        stack.setAccent(AccentColor.Teal)
+        stack.setAccent(AccentColor.Green)
 
         assertEquals(AppResult.Success(Unit), stack.session.clearUserData())
-        assertEquals(Appearance(ThemeMode.Dark, AccentColor.Teal), stack.current())
+        assertEquals(Appearance(ThemeMode.Dark, AccentColor.Green), stack.current())
         stack.session.onLogout()
 
-        val expected = UserSettings.initial().copy(appearance = Appearance(ThemeMode.Dark, AccentColor.Teal))
+        val expected = UserSettings.initial().copy(appearance = Appearance(ThemeMode.Dark, AccentColor.Green))
         assertEquals(expected, newStack().repository.observeSettings().first())
         assertTrue(storage.values.isEmpty())
+    }
+
+    @Test
+    fun logoutNeverShowsTheDefaultAppearanceInBetween() = scope.runTest {
+        val stack = newStack()
+        stack.setThemeMode(ThemeMode.Dark)
+        stack.setAccent(AccentColor.Pink)
+        advanceUntilIdle()
+        val emitted = mutableListOf<Appearance>()
+        val job = stack.observe(NoParams).onEach { emitted += it.getOrNull()!! }.launchIn(this)
+        advanceUntilIdle()
+
+        stack.session.clearUserData()
+        advanceUntilIdle()
+        stack.session.onLogout()
+        advanceUntilIdle()
+        job.cancel()
+
+        // Pas de passage par le thème de l'appareil et l'accent bleu pendant la déconnexion.
+        assertEquals(listOf(Appearance(ThemeMode.Dark, AccentColor.Pink)), emitted)
+        val keys = SettingsDatabase(driver).settingEntityQueries.selectAll().executeAsList().map { it.setting_key }.toSet()
+        assertEquals(setOf("appearance.theme_mode", "appearance.accent"), keys)
     }
 
     @Test

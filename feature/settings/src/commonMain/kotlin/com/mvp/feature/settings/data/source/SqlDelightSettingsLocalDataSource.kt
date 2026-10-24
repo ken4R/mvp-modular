@@ -39,6 +39,17 @@ internal class SqlDelightSettingsLocalDataSource(
         queries.deleteAll()
     }
 
+    // Seules les clés d'apparence sont réécrites (et seulement si elles ne valent pas le défaut) : la table reste
+    // sinon vide, sans dates de consentement ni autre trace de la session.
+    override fun clearExceptAppearance() = queries.transaction {
+        val appearance = queries.selectAll(::Pair).executeAsList().toMap().toSettings().appearance
+        queries.deleteAll()
+        if (appearance != UserSettings.initial().appearance) {
+            queries.upsert(KEY_THEME_MODE, appearance.themeMode.name)
+            queries.upsert(KEY_ACCENT, appearance.accent.name)
+        }
+    }
+
     // Avant le passage au stockage chiffré, le profil était rangé ici, en clair.
     override fun readLegacyProfile(): UserProfile? {
         val stored = queries.selectAll(::Pair).executeAsList().toMap()

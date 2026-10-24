@@ -5,7 +5,7 @@ import com.mvp.core.designsystem.ThemeMode
 
 /**
  * Accent construit depuis Swift, qui renomme les entrées des enum Kotlin : [name] est le nom Kotlin de l'entrée
- * de `AccentColor` (« Blue », « Teal », « Violet », « Orange », « Pink ») ; un nom inconnu vaut « Blue ».
+ * de `AccentColor` (« Blue », « Green », « Violet », « Orange », « Pink ») ; un nom inconnu vaut « Blue ».
  */
 fun accentColor(name: String): AccentColor = AccentColor.entries.firstOrNull { it.name == name } ?: AccentColor.Blue
 

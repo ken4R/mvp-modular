@@ -25,9 +25,10 @@ internal object Palette {
     const val Blue300 = 0xFF8AAEFFL
     const val Blue50 = 0xFFE6EEFFL
     const val Blue900 = 0xFF1C2B4DL
-    const val Teal700 = 0xFF00796BL
-    const val Teal50 = 0xFFDDF2EFL
-    const val Teal900 = 0xFF12383AL
+    const val Green700 = 0xFF2E7D32L
+    const val Green300 = 0xFF81C784L
+    const val Green50 = 0xFFE3F2E4L
+    const val Green900 = 0xFF1B3A1EL
     const val Violet600 = 0xFF6A3FD8L
     const val Violet300 = 0xFFB39DFFL
     const val Violet50 = 0xFFEEE8FFL
@@ -81,14 +82,15 @@ val DarkColors = ColorTokens(
 
 /**
  * Couleurs qui changent avec l'accent. Contrastes vérifiés par DesignSystemTest (WCAG AA, 4,5:1) :
- * [primary] contre [onPrimary] et contre le fond, [highlight] contre le texte `onSurface`.
+ * [primary] contre [onPrimary] et contre le fond, [highlight] contre le texte `onSurface`. Aucun accent ne reprend
+ * la couleur `secondary` (sarcelle) des bandeaux, qui doivent rester distincts.
  */
 internal data class AccentTokens(val primary: Long, val onPrimary: Long, val highlight: Long)
 
 internal fun accentTokens(accent: AccentColor, darkTheme: Boolean): AccentTokens = if (darkTheme) {
     when (accent) {
         AccentColor.Blue -> AccentTokens(Palette.Blue300, Palette.Black, Palette.Blue900)
-        AccentColor.Teal -> AccentTokens(Palette.Teal300, Palette.Black, Palette.Teal900)
+        AccentColor.Green -> AccentTokens(Palette.Green300, Palette.Black, Palette.Green900)
         AccentColor.Violet -> AccentTokens(Palette.Violet300, Palette.Black, Palette.Violet900)
         AccentColor.Orange -> AccentTokens(Palette.Orange300, Palette.Black, Palette.Orange900)
         AccentColor.Pink -> AccentTokens(Palette.Pink300, Palette.Black, Palette.Pink900)
@@ -96,7 +98,7 @@ internal fun accentTokens(accent: AccentColor, darkTheme: Boolean): AccentTokens
 } else {
     when (accent) {
         AccentColor.Blue -> AccentTokens(Palette.Blue600, Palette.White, Palette.Blue50)
-        AccentColor.Teal -> AccentTokens(Palette.Teal700, Palette.White, Palette.Teal50)
+        AccentColor.Green -> AccentTokens(Palette.Green700, Palette.White, Palette.Green50)
         AccentColor.Violet -> AccentTokens(Palette.Violet600, Palette.White, Palette.Violet50)
         AccentColor.Orange -> AccentTokens(Palette.Orange700, Palette.White, Palette.Orange50)
         AccentColor.Pink -> AccentTokens(Palette.Pink700, Palette.White, Palette.Pink50)

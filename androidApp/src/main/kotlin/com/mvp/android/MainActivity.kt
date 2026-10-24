@@ -77,10 +77,10 @@ class MainActivity : ComponentActivity() {
             // Thème et accent de Réglages (ADR 0015), aussi sur l'écran de connexion et l'écran verrouillé.
             val appearance by appearanceViewModel.appearance.collectAsState()
             val darkTheme = appearance.isDark(isSystemInDarkTheme())
-            // Icônes des barres système lisibles sur le thème choisi, même s'il n'est pas celui de l'appareil.
+            // Icônes de la barre d'état lisibles sur le thème choisi, même s'il n'est pas celui de l'appareil.
+            // La barre de navigation garde le voile par défaut (lisible partout, Android 8 compris).
             LaunchedEffect(darkTheme) {
-                val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { darkTheme }
-                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                enableEdgeToEdge(statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { darkTheme })
             }
             MvpTheme(appearance) {
                 val sessionViewModel = koinViewModel<SessionViewModel>()

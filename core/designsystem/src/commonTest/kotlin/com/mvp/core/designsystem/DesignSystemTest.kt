@@ -53,8 +53,12 @@ class DesignSystemTest {
                 assertEquals(base, tokens.copy(primary = base.primary, onPrimary = base.onPrimary, highlight = base.highlight))
             }
         }
-        val primaries = AccentColor.entries.map { DesignSystem.colors(false, it).primary }
-        assertEquals(primaries.size, primaries.toSet().size, "deux accents ont la même couleur")
+        listOf(false, true).forEach { dark ->
+            val primaries = AccentColor.entries.map { DesignSystem.colors(dark, it).primary }
+            assertEquals(primaries.size, primaries.toSet().size, "deux accents ont la même couleur")
+            // Les bandeaux (secondary) restent distincts des boutons et titres (primary).
+            assertTrue(primaries.none { it == DesignSystem.colors(dark).secondary }, "un accent reprend la couleur secondaire")
+        }
     }
 
     @Test

@@ -5,7 +5,7 @@ import Shared
 /// Couleur d'accent choisie dans Réglages (ADR 0015). Les noms sont ceux des entrées de l'enum Kotlin
 /// `AccentColor` (rawValue) : l'export vers Swift renomme les entrées, on passe donc par le nom.
 public enum DSAccent: String, CaseIterable, Identifiable {
-    case Blue, Teal, Violet, Orange, Pink
+    case Blue, Green, Violet, Orange, Pink
 
     public var id: String { rawValue }
 
@@ -19,7 +19,7 @@ public enum DSAccent: String, CaseIterable, Identifiable {
     public var label: String {
         switch self {
         case .Blue: return "Bleu"
-        case .Teal: return "Sarcelle"
+        case .Green: return "Vert"
         case .Violet: return "Violet"
         case .Orange: return "Orange"
         case .Pink: return "Rose"

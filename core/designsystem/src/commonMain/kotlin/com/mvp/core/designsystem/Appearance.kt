@@ -7,7 +7,7 @@ enum class ThemeMode { System, Light, Dark }
  * Couleur d'accent choisie dans Réglages : elle remplace la couleur principale (boutons, titres de section,
  * interrupteurs) et le fond de mise en évidence, en clair comme en sombre. Le reste de la palette ne change pas.
  */
-enum class AccentColor { Blue, Teal, Violet, Orange, Pink }
+enum class AccentColor { Blue, Green, Violet, Orange, Pink }
 
 /** Apparence de l'app : thème et couleur d'accent. Valeur par défaut : thème de l'appareil, accent bleu. */
 data class Appearance(

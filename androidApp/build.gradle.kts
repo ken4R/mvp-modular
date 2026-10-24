@@ -25,9 +25,12 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Faux service de connexion absent : l'écran de connexion n'affiche pas le mot de passe de démo.
             buildConfigField("boolean", "DEMO_AUTH", "false")
+            buildConfigField("boolean", "DEV_FLAGS", "false")
         }
         debug {
             buildConfigField("boolean", "DEMO_AUTH", "true")
+            // Features en développement (ADR 0021) : le code UI derrière cette constante disparaît du build release.
+            buildConfigField("boolean", "DEV_FLAGS", "true")
         }
     }
 

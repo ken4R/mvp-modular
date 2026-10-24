@@ -41,6 +41,7 @@ import com.mvp.android.ui.auth.LoginScreen
 import com.mvp.android.ui.auth.SessionUiState
 import com.mvp.android.ui.auth.SessionViewModel
 import com.mvp.android.ui.catalog.CatalogScreen
+import com.mvp.android.ui.featureflags.FeatureFlagsViewModel
 import com.mvp.android.ui.common.RecentsPrivacy
 import com.mvp.android.ui.deeplink.DeepLinkViewModel
 import com.mvp.android.ui.onboarding.OnboardingScreen
@@ -52,6 +53,7 @@ import com.mvp.android.ui.weather.WeatherScreen
 import com.mvp.core.common.domain.analytics.AnalyticsScreen
 import com.mvp.core.designsystem.Appearance
 import com.mvp.core.deeplink.domain.model.DeepLink
+import com.mvp.core.featureflags.domain.model.FeatureFlag
 import com.mvp.feature.todocompose.ui.TodoComposeScreen
 import org.koin.androidx.compose.koinViewModel
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -71,6 +73,8 @@ class MainActivity : ComponentActivity() {
     private val appearanceViewModel: AppearanceViewModel by viewModel()
     // Présentation du premier lancement : vue une fois par appareil, pas par session (ADR 0016).
     private val onboardingViewModel: OnboardingViewModel by viewModel()
+    // Feature flags (ADR 0021) : onglets affichés selon les flags, rafraîchis à chaque retour au premier plan.
+    private val featureFlagsViewModel: FeatureFlagsViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -111,12 +115,19 @@ class MainActivity : ComponentActivity() {
                     } else {
                         // Les ViewModels des onglets sont liés à la session : neufs à chaque connexion.
                         CompositionLocalProvider(LocalViewModelStoreOwner provides sessionViewModel.screens) {
-                            AppTabs(deepLinkViewModel, analyticsViewModel, appearance)
+                            val flags by featureFlagsViewModel.state.collectAsStateWithLifecycle()
+                            AppTabs(deepLinkViewModel, analyticsViewModel, appearance, catalogEnabled = flags.isEnabled(FeatureFlag.Catalog))
                         }
                     }
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Lancement et retour au premier plan : le distant n'est relu qu'une fois toutes les 15 minutes.
+        featureFlagsViewModel.refresh()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -173,9 +184,12 @@ class MainActivity : ComponentActivity() {
 private fun Blank() = Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
 
 @Composable
-private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel, appearance: Appearance) {
+private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel, appearance: Appearance, catalogEnabled: Boolean) {
     // Revient sur « Tâches » à chaque nouvelle connexion.
     var tab by rememberSaveable { mutableStateOf(Tab.Todo) }
+    // Onglet Catalogue coupé à distance (flag catalog) : retiré de la barre, et l'app quitte l'onglet s'il était ouvert.
+    val tabs = Tab.entries.filter { it != Tab.Catalog || catalogEnabled }
+    LaunchedEffect(catalogEnabled) { if (!catalogEnabled && tab == Tab.Catalog) tab = Tab.Todo }
     // Tâche ou produit demandé par le dernier lien, transmis à l'écran de l'onglet qui l'affiche.
     var todoRequest by remember { mutableStateOf<String?>(null) }
     var productRequest by remember { mutableStateOf<Long?>(null) }
@@ -198,7 +212,8 @@ private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel,
                 todoRequest = link.todoId
             }
             DeepLink.Weather -> tab = Tab.Weather
-            is DeepLink.Catalog -> {
+            // Catalogue coupé : le lien est ignoré, l'utilisateur reste où il est.
+            is DeepLink.Catalog -> if (catalogEnabled) {
                 tab = Tab.Catalog
                 productRequest = link.productId
             }
@@ -213,7 +228,7 @@ private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel,
     Scaffold(
         bottomBar = {
             NavigationBar {
-                Tab.entries.forEach { item ->
+                tabs.forEach { item ->
                     NavigationBarItem(
                         selected = tab == item,
                         onClick = { tab = item },

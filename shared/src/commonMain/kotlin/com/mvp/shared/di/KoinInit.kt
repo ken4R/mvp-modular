@@ -6,6 +6,7 @@ import com.mvp.core.connectivity.di.connectivityModule
 import com.mvp.core.crashreporting.di.crashReportingModule
 import com.mvp.core.database.di.databaseModule
 import com.mvp.core.deeplink.di.deepLinkModule
+import com.mvp.core.featureflags.di.featureFlagsModule
 import com.mvp.core.files.di.filesModule
 import com.mvp.core.location.di.locationModule
 import com.mvp.core.network.di.networkModule
@@ -38,6 +39,7 @@ val sharedModules: List<Module> = listOf(
     analyticsModule,
     crashReportingModule,
     connectivityModule,
+    featureFlagsModule,
     todoModule,
     weatherModule,
     settingsModule,

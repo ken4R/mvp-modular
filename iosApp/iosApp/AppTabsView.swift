@@ -24,6 +24,8 @@ struct AppTabsView: View {
     }
 
     @StateObject private var router = DeepLinkRouter()
+    /// Onglet Catalogue coupé à distance (flag `catalog`, ADR 0021).
+    @StateObject private var catalogFlag = FeatureFlagObserver(key: "catalog", defaultValue: true)
     @State private var tab: Tab = .todo
     /// Tâche ou produit demandé par le dernier lien, remis à `nil` par l'écran qui l'affiche.
     @State private var todoRequest: String?
@@ -52,18 +54,28 @@ struct AppTabsView: View {
             WeatherView()
                 .tabItem { Label("Météo", systemImage: "cloud.sun") }
                 .tag(Tab.weather)
-            CatalogView(productRequest: $productRequest)
-                .tabItem { Label("Catalogue", systemImage: "bag") }
-                .tag(Tab.catalog)
+            if catalogFlag.enabled {
+                CatalogView(productRequest: $productRequest)
+                    .tabItem { Label("Catalogue", systemImage: "bag") }
+                    .tag(Tab.catalog)
+            }
             SettingsView()
                 .tabItem { Label("Réglages", systemImage: "gearshape") }
                 .tag(Tab.settings)
         }
         .onAppear {
             router.start()
+            catalogFlag.start()
             track(tab)
         }
-        .onDisappear { router.stop() }
+        .onDisappear {
+            router.stop()
+            catalogFlag.stop()
+        }
+        // Catalogue coupé pendant qu'il est affiché : retour sur Tâches.
+        .onChange(of: catalogFlag.enabled) { enabled in
+            if !enabled && tab == .catalog { tab = .todo }
+        }
         // Mesuré seulement avec le consentement Analytics (vérifié dans KMP).
         .onChange(of: tab) { track($0) }
         .onReceive(router.$link) { link in
@@ -86,8 +98,11 @@ struct AppTabsView: View {
         case is DeepLinkWeather:
             tab = .weather
         case let catalog as DeepLinkCatalog:
-            tab = .catalog
-            productRequest = catalog.productId?.int64Value
+            // Catalogue coupé : le lien est ignoré, l'utilisateur reste où il est.
+            if catalogFlag.enabled {
+                tab = .catalog
+                productRequest = catalog.productId?.int64Value
+            }
         case is DeepLinkSettings:
             tab = .settings
         case let draft as DeepLinkNewTask:
@@ -121,5 +136,34 @@ private final class DeepLinkRouter: ObservableObject {
 
     func consume(_ link: DeepLink) {
         Task { _ = try? await UseCases.shared.consumeDeepLink().invoke(params: link) }
+    }
+}
+
+/// Valeur d'un feature flag (KMP), observée tant que les onglets sont affichés. [defaultValue] sert avant la
+/// première valeur, lue depuis le cache.
+@MainActor
+private final class FeatureFlagObserver: ObservableObject {
+    @Published private(set) var enabled: Bool
+    private let flag: FeatureFlag?
+    private var subscription: Subscription?
+
+    init(key: String, defaultValue: Bool) {
+        // Clé du JSON distant plutôt que l'entrée d'enum Kotlin, que Swift renomme.
+        flag = KoinIosKt.featureFlag(key: key)
+        enabled = defaultValue
+    }
+
+    func start() {
+        guard subscription == nil, let flag else { return }
+        subscription = UseCases.shared.observeFeatureFlag(
+            flag: flag,
+            onEnabled: { [weak self] enabled in self?.enabled = enabled.boolValue },
+            onError: { _ in }
+        )
+    }
+
+    func stop() {
+        subscription?.cancel()
+        subscription = nil
     }
 }

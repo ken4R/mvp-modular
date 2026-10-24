@@ -32,7 +32,7 @@ jobs:
         run: ls -l androidApp/build/outputs/apk/debug/*.apk
       - name: Build release minifié par R8
         run: ./gradlew :androidApp:assembleRelease
-      - name: Faux service de connexion absent du build release
+      - name: Faux service de connexion et features en développement absents du build release
         run: |
           debug=$(ls androidApp/build/outputs/apk/debug/*.apk | head -1)
           release=$(ls androidApp/build/outputs/apk/release/*.apk | head -1)
@@ -44,6 +44,12 @@ jobs:
           grep -aq demo1234 "$RUNNER_TEMP/debug.dex"
           if grep -aq demo1234 "$RUNNER_TEMP/release.dex"; then
             echo "error: le build release contient encore le faux service de connexion" >&2
+            exit 1
+          fi
+          # Feature en développement (flag preview_banner, ADR 0021) : son texte n'existe que dans le build debug.
+          grep -aq "nouvelle fonction en pr" "$RUNNER_TEMP/debug.dex"
+          if grep -aq "nouvelle fonction en pr" "$RUNNER_TEMP/release.dex"; then
+            echo "error: le build release contient une feature en développement (preview_banner)" >&2
             exit 1
           fi
 

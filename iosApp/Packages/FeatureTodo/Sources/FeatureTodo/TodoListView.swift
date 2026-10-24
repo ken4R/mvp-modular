@@ -14,11 +14,19 @@ public struct TodoListView: View {
     @State private var openedTodoId: String?
     /// Tâche demandée par un lien profond : prise en compte puis remise à `nil`.
     @Binding private var focusRequest: String?
+    /// Titre dicté par le raccourci Siri (ADR 0018) : prérempli dans « Nouvelle tâche », puis remis à `nil`.
+    /// La tâche n'est ajoutée qu'avec le bouton « Ajouter ».
+    @Binding private var draftRequest: String?
     /// Bouton vers la version Compose Multiplatform de l'écran (ADR 0010), si fourni.
     private let onOpenComposeMultiplatform: (() -> Void)?
 
-    public init(focusRequest: Binding<String?> = .constant(nil), onOpenComposeMultiplatform: (() -> Void)? = nil) {
+    public init(
+        focusRequest: Binding<String?> = .constant(nil),
+        draftRequest: Binding<String?> = .constant(nil),
+        onOpenComposeMultiplatform: (() -> Void)? = nil
+    ) {
         _focusRequest = focusRequest
+        _draftRequest = draftRequest
         self.onOpenComposeMultiplatform = onOpenComposeMultiplatform
     }
 
@@ -34,8 +42,10 @@ public struct TodoListView: View {
         .onAppear {
             viewModel.start()
             takeFocusRequest()
+            takeDraftRequest()
         }
         .onChange(of: focusRequest) { _ in takeFocusRequest() }
+        .onChange(of: draftRequest) { _ in takeDraftRequest() }
         .onDisappear { viewModel.stop() }
     }
 
@@ -187,6 +197,15 @@ public struct TodoListView: View {
         // Un lien vers une tâche revient à la liste, où elle est mise en évidence.
         openedTodoId = nil
         Task { await viewModel.focus(id) }
+    }
+
+    private func takeDraftRequest() {
+        guard let title = draftRequest else { return }
+        draftRequest = nil
+        reminderTodo = nil
+        // Le champ « Nouvelle tâche » est sur la liste. Un titre vide garde le texte déjà saisi.
+        openedTodoId = nil
+        if !title.isEmpty { viewModel.input = title }
     }
 
     /// Ferme le clavier après l'ajout : sinon la barre d'autocorrection peut

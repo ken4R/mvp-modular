@@ -58,6 +58,8 @@ import java.time.format.FormatStyle
 
 /**
  * [focusRequest] : tâche demandée par un lien, à mettre en évidence ; [onFocusRequestHandled] une fois prise en compte.
+ * [draftRequest] : titre dicté par le raccourci vocal (ADR 0018), prérempli dans « Nouvelle tâche » ;
+ * [onDraftRequestHandled] une fois pris en compte. La tâche n'est ajoutée qu'avec le bouton « Ajouter ».
  * [onOpenComposeMultiplatform] : affiche un bouton vers la version Compose Multiplatform de l'écran (ADR 0010).
  * Un tap sur une tâche ouvre sa fiche (note et pièces jointes, ADR 0014) à la place de la liste.
  */
@@ -65,6 +67,8 @@ import java.time.format.FormatStyle
 fun TodoScreen(
     focusRequest: String? = null,
     onFocusRequestHandled: () -> Unit = {},
+    draftRequest: String? = null,
+    onDraftRequestHandled: () -> Unit = {},
     onOpenComposeMultiplatform: (() -> Unit)? = null,
     viewModel: TodoViewModel = koinViewModel(),
 ) {
@@ -79,6 +83,15 @@ fun TodoScreen(
             viewModel.focus(it)
         }
         onFocusRequestHandled()
+    }
+    LaunchedEffect(draftRequest) {
+        draftRequest?.let {
+            // Le champ « Nouvelle tâche » est sur la liste : on y revient. Un titre vide (raccourci du lanceur)
+            // garde le texte déjà saisi ; sinon le titre dicté le remplace.
+            openedTodoId = null
+            if (it.isNotEmpty()) viewModel.onInputChange(it)
+        }
+        onDraftRequestHandled()
     }
     openedTodoId?.let { id ->
         TodoDetailScreen(todoId = id, onClose = { openedTodoId = null })

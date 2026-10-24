@@ -131,9 +131,14 @@ class MainActivity : ComponentActivity() {
      * d'origine : son lien n'est pas rejoué.
      */
     private fun handleDeepLink(intent: Intent?) {
-        if (intent?.action != Intent.ACTION_VIEW) return
-        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
-        intent.data?.toString()?.let(deepLinkViewModel::open)
+        if (intent == null || intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
+        when (intent.action) {
+            Intent.ACTION_VIEW -> intent.data?.toString()?.let(deepLinkViewModel::open)
+            // Raccourci « Nouvelle tâche » et App Action CREATE_THING de l'Assistant (res/xml/shortcuts.xml, ADR 0018).
+            // L'activité est exportée : n'importe quelle app peut envoyer cet intent, d'où le champ seulement prérempli.
+            // Des extras mal formés (Parcelable inconnu) feraient planter la lecture : ils sont ignorés.
+            ACTION_NEW_TASK -> deepLinkViewModel.startDraft(runCatching { intent.getStringExtra(EXTRA_TITLE) }.getOrNull().orEmpty())
+        }
     }
 
     override fun onStop() {
@@ -156,6 +161,12 @@ class MainActivity : ComponentActivity() {
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
+
+    private companion object {
+        // Mêmes valeurs que dans res/xml/shortcuts.xml.
+        const val ACTION_NEW_TASK = "com.mvp.android.action.NEW_TASK"
+        const val EXTRA_TITLE = "title"
+    }
 }
 
 @Composable
@@ -168,6 +179,8 @@ private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel,
     // Tâche ou produit demandé par le dernier lien, transmis à l'écran de l'onglet qui l'affiche.
     var todoRequest by remember { mutableStateOf<String?>(null) }
     var productRequest by remember { mutableStateOf<Long?>(null) }
+    // Titre dicté par le raccourci vocal (ADR 0018), prérempli dans « Nouvelle tâche ».
+    var draftRequest by remember { mutableStateOf<String?>(null) }
     // Onglet Tâches : écran natif (Jetpack Compose) ou version Compose Multiplatform partagée avec iOS (ADR 0010).
     var showComposeMultiplatformTodo by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = tab == Tab.Todo && showComposeMultiplatformTodo) { showComposeMultiplatformTodo = false }
@@ -190,6 +203,10 @@ private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel,
                 productRequest = link.productId
             }
             DeepLink.Settings -> tab = Tab.Settings
+            is DeepLink.NewTask -> {
+                tab = Tab.Todo
+                draftRequest = link.title
+            }
         }
         deepLinks.consume(link)
     }
@@ -216,6 +233,8 @@ private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel,
                     TodoScreen(
                         focusRequest = todoRequest,
                         onFocusRequestHandled = { todoRequest = null },
+                        draftRequest = draftRequest,
+                        onDraftRequestHandled = { draftRequest = null },
                         onOpenComposeMultiplatform = { showComposeMultiplatformTodo = true },
                     )
                 }

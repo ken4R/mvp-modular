@@ -40,6 +40,10 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="mvpmodular" />
             </intent-filter>
+            <!-- Raccourci « Nouvelle tâche » et App Action CREATE_THING de Google Assistant (ADR 0018) -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!-- Widget Tâches de l'écran d'accueil (Jetpack Glance, ADR 0011). Exporté : c'est le lanceur qui

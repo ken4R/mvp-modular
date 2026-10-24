@@ -258,8 +258,6 @@ public struct SettingsView: View {
         .listRowBackground(Color(argb: colors.surface))
     }
 
-    /// Rapports de plantage (builds de debug). Pas encore d'outil de suivi : les rapports « envoyés » restent en
-    /// mémoire sur l'appareil. Le bouton fait vraiment planter l'app (ADR 0020).
     /// Menu « Feature flags (debug) » : priorité réglage local, puis distant, puis valeur par défaut (ADR 0021).
     private func featureFlagsSection(_ colors: ColorTokens) -> some View {
         Section(header: header("Feature flags (debug)", colors)) {
@@ -293,6 +291,8 @@ public struct SettingsView: View {
         .listRowBackground(Color(argb: colors.surface))
     }
 
+    /// Rapports de plantage (builds de debug). Pas encore d'outil de suivi : les rapports « envoyés » restent en
+    /// mémoire sur l'appareil. Le bouton fait vraiment planter l'app (ADR 0020).
     private func crashJournalSection(_ reports: [CrashReport], _ colors: ColorTokens) -> some View {
         Section(header: header("Rapports de plantage (debug)", colors)) {
             Text("Rien n'est enregistré sans le consentement Rapports de plantage. Le rapport part au lancement suivant.")

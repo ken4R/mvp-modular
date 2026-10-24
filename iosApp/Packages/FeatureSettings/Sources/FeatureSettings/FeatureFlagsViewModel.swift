@@ -44,7 +44,7 @@ final class FeatureFlagsViewModel: ObservableObject {
     func forceRefresh() async {
         refreshing = true
         let result = try? await UseCases.shared.refreshRemoteFlags().invoke(params: RefreshRemoteFlagsUseCaseParams(force: true))
-        message = result is AppResultSuccess
+        message = result is AppResultSuccess<AnyObject>
             ? "Flags distants à jour"
             : "Flags distants injoignables ou refusés : dernières valeurs connues gardées"
         refreshing = false

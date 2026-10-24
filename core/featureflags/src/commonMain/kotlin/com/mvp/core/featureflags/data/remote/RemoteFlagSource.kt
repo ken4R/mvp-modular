@@ -8,7 +8,7 @@ import io.ktor.utils.io.readRemaining
 import kotlinx.io.readByteArray
 
 /** Source des flags distants : une autre implémentation (Firebase, backend) peut remplacer le JSON hébergé. */
-interface RemoteFlagSource {
+internal interface RemoteFlagSource {
     /** Valeurs des flags livrés, par clé. Lève une exception si la réponse est absente ou refusée. */
     suspend fun fetch(): Map<String, Boolean>
 }

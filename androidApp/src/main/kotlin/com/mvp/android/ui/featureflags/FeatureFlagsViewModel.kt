@@ -78,6 +78,6 @@ class FeatureFlagsViewModel(
     private fun AppError.toMessage(): String = when (this) {
         AppError.Network -> "Flags distants injoignables : dernières valeurs connues gardées"
         is AppError.Validation -> message
-        else -> "Flags distants refusés : dernières valeurs connues gardées"
+        else -> "Flags indisponibles pour le moment : dernières valeurs connues gardées"
     }
 }

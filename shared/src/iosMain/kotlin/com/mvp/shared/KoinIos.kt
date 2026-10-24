@@ -112,13 +112,13 @@ fun catalogFilter(query: String, topRatedOnly: Boolean, sort: String): CatalogFi
     sort = CatalogSort.entries.firstOrNull { it.name == sort } ?: CatalogSort.ServerOrder,
 )
 
-/** Appelé une seule fois au lancement de l'app iOS. */
 /**
  * Consentement par son nom Kotlin (« Analytics », « CrashReports »...), pour Swift qui renomme les entrées des enum
  * Kotlin ; `null` pour un nom inconnu.
  */
 fun consentType(name: String): ConsentType? = ConsentType.entries.firstOrNull { it.name == name }
 
+/** Appelé une seule fois au lancement de l'app iOS. */
 fun doInitKoin() {
     initKoin()
 }

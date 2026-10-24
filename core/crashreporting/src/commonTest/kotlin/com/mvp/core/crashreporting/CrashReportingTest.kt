@@ -122,6 +122,26 @@ class CrashReportingTest {
     }
 
     @Test
+    fun consentLostElsewhereDeletesPendingReportsAndJournal() = scope.runTest {
+        consent.granted.value = true
+        reporterForUseCases = reporter()
+        start(NoParams)
+        runCurrent()
+        crash()
+        StartCrashReportingUseCase(reporter(), dispatcher)(NoParams)
+        runCurrent()
+        crash()
+
+        // Réglages effacés à la déconnexion, ou texte du consentement changé.
+        consent.granted.value = false
+        runCurrent()
+        crash()
+
+        assertTrue(files.contents.isEmpty())
+        assertTrue(sink.observeSent().first().isEmpty())
+    }
+
+    @Test
     fun handlerIsInstalledOnlyOnce() = scope.runTest {
         reporterForUseCases = reporter()
         start(NoParams)
@@ -195,6 +215,8 @@ class CrashReportingTest {
                         "3  Shared  0x0000000104a2b3c4  kfun:com.mvp#run(){} + 52 (/Users/youssef/Documents/MVP/Main.kt:3:9)",
                         "com.mvp.Mail.send(youssef@example.com)",
                         "com.mvp.Call.dial(0612345678)",
+                        "at /var/containers/Bundle/Application/0A1B2C3D-4E5F-6071-8293-A4B5C6D7E8F9/App.app/App",
+                        "install 0A1B2C3D-4E5F-6071-8293-A4B5C6D7E8F9",
                     ),
                 ),
             ),
@@ -206,6 +228,8 @@ class CrashReportingTest {
                 "3  Shared  0x0000000104a2b3c4  kfun:com.mvp#run(){} + 52 (<chemin>/Main.kt:3:9)",
                 "com.mvp.Mail.send(<email>)",
                 "com.mvp.Call.dial(<nombre>)",
+                "at <chemin>/App",
+                "install <id>",
             ),
             scrubbed.frames,
         )

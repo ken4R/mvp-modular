@@ -16,7 +16,10 @@ object CrashScrubber {
 
     // Dossiers propres à une personne ou à l'installation (compte macOS de la machine de build, conteneur de l'app,
     // profil Android) : seul le nom du fichier est gardé (« <chemin>/TodoRepository.kt:42 »).
-    private val userPath = Regex("(/Users/|/home/|/var/mobile/|/private/var/|/data/user/|/data/data/|/storage/)[^\\s()]*/")
+    private val userPath = Regex("(/Users/|/home/|/var/|/private/var/|/data/user/|/data/data/|/storage/)[^\\s()]*/")
+
+    // Identifiant propre à l'installation (conteneur iOS, dossier d'app) s'il reste hors d'un chemin.
+    private val uuid = Regex("[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}")
 
     // Isolée : ni au milieu d'une adresse mémoire hexadécimale (0x0000000104a2…), ni collée à un nom.
     private val longNumber = Regex("(?<![0-9A-Za-z])\\d{7,}(?![0-9A-Za-z])")
@@ -33,5 +36,6 @@ object CrashScrubber {
         line.take(MAX_LINE_LENGTH)
             .replace(email, "<email>")
             .replace(userPath, "<chemin>/")
+            .replace(uuid, "<id>")
             .replace(longNumber, "<nombre>")
 }

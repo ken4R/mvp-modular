@@ -50,14 +50,14 @@ internal class CrashReporter(
     override suspend fun start(): AppResult<Int> {
         startMutex.withLock {
             if (!started) {
-                started = true
                 platformName = platform()
                 installHandler(::record)
+                started = true
                 scope.launch {
                     consent.observeGranted().collect { granted ->
                         enabled = granted
                         // Consentement retiré depuis un autre écran, perdu à la déconnexion ou texte changé.
-                        if (!granted) sendMutex.withLock { runCatching { store.deleteAll() } }
+                        if (!granted) runCatching { discardAll() }
                     }
                 }
             }
@@ -83,7 +83,10 @@ internal class CrashReporter(
         }
     }
 
-    /** Appelé sur le fil qui plante : ne lit rien sur le disque, n'attend rien, ne lève jamais d'exception. */
+    /**
+     * Appelé sur le fil qui plante : ne lit pas la base (consentement en mémoire), n'attend rien, ne lève jamais
+     * d'exception. Seuls le nombre de rapports en attente (borne) et le nouveau fichier touchent le disque.
+     */
     internal fun record(throwable: Throwable) {
         if (!enabled) return
         try {
@@ -107,10 +110,12 @@ internal class CrashReporter(
 
     override suspend fun onCrashReportingConsentRevoked() {
         enabled = false
-        sendMutex.withLock {
-            store.deleteAll()
-            sink.reset()
-        }
+        discardAll()
+    }
+
+    private suspend fun discardAll() = sendMutex.withLock {
+        store.deleteAll()
+        sink.reset()
     }
 
     /** Déconnexion : plus aucun rapport de cette session sur l'appareil ni dans l'outil. */

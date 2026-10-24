@@ -77,18 +77,18 @@ final class TodoDetailViewModel: ObservableObject {
     }
 
     /// ShareLink a besoin de son contenu avant le tap : les deux variantes sont préparées par KMP à l'avance.
+    /// Les anciens textes sont retirés tout de suite : une note modifiée ne peut pas partir dans sa version d'avant.
     private func prepareShare(_ todo: Todo?) {
         shareTask?.cancel()
-        guard let todo else {
-            share = nil
-            shareWithNote = nil
-            return
-        }
+        share = nil
+        shareWithNote = nil
+        guard let todo else { return }
         let todoId = todo.id
         let hasNote = !todo.note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         shareTask = Task { [weak self] in
             let plain = await Self.loadShare(todoId: todoId, includeNote: false)
-            let withNote = hasNote ? await Self.loadShare(todoId: todoId, includeNote: true) : nil
+            var withNote: TodoShare?
+            if hasNote { withNote = await Self.loadShare(todoId: todoId, includeNote: true) }
             guard !Task.isCancelled, let self else { return }
             self.share = plain
             self.shareWithNote = withNote

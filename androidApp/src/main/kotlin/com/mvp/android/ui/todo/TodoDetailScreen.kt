@@ -217,10 +217,15 @@ private fun IncludeNoteDialog(onConfirm: (includeNote: Boolean) -> Unit, onDismi
     )
 }
 
-/** `ACTION_SEND` en texte brut, dans le sélecteur du système (aucune app choisie par défaut). */
+/**
+ * `ACTION_SEND` en texte brut, dans le sélecteur du système (aucune app choisie par défaut). L'app choisie s'ouvre
+ * dans sa propre tâche : son écran (un mail avec la note…) n'apparaît pas dans l'aperçu récent de l'app, et le
+ * retour à l'app repasse par le verrou.
+ */
 private fun shareIntent(share: TodoShare): Intent {
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
+        addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
         putExtra(Intent.EXTRA_SUBJECT, share.subject)
         putExtra(Intent.EXTRA_TEXT, share.text)
     }

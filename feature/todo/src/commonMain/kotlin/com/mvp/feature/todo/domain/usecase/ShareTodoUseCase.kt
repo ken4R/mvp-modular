@@ -32,7 +32,7 @@ class ShareTodoUseCase(
             if (params.includeNote && todo.note.isNotBlank()) {
                 appendLine()
                 appendLine("Note :")
-                appendLine(todo.note)
+                appendLine(todo.note.trim())
             }
             appendLine()
             append("Ouvrir dans MVP Modular : $link")

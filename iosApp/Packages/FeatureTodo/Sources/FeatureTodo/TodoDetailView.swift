@@ -52,6 +52,11 @@ struct TodoDetailView: View {
             }
         }
         .onAppear { viewModel.start() }
+        // Feuille de partage ouverte (ADR 0017) : fermée au passage en arrière-plan, avant l'aperçu du sélecteur
+        // d'apps et le verrou. C'est une fenêtre modale UIKit, au-dessus du masque et de l'écran de verrouillage.
+        .onChange(of: scenePhase) { phase in
+            if phase == .background { PresentedSheets.dismissAll() }
+        }
         // Retour, changement d'onglet, verrouillage de l'app : la note modifiée est enregistrée.
         .onDisappear { viewModel.stop() }
         .onChange(of: photoItem) { item in
@@ -85,8 +90,7 @@ struct TodoDetailView: View {
     }
 
     /// Partage par la feuille du système (ADR 0017) : du texte et le lien de la tâche, jamais de pièce jointe.
-    /// ShareLink est présenté par SwiftUI : il disparaît avec la fiche quand AppLockGate verrouille l'app.
-    /// Avec une note, elle n'est ajoutée que choisie, et seulement une fois enregistrée.
+    /// La feuille est fermée au passage en arrière-plan (voir `onChange(of: scenePhase)`). Avec une note, elle n'est ajoutée que choisie, et seulement une fois enregistrée.
     @ViewBuilder
     private func shareButton(colors: ColorTokens) -> some View {
         if let share = viewModel.share {
@@ -302,4 +306,17 @@ private struct PDFPreview: UIViewRepresentable {
 /// Ignore les liens des PDF joints (web, mail, téléphone).
 final class LinkBlocker: NSObject, PDFViewDelegate {
     func pdfViewWillClick(onLink sender: PDFView, with url: URL) {}
+}
+
+/// Fenêtres modales UIKit présentées au-dessus de l'app (feuille de partage, et l'écran de rédaction ouvert
+/// depuis elle) : SwiftUI ne les ferme pas quand la vue qui les a ouvertes disparaît.
+enum PresentedSheets {
+    @MainActor
+    static func dismissAll() {
+        for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
+            for window in scene.windows {
+                window.rootViewController?.presentedViewController?.dismiss(animated: false)
+            }
+        }
+    }
 }

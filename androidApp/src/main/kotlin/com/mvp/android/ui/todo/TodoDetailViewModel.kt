@@ -152,7 +152,8 @@ class TodoDetailViewModel(
 
     /** « Partager » (ADR 0017) : la note n'est jamais partagée sans le demander. */
     fun onShare() {
-        if (_state.value.noteDraft.isBlank()) {
+        val current = _state.value
+        if (current.todo?.note.isNullOrBlank() && current.noteDraft.isBlank()) {
             onShareConfirmed(includeNote = false)
         } else {
             _state.update { it.copy(askIncludeNote = true, error = null) }
@@ -161,12 +162,15 @@ class TodoDetailViewModel(
 
     fun onShareCancelled() = _state.update { it.copy(askIncludeNote = false) }
 
-    /** Le texte partagé part de la note enregistrée : un brouillon modifié est enregistré avant. */
+    /**
+     * Le texte partagé part de la note enregistrée : avec la note, un brouillon modifié est enregistré avant. Sans
+     * la note, le brouillon n'est pas touché (il l'est à la fermeture de la fiche, comme d'habitude).
+     */
     fun onShareConfirmed(includeNote: Boolean) = viewModelScope.launch {
         _state.update { it.copy(askIncludeNote = false) }
         val current = _state.value
         val todo = current.todo ?: return@launch
-        if (current.noteChanged) {
+        if (includeNote && current.noteChanged) {
             val saved = updateNote(TodoNote(todo.id, current.noteDraft))
             if (saved is AppResult.Failure) {
                 showError(saved.error)

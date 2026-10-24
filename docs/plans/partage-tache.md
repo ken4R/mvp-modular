@@ -17,4 +17,5 @@ Objectif : depuis la fiche d'une tâche, l'envoyer par la feuille de partage du 
 - Copier le lien partagé et l'ouvrir : `adb shell am start -a android.intent.action.VIEW -d "mvpmodular://tasks/<id>"` ; iOS `xcrun simctl openurl booted "mvpmodular://tasks/<id>"`. L'app s'ouvre sur l'onglet Tâches, la tâche mise en évidence.
 - Même lien, app verrouillée (verrou activé, app en arrière-plan) : déverrouillage d'abord, puis la tâche. Déconnecté : connexion d'abord, puis l'onglet Tâches avec « Tâche introuvable » (la reconnexion repart d'une liste vide).
 - Supprimer la tâche puis rouvrir le lien : « Tâche introuvable ».
-- iOS, feuille de partage ouverte, verrou activé : passer en arrière-plan puis revenir : l'écran de verrouillage est affiché, la feuille a disparu.
+- iOS, feuille de partage ouverte (ou Mail ouvert depuis elle), verrou activé : passer en arrière-plan : l'aperçu du sélecteur d'apps ne montre pas la feuille ; au retour, l'écran de verrouillage est affiché, la feuille a disparu.
+- Android, Gmail ouvert depuis le partage : les apps récentes montrent Gmail à part, l'aperçu de l'app reste masqué. Sélecteur ouvert, verrou activé : passer en arrière-plan puis revenir, noter si le sélecteur réapparaît au-dessus du verrou (risque accepté, ADR 0017).

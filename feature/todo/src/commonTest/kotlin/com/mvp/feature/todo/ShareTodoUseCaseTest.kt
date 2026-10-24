@@ -48,6 +48,8 @@ class ShareTodoUseCaseTest {
         )
         assertEquals("Tâche : Acheter du pain", shared.subject)
         assertFalse("4521" in shared.text)
+        // La tâche a 2 pièces jointes : ni leur nombre ni leur nom ne part.
+        assertFalse("pièce" in shared.text.lowercase())
     }
 
     @Test
@@ -68,6 +70,15 @@ class ShareTodoUseCaseTest {
         assertEquals("Tâche : Appeler le plombier", shared.subject)
         assertTrue("État : terminée" in shared.text)
         assertFalse("Note :" in shared.text)
+    }
+
+    @Test
+    fun blankNoteHasNoNoteSectionAndNoteIsTrimmed() = scope.runTest {
+        local.setNote("fini", "   ")
+        assertFalse("Note :" in share(TodoShareRequest("fini", includeNote = true)).getOrNull()!!.text)
+
+        local.setNote("fini", "Robinet cuisine\n")
+        assertTrue("Note :\nRobinet cuisine\n\nOuvrir" in share(TodoShareRequest("fini", includeNote = true)).getOrNull()!!.text)
     }
 
     @Test

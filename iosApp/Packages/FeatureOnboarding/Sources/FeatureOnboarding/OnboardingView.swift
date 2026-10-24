@@ -58,8 +58,8 @@ struct OnboardingView: View {
                         .font(DS.Typography.body)
                         .foregroundColor(Color(argb: colors.onBackground))
                     // L'accord porte sur ce texte précis (versionné), le même que dans Réglages > Consentements.
-                    if page == .Analytics {
-                        Text(ConsentTexts.shared.of(type: .analytics).summary)
+                    if let type = page.consentType {
+                        Text(ConsentTexts.shared.of(type: type).summary)
                             .font(DS.Typography.caption)
                             .foregroundColor(Color(argb: colors.onBackground))
                     }
@@ -73,7 +73,7 @@ struct OnboardingView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             // Consentement : accepter et refuser ont le même poids visuel (refuser doit être aussi simple qu'accepter).
-            if page == .Analytics {
+            if page.consentType != nil {
                 actionButton(text.acceptLabel, prominent: false, colors) { await viewModel.accept() }
             } else {
                 actionButton(text.acceptLabel, prominent: true, colors) { await viewModel.accept() }

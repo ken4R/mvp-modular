@@ -53,6 +53,7 @@ import com.mvp.android.ui.theme.MvpColors
 import com.mvp.android.ui.theme.Sizes
 import com.mvp.android.ui.theme.Spacing
 import com.mvp.core.analytics.domain.model.AnalyticsJournal
+import com.mvp.core.crashreporting.domain.model.CrashReport
 import com.mvp.core.analytics.domain.model.TrackedEvent
 import com.mvp.core.designsystem.AccentColor
 import com.mvp.core.designsystem.ThemeMode
@@ -117,6 +118,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
         showAnalyticsJournal = isDebugBuild,
         onSendTestEvent = { viewModel.onSendTestEvent() },
         onFlushAnalytics = { viewModel.onFlushAnalytics() },
+        onTestCrash = { viewModel.onTestCrash() },
         onRestartOnboarding = { viewModel.onRestartOnboarding() },
     )
 }
@@ -137,6 +139,7 @@ private fun SettingsContent(
     showAnalyticsJournal: Boolean,
     onSendTestEvent: () -> Unit,
     onFlushAnalytics: () -> Unit,
+    onTestCrash: () -> Unit,
     onRestartOnboarding: () -> Unit,
 ) {
     Scaffold { padding ->
@@ -210,6 +213,8 @@ private fun SettingsContent(
             if (showAnalyticsJournal) {
                 HorizontalDivider()
                 AnalyticsJournalSection(state.analyticsJournal, onSendTestEvent, onFlushAnalytics)
+                HorizontalDivider()
+                CrashJournalSection(state.crashJournal, onTestCrash)
             }
 
             HorizontalDivider()
@@ -336,3 +341,31 @@ private fun TrackedEvent.describe(timeFormat: DateFormat): String =
         append(name)
         properties.forEach { (key, value) -> append("  $key=$value") }
     }
+
+/**
+ * Journal des rapports de plantage (builds de debug). Pas encore d'outil de suivi : les rapports « envoyés »
+ * restent en mémoire sur l'appareil. Le bouton fait vraiment planter l'app (ADR 0020).
+ */
+@Composable
+private fun CrashJournalSection(journal: List<CrashReport>, onTestCrash: () -> Unit) {
+    val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM) }
+    SectionTitle("Rapports de plantage (debug)")
+    Text(
+        "Rien n'est enregistré sans le consentement Rapports de plantage. Le rapport part au lancement suivant.",
+        style = MaterialTheme.typography.bodySmall,
+    )
+    OutlinedButton(onClick = onTestCrash) { Text("Provoquer un plantage") }
+    Text("Envoyés : ${journal.size}", style = MaterialTheme.typography.bodyLarge)
+    journal.forEach { report ->
+        val first = report.exceptions.firstOrNull()
+        Text(
+            buildString {
+                append(dateFormat.format(Date(report.occurredAt)))
+                append("  ")
+                append(first?.type ?: "?")
+                first?.frames?.firstOrNull()?.let { append("\n").append(it) }
+            },
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+}

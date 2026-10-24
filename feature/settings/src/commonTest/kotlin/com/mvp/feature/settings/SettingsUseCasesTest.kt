@@ -1,11 +1,13 @@
 package com.mvp.feature.settings
 
 import com.mvp.core.common.domain.analytics.AnalyticsConsentObserver
+import com.mvp.core.common.domain.crash.CrashReportingConsentObserver
 import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.result.getOrNull
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.feature.settings.data.analytics.SettingsAnalyticsConsent
+import com.mvp.feature.settings.data.crash.SettingsCrashReportingConsent
 import com.mvp.feature.settings.data.repository.SettingsRepositoryImpl
 import com.mvp.feature.settings.data.source.InMemorySettingsLocalDataSource
 import com.mvp.feature.settings.data.source.SecureProfileLocalDataSource
@@ -41,7 +43,9 @@ class SettingsUseCasesTest {
     private val setNotifications = SetNotificationsEnabledUseCase(repository, dispatcher)
     private val revocations = RecordingAnalyticsConsentObserver()
     private var clock = 1_000L
-    private val setConsent = SetConsentUseCase(repository, listOf(revocations), now = { clock }, dispatcher)
+    private val crashRevocations = RecordingCrashConsentObserver()
+    private val setConsent =
+        SetConsentUseCase(repository, listOf(revocations), listOf(crashRevocations), now = { clock }, dispatcher)
 
     private suspend fun current(): UserSettings = observe(NoParams).first().getOrNull()!!
 
@@ -119,6 +123,7 @@ class SettingsUseCasesTest {
         assertEquals(
             listOf(
                 Consent(ConsentType.Analytics, granted = false, decidedAt = 3_000L, textVersion = ConsentTexts.of(ConsentType.Analytics).version),
+                Consent(ConsentType.CrashReports, granted = false),
                 Consent(ConsentType.Marketing, granted = true, decidedAt = 2_000L, textVersion = ConsentTexts.of(ConsentType.Marketing).version),
                 Consent(ConsentType.Personalization, granted = false),
             ),
@@ -134,6 +139,46 @@ class SettingsUseCasesTest {
 
         setConsent(ConsentChoice(ConsentType.Analytics, granted = false))
         assertEquals(1, revocations.calls)
+        assertEquals(0, crashRevocations.calls)
+    }
+
+    @Test
+    fun revokingCrashReportsOnlyStopsCrashReporting() = scope.runTest {
+        setConsent(ConsentChoice(ConsentType.CrashReports, granted = true))
+        setConsent(ConsentChoice(ConsentType.Analytics, granted = false))
+        assertEquals(0, crashRevocations.calls)
+
+        setConsent(ConsentChoice(ConsentType.CrashReports, granted = false))
+        assertEquals(1, crashRevocations.calls)
+        assertEquals(1, revocations.calls)
+    }
+
+    @Test
+    fun crashReportsConsentIsSeparateFromAnalytics() = scope.runTest {
+        val crashConsent = SettingsCrashReportingConsent(local)
+        assertFalse(crashConsent.observeGranted().first())
+
+        setConsent(ConsentChoice(ConsentType.Analytics, granted = true))
+        assertFalse(crashConsent.observeGranted().first())
+
+        setConsent(ConsentChoice(ConsentType.CrashReports, granted = true))
+        assertTrue(crashConsent.observeGranted().first())
+
+        setConsent(ConsentChoice(ConsentType.CrashReports, granted = false))
+        assertFalse(crashConsent.observeGranted().first())
+    }
+
+    @Test
+    fun crashReportsConsentGivenOnAnOldTextDoesNotCount() = scope.runTest {
+        local.update { settings ->
+            settings.copy(
+                consents = settings.consents.map {
+                    if (it.type == ConsentType.CrashReports) it.copy(granted = true, decidedAt = 1L, textVersion = 0) else it
+                },
+            )
+        }
+
+        assertFalse(SettingsCrashReportingConsent(local).observeGranted().first())
     }
 
     @Test
@@ -142,7 +187,7 @@ class SettingsUseCasesTest {
         val failing = object : AnalyticsConsentObserver {
             override suspend fun onAnalyticsConsentRevoked() = error("outil injoignable")
         }
-        val setConsent = SetConsentUseCase(repository, listOf(failing, after), now = { clock }, dispatcher)
+        val setConsent = SetConsentUseCase(repository, listOf(failing, after), emptyList(), now = { clock }, dispatcher)
 
         val result = setConsent(ConsentChoice(ConsentType.Analytics, granted = false))
 
@@ -179,6 +224,15 @@ class SettingsUseCasesTest {
 private class RecordingAnalyticsConsentObserver : AnalyticsConsentObserver {
     var calls = 0
     override suspend fun onAnalyticsConsentRevoked() {
+        calls++
+    }
+}
+
+private class RecordingCrashConsentObserver : CrashReportingConsentObserver {
+    var calls = 0
+        private set
+
+    override suspend fun onCrashReportingConsentRevoked() {
         calls++
     }
 }

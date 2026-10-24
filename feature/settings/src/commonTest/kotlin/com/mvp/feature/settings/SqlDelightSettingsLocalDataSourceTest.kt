@@ -55,6 +55,7 @@ class SqlDelightSettingsLocalDataSourceTest {
         assertEquals(
             listOf(
                 Consent(ConsentType.Analytics, granted = false),
+                Consent(ConsentType.CrashReports, granted = false),
                 Consent(ConsentType.Marketing, granted = true, decidedAt = DECIDED_AT, textVersion = 1),
                 Consent(ConsentType.Personalization, granted = false),
             ),

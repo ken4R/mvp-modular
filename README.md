@@ -33,6 +33,7 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
                                     core:analytics ← mesure d'audience avec consentement
                                     core:connectivity ← accès à internet (mode hors ligne)
                                     core:files ← fichiers privés hors sauvegardes (pièces jointes)
+                                    core:crashreporting ← suivi des plantages avec consentement
      (tokens visuels :        ├─ domain : entités, interfaces de repository, use cases
       couleurs, typo,         ├─ data   : implémentations de repository, data sources
       espacements, rayons)    └─ di     : module Koin
@@ -69,6 +70,8 @@ Règles de dépendance :
 `core:connectivity` dit si l'appareil a accès à internet ([ADR 0012](docs/adr/0012-mode-hors-ligne.md)) : `ConnectivityObserver` (contrat dans `core:common`), `ConnectivityManager` sur Android (réseau validé, permission `ACCESS_NETWORK_STATE`), `NWPathMonitor` sur iOS. `ObserveConnectivityUseCase` alimente le bandeau « Hors ligne » des écrans Météo et Catalogue (le Catalogue se réactualise au retour du réseau).
 
 `core:files` range les fichiers privés d'une feature ([ADR 0014](docs/adr/0014-notes-pieces-jointes.md)) : `PrivateFileStoreFactory.create("<dossier>")` donne un `PrivateFileStore` (écrire, lire, chemin, supprimer, tout supprimer). Android : dossier `no_backup` de l'app ; iOS : `Application Support`, exclu des sauvegardes, fichiers protégés par Data Protection complète. Les noms sont des identifiants choisis par l'app (`[A-Za-z0-9_-]`), jamais un nom donné par l'utilisateur.
+
+`core:crashreporting` suit les plantages avec consentement ([ADR 0020](docs/adr/0020-suivi-plantages.md), [plan](docs/plans/suivi-plantages.md)) : chaque app appelle `StartCrashReportingUseCase` au lancement. Les plantages Kotlin non rattrapés (et Java sur Android) sont écrits, sans message d'exception et nettoyés par `CrashScrubber`, dans un dossier privé (`core:files`), puis envoyés au lancement suivant à un `CrashReportSink` (journal local de debug pour l'instant). Rien n'est enregistré ni envoyé sans le consentement « Rapports de plantage » de Réglages (`CrashReportingConsent`, séparé de la mesure d'audience) ; le retirer (`CrashReportingConsentObserver`) ou se déconnecter efface les rapports en attente.
 
 `core:network` ajoute le réseau ([ADR 0001](docs/adr/0001-reseau-ktor.md)) : `createHttpClient()` (Ktor, JSON, délais, moteur Android / Darwin), `safeApiCall` (exceptions Ktor → `AppError`) et `networkModule` (un `HttpClient` unique). Les features l'utilisent dans leur couche `data` uniquement.
 

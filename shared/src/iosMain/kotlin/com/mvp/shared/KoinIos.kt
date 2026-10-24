@@ -9,6 +9,10 @@ import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.session.UserAccount
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.core.connectivity.domain.usecase.ObserveConnectivityUseCase
+import com.mvp.core.crashreporting.domain.model.CrashReport
+import com.mvp.core.crashreporting.domain.model.TestCrashException
+import com.mvp.core.crashreporting.domain.usecase.ObserveCrashJournalUseCase
+import com.mvp.core.crashreporting.domain.usecase.StartCrashReportingUseCase
 import com.mvp.core.deeplink.domain.model.DeepLink
 import com.mvp.core.designsystem.Appearance
 import com.mvp.core.deeplink.domain.usecase.ConsumeDeepLinkUseCase
@@ -30,6 +34,7 @@ import com.mvp.feature.onboarding.domain.usecase.CompleteOnboardingUseCase
 import com.mvp.feature.onboarding.domain.usecase.GetOnboardingStepsUseCase
 import com.mvp.feature.onboarding.domain.usecase.ObserveOnboardingRequiredUseCase
 import com.mvp.feature.onboarding.domain.usecase.RestartOnboardingUseCase
+import com.mvp.feature.settings.domain.model.ConsentType
 import com.mvp.feature.settings.domain.model.UserSettings
 import com.mvp.feature.settings.domain.usecase.LockAppUseCase
 import com.mvp.feature.settings.domain.usecase.ObserveAppLockUseCase
@@ -107,6 +112,12 @@ fun catalogFilter(query: String, topRatedOnly: Boolean, sort: String): CatalogFi
     sort = CatalogSort.entries.firstOrNull { it.name == sort } ?: CatalogSort.ServerOrder,
 )
 
+/**
+ * Consentement par son nom Kotlin (« Analytics », « CrashReports »...), pour Swift qui renomme les entrées des enum
+ * Kotlin ; `null` pour un nom inconnu.
+ */
+fun consentType(name: String): ConsentType? = ConsentType.entries.firstOrNull { it.name == name }
+
 /** Appelé une seule fois au lancement de l'app iOS. */
 fun doInitKoin() {
     initKoin()
@@ -174,6 +185,14 @@ object UseCases : KoinComponent {
     fun trackEvent(): TrackEventUseCase = get()
     fun flushAnalytics(): FlushAnalyticsUseCase = get()
 
+    fun startCrashReporting(): StartCrashReportingUseCase = get()
+
+    /**
+     * « Provoquer un plantage » des builds de debug : exception Kotlin levée vers Swift sans `@Throws`, donc non
+     * rattrapable, comme un vrai plantage KMP. L'app s'arrête ; le rapport part au lancement suivant (ADR 0020).
+     */
+    fun crashForTest(): Unit = throw TestCrashException()
+
     fun getOnboardingSteps(): GetOnboardingStepsUseCase = get()
     fun completeOnboarding(): CompleteOnboardingUseCase = get()
     fun restartOnboarding(): RestartOnboardingUseCase = get()
@@ -194,6 +213,19 @@ object UseCases : KoinComponent {
     /** Journal de mesure (builds de debug). Les callbacks sont appelés sur le main thread. */
     fun observeAnalyticsJournal(onJournal: (AnalyticsJournal) -> Unit, onError: (AppError) -> Unit): Subscription {
         val job = get<ObserveAnalyticsJournalUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onJournal(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /** Journal des rapports de plantage (builds de debug). Les callbacks sont appelés sur le main thread. */
+    fun observeCrashJournal(onJournal: (List<CrashReport>) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveCrashJournalUseCase>()(NoParams)
             .onEach { result ->
                 when (result) {
                     is AppResult.Success -> onJournal(result.data)

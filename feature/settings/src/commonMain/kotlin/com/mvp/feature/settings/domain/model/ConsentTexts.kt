@@ -18,6 +18,13 @@ object ConsentTexts {
                 "ni votre nom, ni votre e-mail.",
             version = 1,
         )
+        ConsentType.CrashReports -> ConsentText(
+            title = "Rapports de plantage",
+            summary = "Si l'app plante, un rapport est envoyé au lancement suivant pour corriger le problème : " +
+                "le type d'erreur, l'endroit du code concerné, la version du système et l'heure. Jamais le contenu " +
+                "de vos tâches ni de vos notes, ni votre nom, ni votre e-mail.",
+            version = 1,
+        )
         ConsentType.Marketing -> ConsentText(
             title = "Communications marketing",
             summary = "Offres et nouveautés par e-mail ou notification",

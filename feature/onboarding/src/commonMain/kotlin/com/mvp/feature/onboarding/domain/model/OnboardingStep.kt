@@ -20,6 +20,9 @@ enum class OnboardingStep {
 
     /** Consentement Mesure d'audience, accepté ou refusé explicitement. */
     Analytics,
+
+    /** Consentement Rapports de plantage (séparé de la mesure d'audience), accepté ou refusé explicitement. */
+    CrashReports,
 }
 
 /** Ce que l'appareil permet, lu par l'app : les étapes impossibles ne sont pas montrées. */
@@ -28,5 +31,9 @@ data class OnboardingDevice(
     val appLockAvailable: Boolean,
 )
 
-/** Version de la présentation : l'augmenter (avec une nouvelle étape) la remontre à ceux qui ont vu l'ancienne. */
+/**
+ * Version de la présentation : l'augmenter (avec une nouvelle étape) la remontre à ceux qui ont vu l'ancienne.
+ * Laissée à 1 avec l'étape Rapports de plantage : refusé tant qu'il n'est pas accepté, ce consentement se donne
+ * aussi dans Réglages, sans remontrer toute la présentation (ADR 0020).
+ */
 const val ONBOARDING_VERSION = 1

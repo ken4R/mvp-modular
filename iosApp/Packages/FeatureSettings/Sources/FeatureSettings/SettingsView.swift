@@ -118,6 +118,7 @@ public struct SettingsView: View {
             if let journal = viewModel.analyticsJournal {
                 analyticsJournalSection(journal, colors)
             }
+            crashJournalSection(viewModel.crashJournal, colors)
             #endif
 
             Section(header: header("Compte", colors)) {
@@ -230,6 +231,34 @@ public struct SettingsView: View {
             journalRows("Envoyés", journal.sent, colors)
         }
         .listRowBackground(Color(argb: colors.surface))
+    }
+
+    /// Rapports de plantage (builds de debug). Pas encore d'outil de suivi : les rapports « envoyés » restent en
+    /// mémoire sur l'appareil. Le bouton fait vraiment planter l'app (ADR 0020).
+    private func crashJournalSection(_ reports: [CrashReport], _ colors: ColorTokens) -> some View {
+        Section(header: header("Rapports de plantage (debug)", colors)) {
+            Text("Rien n'est enregistré sans le consentement Rapports de plantage. Le rapport part au lancement suivant.")
+                .font(DS.Typography.caption)
+                .foregroundColor(Color(argb: colors.onSurface))
+            Button("Provoquer un plantage") { viewModel.crashForTest() }
+                .tint(Color(argb: colors.error))
+            Text("Envoyés : \(reports.count)")
+                .font(DS.Typography.body)
+                .foregroundColor(Color(argb: colors.onSurface))
+            ForEach(reports, id: \.id) { report in
+                Text(Self.describe(report))
+                    .font(DS.Typography.caption)
+                    .foregroundColor(Color(argb: colors.onSurface))
+            }
+        }
+        .listRowBackground(Color(argb: colors.surface))
+    }
+
+    private static func describe(_ report: CrashReport) -> String {
+        let date = Date(timeIntervalSince1970: TimeInterval(report.occurredAt) / 1000)
+        let first = report.exceptions.first
+        let frame = first?.frames.first.map { "\n\($0)" } ?? ""
+        return "\(date.formatted(date: .abbreviated, time: .standard))  \(first?.type ?? "?")\(frame)"
     }
 
     @ViewBuilder

@@ -12,6 +12,9 @@ import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.result.onFailure
 import com.mvp.core.common.domain.result.onSuccess
 import com.mvp.core.common.domain.usecase.NoParams
+import com.mvp.core.crashreporting.domain.model.CrashReport
+import com.mvp.core.crashreporting.domain.model.TestCrashException
+import com.mvp.core.crashreporting.domain.usecase.ObserveCrashJournalUseCase
 import com.mvp.android.ui.applock.DeviceAuthResult
 import com.mvp.core.designsystem.AccentColor
 import com.mvp.core.designsystem.Appearance
@@ -50,6 +53,8 @@ data class SettingsUiState(
     val isLoggingOut: Boolean = false,
     /** Journal de mesure, montré dans les builds de debug seulement. */
     val analyticsJournal: AnalyticsJournal = AnalyticsJournal(pending = emptyList(), sent = emptyList()),
+    /** Rapports de plantage « envoyés », montrés dans les builds de debug seulement. */
+    val crashJournal: List<CrashReport> = emptyList(),
     val error: String? = null,
 )
 
@@ -67,6 +72,7 @@ class SettingsViewModel(
     private val trackEvent: TrackEventUseCase,
     private val flushAnalytics: FlushAnalyticsUseCase,
     private val restartOnboarding: RestartOnboardingUseCase,
+    observeCrashJournal: ObserveCrashJournalUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
@@ -104,6 +110,9 @@ class SettingsViewModel(
             .launchIn(viewModelScope)
         observeAnalyticsJournal(NoParams)
             .onEach { result -> if (result is AppResult.Success) _state.update { it.copy(analyticsJournal = result.data) } }
+            .launchIn(viewModelScope)
+        observeCrashJournal(NoParams)
+            .onEach { result -> if (result is AppResult.Success) _state.update { it.copy(crashJournal = result.data) } }
             .launchIn(viewModelScope)
     }
 
@@ -177,6 +186,12 @@ class SettingsViewModel(
     fun onSendTestEvent() = viewModelScope.launch { trackEvent(AnalyticsEvent.DebugTest) }
 
     fun onFlushAnalytics() = viewModelScope.launch { flushAnalytics(NoParams).onFailure(::showError) }
+
+    /**
+     * Suivi des plantages (debug) : vrai plantage sur le fil principal, l'app s'arrête. Avec le consentement
+     * Rapports de plantage, le rapport apparaît dans le journal au lancement suivant (ADR 0020).
+     */
+    fun onTestCrash(): Nothing = throw TestCrashException()
 
     /** La présentation du premier lancement remplace tout de suite les onglets (ADR 0016). */
     fun onRestartOnboarding() = viewModelScope.launch { restartOnboarding(NoParams).onFailure(::showError) }

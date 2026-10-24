@@ -1,6 +1,7 @@
 package com.mvp.android.di
 
 import com.mvp.android.ui.analytics.AnalyticsViewModel
+import com.mvp.android.ui.appearance.AppearanceViewModel
 import com.mvp.android.ui.applock.AppLockViewModel
 import com.mvp.android.ui.auth.LoginViewModel
 import com.mvp.android.ui.auth.SessionViewModel
@@ -29,4 +30,5 @@ val androidAppModule = module {
     viewModelOf(::AppLockViewModel)
     viewModelOf(::DeepLinkViewModel)
     viewModelOf(::AnalyticsViewModel)
+    viewModelOf(::AppearanceViewModel)
 }

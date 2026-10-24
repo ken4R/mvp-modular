@@ -6,12 +6,13 @@ import DesignSystemUI
 public struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAccent) private var accent
     @FocusState private var profileFocused: Bool
 
     public init() {}
 
     public var body: some View {
-        let colors = DS.colors(colorScheme)
+        let colors = DS.colors(colorScheme, accent)
         Form {
             Section {
                 Text("Réglages")
@@ -43,6 +44,30 @@ public struct SettingsView: View {
                         Text(message)
                             .font(DS.Typography.caption)
                             .foregroundColor(Color(argb: colors.onSurface))
+                    }
+                }
+            }
+            .listRowBackground(Color(argb: colors.surface))
+
+            Section(header: header("Apparence", colors)) {
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    rowText("Thème", subtitle: nil, colors)
+                    Picker("Thème", selection: Binding(
+                        get: { viewModel.themeMode },
+                        set: { mode in Task { await viewModel.setThemeMode(mode) } }
+                    )) {
+                        ForEach(DSThemeMode.allCases) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    rowText("Couleur d'accent", subtitle: nil, colors)
+                    HStack(spacing: DS.Spacing.sm) {
+                        ForEach(DSAccent.allCases) { option in
+                            accentSwatch(option, selected: option == viewModel.accent, colors)
+                        }
                     }
                 }
             }
@@ -101,7 +126,7 @@ public struct SettingsView: View {
                         .font(DS.Typography.body)
                         .foregroundColor(Color(argb: colors.onSurface))
                 }
-                Text("La déconnexion efface les tâches, leurs rappels, le profil et les réglages de cet appareil.")
+                Text("La déconnexion efface les tâches, leurs rappels, le profil et les réglages de cet appareil (sauf l'apparence).")
                     .font(DS.Typography.caption)
                     .foregroundColor(Color(argb: colors.onSurface))
                 Button("Se déconnecter") { Task { await viewModel.logout() } }
@@ -143,6 +168,27 @@ public struct SettingsView: View {
         Text(title)
             .font(DS.Typography.label)
             .foregroundColor(Color(argb: colors.primary))
+    }
+
+    /// Pastille d'un accent, dans sa couleur pour le thème affiché ; l'accent choisi est entouré.
+    private func accentSwatch(_ option: DSAccent, selected: Bool, _ colors: ColorTokens) -> some View {
+        Button {
+            Task { await viewModel.setAccent(option) }
+        } label: {
+            Circle()
+                .fill(Color(argb: DS.colors(colorScheme, option).primary))
+                .padding(DS.Size.selectionBorder + DS.Spacing.xs)
+                .overlay(
+                    Circle().strokeBorder(
+                        Color(argb: selected ? colors.onSurface : colors.surface),
+                        lineWidth: DS.Size.selectionBorder
+                    )
+                )
+                .frame(width: DS.Size.accentSwatch, height: DS.Size.accentSwatch)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(option.label)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 
     private func rowText(_ title: String, subtitle: String?, _ colors: ColorTokens) -> some View {

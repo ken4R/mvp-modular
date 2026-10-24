@@ -6,6 +6,7 @@ import DesignSystemUI
 public struct CatalogView: View {
     @StateObject private var viewModel = CatalogViewModel()
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAccent) private var accent
     /// Fiches ouvertes (identifiants de produit), de la liste vers la dernière ouverte.
     @State private var path: [Int64] = []
     /// Produit demandé par un lien profond : sa fiche s'ouvre, puis la demande est remise à `nil`.
@@ -16,7 +17,7 @@ public struct CatalogView: View {
     }
 
     public var body: some View {
-        let colors = DS.colors(colorScheme)
+        let colors = DS.colors(colorScheme, accent)
         NavigationStack(path: $path) {
             content(colors)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

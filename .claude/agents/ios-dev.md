@@ -15,7 +15,7 @@ Tu es le développeur iOS du projet **MVP Modular**. `iosApp` ne fait que de l'U
 - Appel KMP : `try await useCase.invoke(params:)` (les `String` se passent en `as NSString`, les génériques Kotlin étant exportés en types Objective-C) puis cast du résultat (`AppResultSuccess<T>` / `AppResultFailure`). Toujours gérer le `catch` (annulation incluse).
 - Si un use case n'existe pas dans `UseCases` (`shared/src/iosMain/.../KoinIos.kt`), demande au `kmp-dev` de l'exposer plutôt que de contourner.
 - Vue : lance le chargement avec `.task { await viewModel.load() }`, lit le schéma via `@Environment(\.colorScheme)`.
-- Visuel : uniquement `DS.colors(scheme)`, `DS.Spacing.*`, `DS.Typography.*` (package `DesignSystemUI`). Aucune couleur ou taille en dur ; un token manquant s'ajoute dans `core:designsystem`.
+- Visuel : uniquement `DS.colors(colorScheme, accent)` (`@Environment(\.colorScheme)` et `@Environment(\.dsAccent)`), `DS.Spacing.*`, `DS.Typography.*` (package `DesignSystemUI`). Aucune couleur ou taille en dur ; un token manquant s'ajoute dans `core:designsystem`.
 - Textes dans `Localizable.strings` (ou String Catalog) dès qu'il y a du texte utilisateur.
 - Accessibilité : `accessibilityLabel` sur les éléments non textuels, support de Dynamic Type.
 - Ajoute des `#Preview` avec un état injecté.

@@ -13,6 +13,9 @@ import com.mvp.core.common.domain.result.onFailure
 import com.mvp.core.common.domain.result.onSuccess
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.android.ui.applock.DeviceAuthResult
+import com.mvp.core.designsystem.AccentColor
+import com.mvp.core.designsystem.Appearance
+import com.mvp.core.designsystem.ThemeMode
 import com.mvp.feature.auth.domain.usecase.LogoutUseCase
 import com.mvp.feature.auth.domain.usecase.ObserveSessionUseCase
 import com.mvp.feature.settings.domain.model.Consent
@@ -20,9 +23,11 @@ import com.mvp.feature.settings.domain.model.ConsentChoice
 import com.mvp.feature.settings.domain.model.ConsentType
 import com.mvp.feature.settings.domain.model.UserProfile
 import com.mvp.feature.settings.domain.usecase.ObserveSettingsUseCase
+import com.mvp.feature.settings.domain.usecase.SetAccentColorUseCase
 import com.mvp.feature.settings.domain.usecase.SetAppLockEnabledUseCase
 import com.mvp.feature.settings.domain.usecase.SetConsentUseCase
 import com.mvp.feature.settings.domain.usecase.SetNotificationsEnabledUseCase
+import com.mvp.feature.settings.domain.usecase.SetThemeModeUseCase
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +44,7 @@ data class SettingsUiState(
     val notificationsEnabled: Boolean = false,
     val appLockEnabled: Boolean = false,
     val consents: List<Consent> = emptyList(),
+    val appearance: Appearance = Appearance.Default,
     val accountEmail: String? = null,
     val isLoggingOut: Boolean = false,
     /** Journal de mesure, montré dans les builds de debug seulement. */
@@ -53,6 +59,8 @@ class SettingsViewModel(
     private val setNotificationsEnabled: SetNotificationsEnabledUseCase,
     private val setConsent: SetConsentUseCase,
     private val setAppLockEnabled: SetAppLockEnabledUseCase,
+    private val setThemeMode: SetThemeModeUseCase,
+    private val setAccentColor: SetAccentColorUseCase,
     private val logout: LogoutUseCase,
     observeAnalyticsJournal: ObserveAnalyticsJournalUseCase,
     private val trackEvent: TrackEventUseCase,
@@ -82,6 +90,7 @@ class SettingsViewModel(
                             notificationsEnabled = settings.notificationsEnabled,
                             appLockEnabled = settings.appLockEnabled,
                             consents = settings.consents,
+                            appearance = settings.appearance,
                         )
                     }
                     is AppResult.Failure -> showError(result.error)
@@ -147,6 +156,15 @@ class SettingsViewModel(
                 it.copy(error = "Configurez une empreinte, un visage ou un code de verrouillage dans les paramètres Android")
             }
         }
+    }
+
+    /** Appliqué tout de suite à toute l'app, qui suit l'apparence enregistrée. */
+    fun onThemeModeChange(mode: ThemeMode) = viewModelScope.launch {
+        setThemeMode(mode).onSuccess { clearError() }.onFailure(::showError)
+    }
+
+    fun onAccentChange(accent: AccentColor) = viewModelScope.launch {
+        setAccentColor(accent).onSuccess { clearError() }.onFailure(::showError)
     }
 
     fun onConsentChange(type: ConsentType, granted: Boolean) = viewModelScope.launch {

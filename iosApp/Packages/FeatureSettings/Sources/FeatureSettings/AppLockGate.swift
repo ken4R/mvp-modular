@@ -8,6 +8,7 @@ public struct AppLockGate<Content: View>: View {
     @StateObject private var viewModel = AppLockViewModel()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAccent) private var accent
     private let content: () -> Content
 
     public init(@ViewBuilder content: @escaping () -> Content) {
@@ -15,7 +16,7 @@ public struct AppLockGate<Content: View>: View {
     }
 
     public var body: some View {
-        let colors = DS.colors(colorScheme)
+        let colors = DS.colors(colorScheme, accent)
         ZStack {
             switch viewModel.state {
             case .unknown:
@@ -44,9 +45,10 @@ public struct AppLockGate<Content: View>: View {
 private struct LockView: View {
     @ObservedObject var viewModel: AppLockViewModel
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAccent) private var accent
 
     var body: some View {
-        let colors = DS.colors(colorScheme)
+        let colors = DS.colors(colorScheme, accent)
         VStack(spacing: DS.Spacing.md) {
             Spacer()
             Text("App verrouillée")

@@ -22,9 +22,10 @@ struct AuthDemoApp: App {
 
 private struct LoggedInDemoView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAccent) private var accent
 
     var body: some View {
-        let colors = DS.colors(colorScheme)
+        let colors = DS.colors(colorScheme, accent)
         VStack(spacing: DS.Spacing.md) {
             Text("Connecté")
                 .font(DS.Typography.titleLarge)

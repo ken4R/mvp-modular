@@ -7,10 +7,11 @@ struct LoginView: View {
 
     @StateObject private var viewModel = LoginViewModel()
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAccent) private var accent
     @FocusState private var focusedField: Field?
 
     var body: some View {
-        let colors = DS.colors(colorScheme)
+        let colors = DS.colors(colorScheme, accent)
         ScrollView {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 Text("Connexion")

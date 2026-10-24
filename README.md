@@ -38,7 +38,7 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
 ```
 
 Règles de dépendance :
-- `domain` ne dépend de rien d'autre (pas de data, pas de plateforme).
+- `domain` ne dépend de rien d'autre (pas de data, pas de plateforme). Seule exception : les types de valeurs purs de `core:designsystem` (`ThemeMode`, `AccentColor`, `Appearance`), stockés par `feature:settings` ([ADR 0015](docs/adr/0015-theme-apparence.md)).
 - `data` implémente les interfaces du `domain`.
 - Les apps ne parlent qu'aux **use cases** exposés par `shared`.
 - Exception : un module UI Compose Multiplatform (`feature:todo-compose`, [ADR 0010](docs/adr/0010-ecran-compose-multiplatform.md)) dépend de sa feature et son écran est affiché par l'app Android via `shared` ; il ne contient que de l'UI et un ViewModel.
@@ -75,9 +75,11 @@ Règles de dépendance :
 
 Source unique des valeurs visuelles, partagée par les deux plateformes : couleurs claires/sombres (ARGB), typographie, espacements et rayons, via l'objet `DesignSystem`.
 - **Android** : `MvpTheme` (`androidApp/.../ui/theme/MvpTheme.kt`) construit le `MaterialTheme` à partir des tokens ; `Spacing.md` etc. pour les dimensions.
-- **iOS** : `DS` (package SPM `iosApp/Packages/DesignSystemUI`) expose `DS.colors(scheme)`, `DS.Spacing`, `DS.Typography`.
+- **iOS** : `DS` (package SPM `iosApp/Packages/DesignSystemUI`) expose `DS.colors(colorScheme, accent)` (accent lu dans `@Environment(\.dsAccent)`), `DS.Spacing`, `DS.Typography`.
 
 Changer une couleur ou une taille dans le module KMP met à jour les deux apps.
+
+Thème et accent ([ADR 0015](docs/adr/0015-theme-apparence.md)) : `ThemeMode` (appareil / clair / sombre) et `AccentColor` (5 accents) choisis dans Réglages, enregistrés par `feature:settings` (`ObserveAppearanceUseCase`) et appliqués à la racine des apps : `MvpTheme(appearance)` sur Android, `AppearanceRoot` + `@Environment(\.dsAccent)` sur iOS (`DS.colors(colorScheme, accent)`), `TodoComposeScreen(appearance)` pour l'écran Compose. L'accent ne change que `primary`, `onPrimary` et `highlight`.
 
 ## Feature `todo`
 

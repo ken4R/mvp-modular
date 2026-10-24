@@ -2,6 +2,8 @@ package com.mvp.feature.settings.data.repository
 
 import com.mvp.core.common.data.safeCall
 import com.mvp.core.common.domain.result.AppResult
+import com.mvp.core.designsystem.AccentColor
+import com.mvp.core.designsystem.ThemeMode
 import com.mvp.feature.settings.data.source.ProfileLocalDataSource
 import com.mvp.feature.settings.data.source.SettingsLocalDataSource
 import com.mvp.feature.settings.domain.model.Consent
@@ -37,5 +39,13 @@ internal class SettingsRepositoryImpl(
 
     override suspend fun setAppLockEnabled(enabled: Boolean): AppResult<Unit> = safeCall {
         local.update { it.copy(appLockEnabled = enabled) }
+    }
+
+    override suspend fun setThemeMode(mode: ThemeMode): AppResult<Unit> = safeCall {
+        local.update { it.copy(appearance = it.appearance.copy(themeMode = mode)) }
+    }
+
+    override suspend fun setAccentColor(accent: AccentColor): AppResult<Unit> = safeCall {
+        local.update { it.copy(appearance = it.appearance.copy(accent = accent)) }
     }
 }

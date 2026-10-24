@@ -5,6 +5,7 @@ import DesignSystemUI
 public struct TodoListView: View {
     @StateObject private var viewModel = TodoViewModel()
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAccent) private var accent
     @FocusState private var inputFocused: Bool
     @FocusState private var searchFocused: Bool
     /// Tâche dont on choisit le rappel (feuille ouverte).
@@ -39,7 +40,7 @@ public struct TodoListView: View {
     }
 
     private var list: some View {
-        let colors = DS.colors(colorScheme)
+        let colors = DS.colors(colorScheme, accent)
         return VStack(alignment: .leading, spacing: DS.Spacing.md) {
             HStack {
                 Text("Mes tâches")

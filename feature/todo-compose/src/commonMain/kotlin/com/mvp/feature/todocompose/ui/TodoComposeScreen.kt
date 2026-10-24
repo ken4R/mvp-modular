@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mvp.core.designsystem.Appearance
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todocompose.ui.theme.SharedMvpTheme
 import com.mvp.feature.todocompose.ui.theme.SharedSpacing
@@ -35,14 +36,16 @@ import kotlin.time.ExperimentalTime
  * d'un rappel et les liens profonds restent dans les écrans natifs (ADR 0010).
  *
  * [onClose] : affiche un bouton « Fermer » (l'écran est ouvert depuis l'écran natif).
+ * [appearance] : thème et accent choisis dans Réglages, donnés par l'app qui affiche l'écran.
  */
 @Composable
 fun TodoComposeScreen(
     onClose: (() -> Unit)? = null,
+    appearance: Appearance = Appearance.Default,
     viewModel: TodoComposeViewModel = viewModel { createTodoComposeViewModel() },
 ) {
     val state by viewModel.state.collectAsState()
-    SharedMvpTheme {
+    SharedMvpTheme(appearance) {
         TodoComposeContent(
             state = state,
             onClose = onClose,

@@ -1,6 +1,7 @@
 import Foundation
 import UserNotifications
 import Shared
+import DesignSystemUI
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
@@ -11,6 +12,8 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var notificationsEnabled = false
     @Published private(set) var appLockEnabled = false
     @Published private(set) var consents: [Consent] = []
+    @Published private(set) var themeMode: DSThemeMode = .System
+    @Published private(set) var accent: DSAccent = .Blue
     @Published private(set) var accountEmail: String?
     @Published private(set) var isLoggingOut = false
     @Published private(set) var error: String?
@@ -121,6 +124,17 @@ final class SettingsViewModel: ObservableObject {
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
+    /// Appliqué tout de suite à toute l'app, qui suit l'apparence enregistrée (AppearanceRoot).
+    func setThemeMode(_ mode: DSThemeMode) async {
+        let result = try? await UseCases.shared.setThemeMode().invoke(params: mode.kotlin)
+        if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
+    }
+
+    func setAccent(_ accent: DSAccent) async {
+        let result = try? await UseCases.shared.setAccentColor().invoke(params: accent.kotlin)
+        if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
+    }
+
     /// La date et la version du texte sont ajoutées dans KMP. Retirer la mesure d'audience vide sa file d'attente.
     func setConsent(_ type: ConsentType, granted: Bool) async {
         let result = try? await UseCases.shared.setConsent().invoke(params: ConsentChoice(type: type, granted: granted))
@@ -146,6 +160,8 @@ final class SettingsViewModel: ObservableObject {
         notificationsEnabled = settings.notificationsEnabled
         appLockEnabled = settings.appLockEnabled
         consents = settings.consents
+        themeMode = DSThemeMode(settings.appearance.themeMode)
+        accent = DSAccent(settings.appearance.accent)
     }
 }
 

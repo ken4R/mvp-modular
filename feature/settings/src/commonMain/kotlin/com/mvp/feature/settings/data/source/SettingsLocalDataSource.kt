@@ -21,6 +21,9 @@ interface SettingsLocalDataSource {
     /** Remet tous les réglages à leur valeur de premier lancement. */
     fun clear()
 
+    /** Comme [clear], mais garde l'apparence (thème, accent), en une seule écriture : jamais d'état intermédiaire. */
+    fun clearExceptAppearance()
+
     /** Profil enregistré par une ancienne version de l'app (en clair), à migrer vers le stockage chiffré. */
     fun readLegacyProfile(): UserProfile? = null
     fun deleteLegacyProfile() {}
@@ -39,4 +42,6 @@ internal class InMemorySettingsLocalDataSource(
     override fun clear() {
         settings.value = UserSettings.initial()
     }
+
+    override fun clearExceptAppearance() = settings.update { UserSettings.initial().copy(appearance = it.appearance) }
 }

@@ -1,6 +1,13 @@
 import Foundation
 import Shared
 
+/// État filtré ; la valeur brute est le nom Kotlin de l'entrée de `TodoStatusFilter`, que l'export Swift renomme.
+enum TodoStatusOption: String, CaseIterable {
+    case all = "All"
+    case pending = "Pending"
+    case done = "Done"
+}
+
 /// Bandeau au-dessus de la liste (mode hors ligne, ADR 0012). `canRetry` : bouton « Réessayer ».
 struct SyncBanner: Equatable {
     let message: String
@@ -15,7 +22,7 @@ final class TodoViewModel: ObservableObject {
     @Published private(set) var allTodos: [Todo] = []
     /// Recherche dans le titre et la note ; appliquée après une courte pause de saisie.
     @Published var query = "" { didSet { if query != oldValue { observeFiltered(debounced: true) } } }
-    @Published var status: TodoStatusFilter = .all { didSet { if status != oldValue { observeFiltered() } } }
+    @Published var status: TodoStatusOption = .all { didSet { if status != oldValue { observeFiltered() } } }
     @Published var withReminder = false { didSet { if withReminder != oldValue { observeFiltered() } } }
     @Published var withAttachments = false { didSet { if withAttachments != oldValue { observeFiltered() } } }
     @Published var input: String = ""
@@ -70,7 +77,7 @@ final class TodoViewModel: ObservableObject {
 
     /// Filtre courant ; `isActive` (logique KMP) dit s'il retire des tâches.
     private var filter: TodoFilter {
-        TodoFilter(query: query, status: status, withReminder: withReminder, withAttachments: withAttachments)
+        KoinIosKt.todoFilter(query: query, status: status.rawValue, withReminder: withReminder, withAttachments: withAttachments)
     }
 
     /// Retire la recherche et les filtres : toute la liste est affichée.

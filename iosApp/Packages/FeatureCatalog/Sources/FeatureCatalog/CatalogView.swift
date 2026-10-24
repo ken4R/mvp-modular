@@ -136,10 +136,10 @@ public struct CatalogView: View {
         Menu {
             Toggle("4★ et plus", isOn: $viewModel.topRatedOnly)
             Picker("Trier", selection: $viewModel.sort) {
-                Text("Ordre du catalogue").tag(CatalogSort.serverOrder)
-                Text("Prix croissant").tag(CatalogSort.priceAscending)
-                Text("Prix décroissant").tag(CatalogSort.priceDescending)
-                Text("Mieux notés").tag(CatalogSort.bestRated)
+                Text("Ordre du catalogue").tag(CatalogSortOption.serverOrder)
+                Text("Prix croissant").tag(CatalogSortOption.priceAscending)
+                Text("Prix décroissant").tag(CatalogSortOption.priceDescending)
+                Text("Mieux notés").tag(CatalogSortOption.bestRated)
             }
         } label: {
             Image(systemName: viewModel.topRatedOnly || viewModel.sort != .serverOrder

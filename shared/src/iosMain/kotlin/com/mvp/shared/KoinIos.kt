@@ -18,6 +18,7 @@ import com.mvp.feature.auth.domain.usecase.LogoutUseCase
 import com.mvp.feature.auth.domain.usecase.ObserveSessionUseCase
 import com.mvp.feature.catalog.domain.model.Catalog
 import com.mvp.feature.catalog.domain.model.CatalogFilter
+import com.mvp.feature.catalog.domain.model.CatalogSort
 import com.mvp.feature.catalog.domain.model.FilteredCatalog
 import com.mvp.feature.catalog.domain.usecase.GetProductUseCase
 import com.mvp.feature.catalog.domain.usecase.LoadMoreProductsUseCase
@@ -37,6 +38,7 @@ import com.mvp.feature.todo.domain.model.FilteredTodos
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.model.TodoFilter
+import com.mvp.feature.todo.domain.model.TodoStatusFilter
 import com.mvp.feature.todo.domain.model.TodoSyncStatus
 import com.mvp.feature.todo.domain.model.TodoWidgetState
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
@@ -71,6 +73,27 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import platform.Foundation.NSData
 import platform.posix.memcpy
+
+/**
+ * Filtre des tâches construit depuis Swift, qui renomme les entrées des enum Kotlin : [status] est le nom Kotlin
+ * de l'entrée de `TodoStatusFilter` (« All », « Pending », « Done ») ; un nom inconnu vaut « All ».
+ */
+fun todoFilter(query: String, status: String, withReminder: Boolean, withAttachments: Boolean): TodoFilter = TodoFilter(
+    query = query,
+    status = TodoStatusFilter.entries.firstOrNull { it.name == status } ?: TodoStatusFilter.All,
+    withReminder = withReminder,
+    withAttachments = withAttachments,
+)
+
+/**
+ * Filtre du catalogue construit depuis Swift : [sort] est le nom Kotlin de l'entrée de `CatalogSort`
+ * (« ServerOrder », « PriceAscending », « PriceDescending », « BestRated ») ; un nom inconnu vaut « ServerOrder ».
+ */
+fun catalogFilter(query: String, topRatedOnly: Boolean, sort: String): CatalogFilter = CatalogFilter(
+    query = query,
+    topRatedOnly = topRatedOnly,
+    sort = CatalogSort.entries.firstOrNull { it.name == sort } ?: CatalogSort.ServerOrder,
+)
 
 /** Appelé une seule fois au lancement de l'app iOS. */
 fun doInitKoin() {

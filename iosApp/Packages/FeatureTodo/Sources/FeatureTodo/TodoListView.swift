@@ -163,9 +163,9 @@ public struct TodoListView: View {
             }
 
             Picker("État", selection: $viewModel.status) {
-                Text("Toutes").tag(TodoStatusFilter.all)
-                Text("À faire").tag(TodoStatusFilter.pending)
-                Text("Terminées").tag(TodoStatusFilter.done)
+                Text("Toutes").tag(TodoStatusOption.all)
+                Text("À faire").tag(TodoStatusOption.pending)
+                Text("Terminées").tag(TodoStatusOption.done)
             }
             .pickerStyle(.segmented)
 

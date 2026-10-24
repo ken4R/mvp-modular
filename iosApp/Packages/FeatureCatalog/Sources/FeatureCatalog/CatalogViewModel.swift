@@ -1,6 +1,14 @@
 import Foundation
 import Shared
 
+/// Tri choisi ; la valeur brute est le nom Kotlin de l'entrée de `CatalogSort`, que l'export Swift renomme.
+enum CatalogSortOption: String, CaseIterable {
+    case serverOrder = "ServerOrder"
+    case priceAscending = "PriceAscending"
+    case priceDescending = "PriceDescending"
+    case bestRated = "BestRated"
+}
+
 @MainActor
 final class CatalogViewModel: ObservableObject {
     /// Produits en cache qui correspondent à la recherche et aux filtres : affichés même hors ligne.
@@ -13,7 +21,7 @@ final class CatalogViewModel: ObservableObject {
     @Published var query = "" { didSet { if query != oldValue { observeFiltered(debounced: true) } } }
     /// Note d'au moins 4 sur 5.
     @Published var topRatedOnly = false { didSet { if topRatedOnly != oldValue { observeFiltered() } } }
-    @Published var sort: CatalogSort = .serverOrder { didSet { if sort != oldValue { observeFiltered() } } }
+    @Published var sort: CatalogSortOption = .serverOrder { didSet { if sort != oldValue { observeFiltered() } } }
     @Published private(set) var hasMore = true
     /// Date du dernier chargement réussi, nil si le catalogue n'a jamais été chargé.
     @Published private(set) var updatedAt: Date?
@@ -72,7 +80,7 @@ final class CatalogViewModel: ObservableObject {
     }
 
     private func subscribe() {
-        let filter = CatalogFilter(query: query, topRatedOnly: topRatedOnly, sort: sort)
+        let filter = KoinIosKt.catalogFilter(query: query, topRatedOnly: topRatedOnly, sort: sort.rawValue)
         subscription?.cancel()
         subscription = UseCases.shared.observeFilteredCatalog(
             filter: filter,

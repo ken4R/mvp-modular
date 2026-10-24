@@ -30,6 +30,7 @@ public enum DS {
         public static var heroImage: CGFloat { CGFloat(tokens.sizes.heroImage) }
         public static var accentSwatch: CGFloat { CGFloat(tokens.sizes.accentSwatch) }
         public static var selectionBorder: CGFloat { CGFloat(tokens.sizes.selectionBorder) }
+        public static var chart: CGFloat { CGFloat(tokens.sizes.chart) }
     }
 
     public enum Typography {

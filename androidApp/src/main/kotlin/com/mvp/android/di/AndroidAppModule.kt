@@ -11,6 +11,7 @@ import com.mvp.android.ui.onboarding.OnboardingViewModel
 import com.mvp.android.ui.settings.SettingsViewModel
 import com.mvp.android.ui.todo.AttachmentReader
 import com.mvp.android.ui.todo.TodoDetailViewModel
+import com.mvp.android.ui.todo.TodoStatsViewModel
 import com.mvp.android.ui.todo.TodoViewModel
 import com.mvp.android.ui.weather.WeatherViewModel
 import org.koin.android.ext.koin.androidContext
@@ -23,6 +24,8 @@ val androidAppModule = module {
     // Fiche d'une tâche : note et pièces jointes (ADR 0014).
     single { AttachmentReader(androidContext()) }
     viewModelOf(::TodoDetailViewModel)
+    // Statistiques des tâches terminées (ADR 0019).
+    viewModelOf(::TodoStatsViewModel)
     viewModelOf(::WeatherViewModel)
     viewModelOf(::CatalogViewModel)
     viewModelOf(::SettingsViewModel)

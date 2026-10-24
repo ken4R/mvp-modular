@@ -12,6 +12,8 @@ kotlin {
             implementation(projects.core.files)
             implementation(projects.core.notifications)
             implementation(projects.core.deeplink)
+            // Statistiques : début des semaines dans le fuseau de l'appareil (ADR 0019).
+            implementation(libs.kotlinx.datetime)
         }
         commonTest.dependencies {
             implementation(projects.core.databaseTesting)

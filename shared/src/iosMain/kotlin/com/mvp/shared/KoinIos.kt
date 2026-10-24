@@ -42,6 +42,7 @@ import com.mvp.feature.settings.domain.usecase.SetNotificationsEnabledUseCase
 import com.mvp.feature.settings.domain.usecase.SetThemeModeUseCase
 import com.mvp.feature.settings.domain.usecase.UnlockAppUseCase
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
+import com.mvp.feature.todo.domain.model.CompletionStats
 import com.mvp.feature.todo.domain.model.FilteredTodos
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
@@ -54,6 +55,7 @@ import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveCompletionStatsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveFilteredTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoAttachmentsUseCase
@@ -241,6 +243,22 @@ object UseCases : KoinComponent {
             .onEach { result ->
                 when (result) {
                     is AppResult.Success -> onTodos(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /**
+     * Statistiques : tâches terminées par semaine, semaines du lundi dans le fuseau de l'appareil (ADR 0019).
+     * Les callbacks sont appelés sur le main thread.
+     */
+    fun observeCompletionStats(onStats: (CompletionStats) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveCompletionStatsUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onStats(result.data)
                     is AppResult.Failure -> onError(result.error)
                 }
             }

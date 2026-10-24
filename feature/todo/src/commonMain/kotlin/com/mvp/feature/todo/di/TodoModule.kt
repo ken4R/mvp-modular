@@ -9,19 +9,25 @@ import com.mvp.feature.todo.data.reminder.NotificationReminderScheduler
 import com.mvp.feature.todo.data.repository.TodoRepositoryImpl
 import com.mvp.feature.todo.data.session.TodoUserSessionObserver
 import com.mvp.feature.todo.data.source.SqlDelightTodoLocalDataSource
+import com.mvp.feature.todo.data.stats.SystemWeekCalendar
+import com.mvp.feature.todo.data.stats.TodoStatsLocalDataSource
+import com.mvp.feature.todo.data.stats.TodoStatsRepositoryImpl
 import com.mvp.feature.todo.data.source.TodoLocalDataSource
 import com.mvp.feature.todo.data.sync.FakeTodoRemoteDataSource
 import com.mvp.feature.todo.data.sync.TodoRemoteDataSource
 import com.mvp.feature.todo.data.sync.TodoSyncLocalDataSource
 import com.mvp.feature.todo.data.sync.TodoSyncRepositoryImpl
+import com.mvp.feature.todo.domain.calendar.WeekCalendar
 import com.mvp.feature.todo.domain.reminder.ReminderScheduler
 import com.mvp.feature.todo.domain.repository.TodoRepository
+import com.mvp.feature.todo.domain.repository.TodoStatsRepository
 import com.mvp.feature.todo.domain.repository.TodoSyncRepository
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveCompletionStatsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveFilteredTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoAttachmentsUseCase
@@ -60,6 +66,10 @@ val todoModule = module {
     single<TodoLocalDataSource> { get<SqlDelightTodoLocalDataSource>() }
     single<TodoSyncLocalDataSource> { get<SqlDelightTodoLocalDataSource>() }
     single<TodoRepository> { TodoRepositoryImpl(get()) }
+    // Statistiques (ADR 0019) : heures de fin gardées dans la même base, effacées avec les tâches à la déconnexion.
+    single<TodoStatsLocalDataSource> { get<SqlDelightTodoLocalDataSource>() }
+    single<TodoStatsRepository> { TodoStatsRepositoryImpl(get()) }
+    single<WeekCalendar> { SystemWeekCalendar() }
     single<ReminderScheduler> { NotificationReminderScheduler(get()) }
     // Pas encore de backend : faux serveur en mémoire. ConnectivityObserver vient de core:connectivity.
     single<TodoRemoteDataSource> { FakeTodoRemoteDataSource(get()) }
@@ -97,6 +107,8 @@ val todoModule = module {
     factory { ShareTodoUseCase(get(), get<AppDispatchers>().io) }
     // Ajout à la voix (Siri, Google Assistant ; ADR 0018) : PendingDeepLinkRepository vient de core:deeplink.
     factory { StartTodoDraftUseCase(get(), get<AppDispatchers>().default) }
+    // Statistiques : tâches terminées par semaine, semaines du lundi dans le fuseau de l'appareil (ADR 0019).
+    factory { ObserveCompletionStatsUseCase(get(), get(), systemNow, get<AppDispatchers>().default) }
 }
 
 /** Dossier des fichiers des pièces jointes, effacé à la déconnexion. */

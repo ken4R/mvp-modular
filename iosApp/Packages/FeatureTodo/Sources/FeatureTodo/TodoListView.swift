@@ -12,6 +12,8 @@ public struct TodoListView: View {
     @State private var reminderTodo: Todo?
     /// Tâche dont la fiche (note et pièces jointes, ADR 0014) est affichée à la place de la liste.
     @State private var openedTodoId: String?
+    /// Statistiques des tâches terminées (ADR 0019), affichées à la place de la liste.
+    @State private var showStats = false
     /// Tâche demandée par un lien profond : prise en compte puis remise à `nil`.
     @Binding private var focusRequest: String?
     /// Titre dicté par le raccourci Siri (ADR 0018) : prérempli dans « Nouvelle tâche », puis remis à `nil`.
@@ -35,6 +37,8 @@ public struct TodoListView: View {
             if let openedTodoId {
                 TodoDetailView(todoId: openedTodoId) { self.openedTodoId = nil }
                     .id(openedTodoId)
+            } else if showStats {
+                TodoStatsView { showStats = false }
             } else {
                 list
             }
@@ -57,6 +61,13 @@ public struct TodoListView: View {
                     .font(DS.Typography.titleLarge)
                     .foregroundColor(Color(argb: colors.onBackground))
                 Spacer(minLength: DS.Spacing.sm)
+                Button("Statistiques") {
+                    inputFocused = false
+                    searchFocused = false
+                    showStats = true
+                }
+                .font(DS.Typography.label)
+                .tint(Color(argb: colors.primary))
                 if let onOpenComposeMultiplatform {
                     Button("Version Compose MP", action: onOpenComposeMultiplatform)
                         .font(DS.Typography.label)
@@ -196,6 +207,7 @@ public struct TodoListView: View {
         reminderTodo = nil
         // Un lien vers une tâche revient à la liste, où elle est mise en évidence.
         openedTodoId = nil
+        showStats = false
         Task { await viewModel.focus(id) }
     }
 
@@ -205,6 +217,7 @@ public struct TodoListView: View {
         reminderTodo = nil
         // Le champ « Nouvelle tâche » est sur la liste. Un titre vide garde le texte déjà saisi.
         openedTodoId = nil
+        showStats = false
         if !title.isEmpty { viewModel.input = title }
     }
 

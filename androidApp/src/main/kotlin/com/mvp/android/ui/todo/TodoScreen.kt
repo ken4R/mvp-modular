@@ -61,7 +61,8 @@ import java.time.format.FormatStyle
  * [draftRequest] : titre dicté par le raccourci vocal (ADR 0018), prérempli dans « Nouvelle tâche » ;
  * [onDraftRequestHandled] une fois pris en compte. La tâche n'est ajoutée qu'avec le bouton « Ajouter ».
  * [onOpenComposeMultiplatform] : affiche un bouton vers la version Compose Multiplatform de l'écran (ADR 0010).
- * Un tap sur une tâche ouvre sa fiche (note et pièces jointes, ADR 0014) à la place de la liste.
+ * Un tap sur une tâche ouvre sa fiche (note et pièces jointes, ADR 0014) à la place de la liste ; le bouton
+ * « Statistiques », le graphique des tâches terminées par semaine (ADR 0019).
  */
 @Composable
 fun TodoScreen(
@@ -76,10 +77,12 @@ fun TodoScreen(
     val context = LocalContext.current
     val listState = rememberLazyListState()
     var openedTodoId by rememberSaveable { mutableStateOf<String?>(null) }
+    var showStats by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(focusRequest) {
         focusRequest?.let {
             // Un lien vers une tâche revient à la liste, où elle est mise en évidence.
             openedTodoId = null
+            showStats = false
             viewModel.focus(it)
         }
         onFocusRequestHandled()
@@ -89,12 +92,17 @@ fun TodoScreen(
             // Le champ « Nouvelle tâche » est sur la liste : on y revient. Un titre vide (raccourci du lanceur)
             // garde le texte déjà saisi ; sinon le titre dicté le remplace.
             openedTodoId = null
+            showStats = false
             if (it.isNotEmpty()) viewModel.onInputChange(it)
         }
         onDraftRequestHandled()
     }
     openedTodoId?.let { id ->
         TodoDetailScreen(todoId = id, onClose = { openedTodoId = null })
+        return
+    }
+    if (showStats) {
+        TodoStatsScreen(onClose = { showStats = false })
         return
     }
     // Défile jusqu'à la tâche mise en évidence, puis retire la mise en évidence.
@@ -109,6 +117,7 @@ fun TodoScreen(
         state = state,
         listState = listState,
         onOpenComposeMultiplatform = onOpenComposeMultiplatform,
+        onOpenStats = { showStats = true },
         onInputChange = viewModel::onInputChange,
         onAdd = { viewModel.onAdd() },
         onToggle = { viewModel.onToggle(it) },
@@ -141,6 +150,7 @@ private fun TodoContent(
     state: TodoUiState,
     listState: LazyListState,
     onOpenComposeMultiplatform: (() -> Unit)?,
+    onOpenStats: () -> Unit,
     onInputChange: (String) -> Unit,
     onAdd: () -> Unit,
     onToggle: (String) -> Unit,
@@ -158,6 +168,7 @@ private fun TodoContent(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Mes tâches", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                TextButton(onClick = onOpenStats) { Text("Statistiques") }
                 onOpenComposeMultiplatform?.let { TextButton(onClick = it) { Text("Version Compose MP") } }
             }
             state.syncBanner?.let { banner ->

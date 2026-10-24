@@ -33,7 +33,7 @@ struct TodoDetailView: View {
                 AttachmentPreview(attachment: previewed, colors: colors)
             } else {
                 // La note modifiée est enregistrée par onDisappear.
-                header(viewModel.todo?.title ?? "", action: "Retour", colors: colors, onAction: onClose)
+                header(viewModel.todo?.title ?? "", action: "Retour", colors: colors, showsShare: true, onAction: onClose)
                 if viewModel.isMissing {
                     Text("Cette tâche a été supprimée")
                         .font(DS.Typography.body)
@@ -52,6 +52,11 @@ struct TodoDetailView: View {
             }
         }
         .onAppear { viewModel.start() }
+        // Feuille de partage ouverte (ADR 0017) : fermée au passage en arrière-plan, avant l'aperçu du sélecteur
+        // d'apps et le verrou. C'est une fenêtre modale UIKit, au-dessus du masque et de l'écran de verrouillage.
+        .onChange(of: scenePhase) { phase in
+            if phase == .background { PresentedSheets.dismissAll() }
+        }
         // Retour, changement d'onglet, verrouillage de l'app : la note modifiée est enregistrée.
         .onDisappear { viewModel.stop() }
         .onChange(of: photoItem) { item in
@@ -64,7 +69,13 @@ struct TodoDetailView: View {
         }
     }
 
-    private func header(_ title: String, action: String, colors: ColorTokens, onAction: @escaping () -> Void) -> some View {
+    private func header(
+        _ title: String,
+        action: String,
+        colors: ColorTokens,
+        showsShare: Bool = false,
+        onAction: @escaping () -> Void
+    ) -> some View {
         HStack(spacing: DS.Spacing.sm) {
             Button(action, action: onAction)
                 .font(DS.Typography.label)
@@ -74,6 +85,36 @@ struct TodoDetailView: View {
                 .foregroundColor(Color(argb: colors.onBackground))
                 .lineLimit(1)
             Spacer(minLength: 0)
+            if showsShare { shareButton(colors: colors) }
+        }
+    }
+
+    /// Partage par la feuille du système (ADR 0017) : du texte et le lien de la tâche, jamais de pièce jointe.
+    /// La feuille est fermée au passage en arrière-plan (voir `onChange(of: scenePhase)`). Avec une note, elle n'est ajoutée que choisie, et seulement une fois enregistrée.
+    @ViewBuilder
+    private func shareButton(colors: ColorTokens) -> some View {
+        if let share = viewModel.share {
+            Group {
+                if let withNote = viewModel.shareWithNote {
+                    Menu {
+                        shareLink(share, label: "Sans la note")
+                        shareLink(withNote, label: viewModel.noteChanged ? "Avec la note (enregistrez-la d'abord)" : "Avec la note")
+                            .disabled(viewModel.noteChanged)
+                    } label: {
+                        Label("Partager", systemImage: "square.and.arrow.up")
+                    }
+                } else {
+                    shareLink(share, label: "Partager")
+                }
+            }
+            .font(DS.Typography.label)
+            .tint(Color(argb: colors.primary))
+        }
+    }
+
+    private func shareLink(_ share: TodoShare, label: String) -> some View {
+        ShareLink(item: share.text, subject: Text(share.subject)) {
+            Label(label, systemImage: "square.and.arrow.up")
         }
     }
 
@@ -265,4 +306,17 @@ private struct PDFPreview: UIViewRepresentable {
 /// Ignore les liens des PDF joints (web, mail, téléphone).
 final class LinkBlocker: NSObject, PDFViewDelegate {
     func pdfViewWillClick(onLink sender: PDFView, with url: URL) {}
+}
+
+/// Fenêtres modales UIKit présentées au-dessus de l'app (feuille de partage, et l'écran de rédaction ouvert
+/// depuis elle) : SwiftUI ne les ferme pas quand la vue qui les a ouvertes disparaît.
+enum PresentedSheets {
+    @MainActor
+    static func dismissAll() {
+        for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
+            for window in scene.windows {
+                window.rootViewController?.presentedViewController?.dismiss(animated: false)
+            }
+        }
+    }
 }

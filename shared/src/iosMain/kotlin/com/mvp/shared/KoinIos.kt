@@ -61,6 +61,7 @@ import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
+import com.mvp.feature.todo.domain.usecase.ShareTodoUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoSyncUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodosUseCase
@@ -140,6 +141,7 @@ object UseCases : KoinComponent {
     fun updateTodoNote(): UpdateTodoNoteUseCase = get()
     fun addTodoAttachment(): AddTodoAttachmentUseCase = get()
     fun deleteTodoAttachment(): DeleteTodoAttachmentUseCase = get()
+    fun shareTodo(): ShareTodoUseCase = get()
     fun syncTodos(): SyncTodosUseCase = get()
 
     fun searchCities(): SearchCitiesUseCase = get()

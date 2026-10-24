@@ -11,10 +11,13 @@ import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.model.TodoNote
+import com.mvp.feature.todo.domain.model.TodoShare
+import com.mvp.feature.todo.domain.model.TodoShareRequest
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoAttachmentsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
+import com.mvp.feature.todo.domain.usecase.ShareTodoUseCase
 import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -37,6 +40,10 @@ data class TodoDetailUiState(
     /** Pièce jointe affichée en grand dans la fiche. */
     val previewed: TodoAttachment? = null,
     val isAdding: Boolean = false,
+    /** Question « inclure la note ? » affichée avant le partage (seulement si la tâche a une note). */
+    val askIncludeNote: Boolean = false,
+    /** Contenu prêt pour la feuille de partage : l'écran l'ouvre une fois, puis appelle `onShareShown`. */
+    val share: TodoShare? = null,
     val error: String? = null,
 ) {
     val noteChanged: Boolean get() = todo != null && noteDraft.trim() != todo.note
@@ -53,6 +60,7 @@ class TodoDetailViewModel(
     private val updateNote: UpdateTodoNoteUseCase,
     private val addAttachment: AddTodoAttachmentUseCase,
     private val deleteAttachment: DeleteTodoAttachmentUseCase,
+    private val shareTodo: ShareTodoUseCase,
     private val reader: AttachmentReader,
 ) : ViewModel() {
 
@@ -141,6 +149,41 @@ class TodoDetailViewModel(
     fun onDeleteAttachment(id: String) = viewModelScope.launch { deleteAttachment(id).onFailure(::showError) }
 
     fun onPreview(attachment: TodoAttachment?) = _state.update { it.copy(previewed = attachment) }
+
+    /** « Partager » (ADR 0017) : la note n'est jamais partagée sans le demander. */
+    fun onShare() {
+        val current = _state.value
+        if (current.todo?.note.isNullOrBlank() && current.noteDraft.isBlank()) {
+            onShareConfirmed(includeNote = false)
+        } else {
+            _state.update { it.copy(askIncludeNote = true, error = null) }
+        }
+    }
+
+    fun onShareCancelled() = _state.update { it.copy(askIncludeNote = false) }
+
+    /**
+     * Le texte partagé part de la note enregistrée : avec la note, un brouillon modifié est enregistré avant. Sans
+     * la note, le brouillon n'est pas touché (il l'est à la fermeture de la fiche, comme d'habitude).
+     */
+    fun onShareConfirmed(includeNote: Boolean) = viewModelScope.launch {
+        _state.update { it.copy(askIncludeNote = false) }
+        val current = _state.value
+        val todo = current.todo ?: return@launch
+        if (includeNote && current.noteChanged) {
+            val saved = updateNote(TodoNote(todo.id, current.noteDraft))
+            if (saved is AppResult.Failure) {
+                showError(saved.error)
+                return@launch
+            }
+            saved.onSuccess { note -> _state.update { it.copy(noteDraft = note.note) } }
+        }
+        shareTodo(TodoShareRequest(todo.id, includeNote))
+            .onSuccess { share -> _state.update { it.copy(share = share, error = null) } }
+            .onFailure(::showError)
+    }
+
+    fun onShareShown() = _state.update { it.copy(share = null) }
 
     private fun showError(error: AppError) = _state.update { it.copy(error = error.toDetailMessage()) }
 }

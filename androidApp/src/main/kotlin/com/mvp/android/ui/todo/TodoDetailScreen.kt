@@ -1,5 +1,6 @@
 package com.mvp.android.ui.todo
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -17,7 +18,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -28,10 +31,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -43,6 +50,7 @@ import com.mvp.android.ui.theme.Sizes
 import com.mvp.android.ui.theme.Spacing
 import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.TodoAttachment
+import com.mvp.feature.todo.domain.model.TodoShare
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
 import org.koin.androidx.compose.koinViewModel
@@ -74,6 +82,17 @@ fun TodoDetailScreen(todoId: String, onClose: () -> Unit, viewModel: TodoDetailV
         uri?.let(viewModel::onFilePicked)
     }
 
+    // Feuille de partage du système (ADR 0017) : du texte seulement, jamais de fichier joint.
+    val context = LocalContext.current
+    LaunchedEffect(state.share) {
+        val share = state.share ?: return@LaunchedEffect
+        context.startActivity(shareIntent(share))
+        viewModel.onShareShown()
+    }
+    if (state.askIncludeNote) {
+        IncludeNoteDialog(onConfirm = { viewModel.onShareConfirmed(it) }, onDismiss = viewModel::onShareCancelled)
+    }
+
     val previewed = state.previewed
     BackHandler { if (previewed != null) viewModel.onPreview(null) else close() }
 
@@ -92,7 +111,12 @@ fun TodoDetailScreen(todoId: String, onClose: () -> Unit, viewModel: TodoDetailV
                     Text("Cette tâche a été supprimée", style = MaterialTheme.typography.bodyLarge)
                 }
                 else -> {
-                    Header(state.todo?.title.orEmpty(), actionLabel = "Retour", onAction = close)
+                    Header(
+                        state.todo?.title.orEmpty(),
+                        actionLabel = "Retour",
+                        onAction = close,
+                        onShare = viewModel::onShare.takeIf { state.todo != null },
+                    )
                     DetailContent(
                         state = state,
                         onNoteChange = viewModel::onNoteChange,
@@ -152,7 +176,7 @@ private fun DetailContent(
 }
 
 @Composable
-private fun Header(title: String, actionLabel: String, onAction: () -> Unit) {
+private fun Header(title: String, actionLabel: String, onAction: () -> Unit, onShare: (() -> Unit)? = null) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = onAction) { Text(actionLabel) }
         Text(
@@ -162,7 +186,50 @@ private fun Header(title: String, actionLabel: String, onAction: () -> Unit) {
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        onShare?.let { TextButton(onClick = it) { Text("Partager", maxLines = 1) } }
     }
+}
+
+/** La note peut être personnelle : elle n'est ajoutée au partage que cochée. Les pièces jointes, jamais. */
+@Composable
+private fun IncludeNoteDialog(onConfirm: (includeNote: Boolean) -> Unit, onDismiss: () -> Unit) {
+    var includeNote by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Partager la tâche") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { includeNote = !includeNote },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = includeNote, onCheckedChange = { includeNote = it })
+                    Text("Inclure la note", style = MaterialTheme.typography.bodyLarge)
+                }
+                Text(
+                    "Le titre, l'état et un lien vers la tâche sont partagés. Les pièces jointes restent sur cet appareil.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(includeNote) }) { Text("Partager") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
+    )
+}
+
+/**
+ * `ACTION_SEND` en texte brut, dans le sélecteur du système (aucune app choisie par défaut). L'app choisie s'ouvre
+ * dans sa propre tâche : son écran (un mail avec la note…) n'apparaît pas dans l'aperçu récent de l'app, et le
+ * retour à l'app repasse par le verrou.
+ */
+private fun shareIntent(share: TodoShare): Intent {
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+        putExtra(Intent.EXTRA_SUBJECT, share.subject)
+        putExtra(Intent.EXTRA_TEXT, share.text)
+    }
+    return Intent.createChooser(send, "Partager la tâche")
 }
 
 @Composable

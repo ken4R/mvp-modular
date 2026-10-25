@@ -14,6 +14,13 @@ import com.mvp.core.crashreporting.domain.model.TestCrashException
 import com.mvp.core.crashreporting.domain.usecase.ObserveCrashJournalUseCase
 import com.mvp.core.crashreporting.domain.usecase.StartCrashReportingUseCase
 import com.mvp.core.deeplink.domain.model.DeepLink
+import com.mvp.core.featureflags.domain.model.FeatureFlag
+import com.mvp.core.featureflags.domain.model.FeatureFlagState
+import com.mvp.core.featureflags.domain.usecase.ClearFeatureFlagOverridesUseCase
+import com.mvp.core.featureflags.domain.usecase.ObserveFeatureFlagUseCase
+import com.mvp.core.featureflags.domain.usecase.ObserveFeatureFlagsUseCase
+import com.mvp.core.featureflags.domain.usecase.RefreshRemoteFlagsUseCase
+import com.mvp.core.featureflags.domain.usecase.SetFeatureFlagOverrideUseCase
 import com.mvp.core.designsystem.Appearance
 import com.mvp.core.deeplink.domain.usecase.ConsumeDeepLinkUseCase
 import com.mvp.core.deeplink.domain.usecase.ObservePendingDeepLinkUseCase
@@ -118,6 +125,12 @@ fun catalogFilter(query: String, topRatedOnly: Boolean, sort: String): CatalogFi
  */
 fun consentType(name: String): ConsentType? = ConsentType.entries.firstOrNull { it.name == name }
 
+/**
+ * Feature flag par sa clé du JSON distant (« catalog », « preview_banner »), pour Swift qui renomme les entrées des
+ * enum Kotlin ; `null` pour une clé inconnue (ADR 0021).
+ */
+fun featureFlag(key: String): FeatureFlag? = FeatureFlag.fromKey(key)
+
 /** Appelé une seule fois au lancement de l'app iOS. */
 fun doInitKoin() {
     initKoin()
@@ -186,6 +199,36 @@ object UseCases : KoinComponent {
     fun flushAnalytics(): FlushAnalyticsUseCase = get()
 
     fun startCrashReporting(): StartCrashReportingUseCase = get()
+
+    fun refreshRemoteFlags(): RefreshRemoteFlagsUseCase = get()
+    fun setFeatureFlagOverride(): SetFeatureFlagOverrideUseCase = get()
+    fun clearFeatureFlagOverrides(): ClearFeatureFlagOverridesUseCase = get()
+
+    /** `true` si la feature doit être affichée (ADR 0021). Les callbacks sont appelés sur le main thread. */
+    fun observeFeatureFlag(flag: FeatureFlag, onEnabled: (Boolean) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveFeatureFlagUseCase>()(flag)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onEnabled(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /** Tous les flags pour le menu debug. Les callbacks sont appelés sur le main thread. */
+    fun observeFeatureFlags(onFlags: (List<FeatureFlagState>) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveFeatureFlagsUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onFlags(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
 
     /**
      * « Provoquer un plantage » des builds de debug : exception Kotlin levée vers Swift sans `@Throws`, donc non

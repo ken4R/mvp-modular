@@ -7,6 +7,7 @@ import com.mvp.android.ui.auth.LoginViewModel
 import com.mvp.android.ui.auth.SessionViewModel
 import com.mvp.android.ui.catalog.CatalogViewModel
 import com.mvp.android.ui.deeplink.DeepLinkViewModel
+import com.mvp.android.ui.featureflags.FeatureFlagsViewModel
 import com.mvp.android.ui.onboarding.OnboardingViewModel
 import com.mvp.android.ui.settings.SettingsViewModel
 import com.mvp.android.ui.todo.AttachmentReader
@@ -36,4 +37,6 @@ val androidAppModule = module {
     viewModelOf(::AnalyticsViewModel)
     viewModelOf(::AppearanceViewModel)
     viewModelOf(::OnboardingViewModel)
+    // Feature flags (ADR 0021).
+    viewModelOf(::FeatureFlagsViewModel)
 }

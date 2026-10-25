@@ -39,6 +39,7 @@ include(":core:analytics")
 include(":core:connectivity")
 include(":core:files")
 include(":core:crashreporting")
+include(":core:featureflags")
 
 // Features
 include(":feature:todo")

@@ -1,0 +1,35 @@
+name: Flags distants (GitHub Pages)
+
+# Publie uniquement remote-config/ (flags.json) sur GitHub Pages, lu par les apps (ADR 0021).
+# Prérequis : Settings > Pages > Source : GitHub Actions.
+on:
+  push:
+    branches: [main]
+    paths: [remote-config/**]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Format du fichier
+        run: python3 -c "import json; d = json.load(open('remote-config/flags.json')); assert d['schemaVersion'] == 1 and all(isinstance(v, bool) for v in d['flags'].values())"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: remote-config
+      - id: deployment
+        uses: actions/deploy-pages@v4

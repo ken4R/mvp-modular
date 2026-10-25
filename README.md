@@ -34,6 +34,7 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
                                     core:connectivity ← accès à internet (mode hors ligne)
                                     core:files ← fichiers privés hors sauvegardes (pièces jointes)
                                     core:crashreporting ← suivi des plantages avec consentement
+                                    core:featureflags ← features en développement et flags distants
      (tokens visuels :        ├─ domain : entités, interfaces de repository, use cases
       couleurs, typo,         ├─ data   : implémentations de repository, data sources
       espacements, rayons)    └─ di     : module Koin
@@ -72,6 +73,8 @@ Règles de dépendance :
 `core:files` range les fichiers privés d'une feature ([ADR 0014](docs/adr/0014-notes-pieces-jointes.md)) : `PrivateFileStoreFactory.create("<dossier>")` donne un `PrivateFileStore` (écrire, lire, chemin, supprimer, tout supprimer). Android : dossier `no_backup` de l'app ; iOS : `Application Support`, exclu des sauvegardes, fichiers protégés par Data Protection complète. Les noms sont des identifiants choisis par l'app (`[A-Za-z0-9_-]`), jamais un nom donné par l'utilisateur.
 
 `core:crashreporting` suit les plantages avec consentement ([ADR 0020](docs/adr/0020-suivi-plantages.md), [plan](docs/plans/suivi-plantages.md)) : chaque app appelle `StartCrashReportingUseCase` au lancement. Les plantages Kotlin non rattrapés (et Java sur Android) sont écrits, sans message d'exception et nettoyés par `CrashScrubber`, dans un dossier privé (`core:files`), puis envoyés au lancement suivant à un `CrashReportSink` (journal local de debug pour l'instant). Rien n'est enregistré ni envoyé sans le consentement « Rapports de plantage » de Réglages (`CrashReportingConsent`, séparé de la mesure d'audience) ; le retirer (`CrashReportingConsentObserver`) ou se déconnecter efface les rapports en attente.
+
+`core:featureflags` gère les feature flags ([ADR 0021](docs/adr/0021-feature-flags.md), [plan](docs/plans/feature-flags.md)) : `FeatureFlag` liste chaque feature avec son étape. Une feature `InDevelopment` est toujours coupée en release (constante de build) et se règle dans Réglages > « Feature flags (debug) » ; une feature `Released` suit le réglage debug, puis `remote-config/flags.json` publié sur GitHub Pages (lu par Ktor, gardé en cache), puis sa valeur par défaut. Les apps observent `ObserveFeatureFlagUseCase` et appellent `RefreshRemoteFlagsUseCase` au lancement et au retour au premier plan.
 
 `core:network` ajoute le réseau ([ADR 0001](docs/adr/0001-reseau-ktor.md)) : `createHttpClient()` (Ktor, JSON, délais, moteur Android / Darwin), `safeApiCall` (exceptions Ktor → `AppError`) et `networkModule` (un `HttpClient` unique). Les features l'utilisent dans leur couche `data` uniquement.
 

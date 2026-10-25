@@ -51,7 +51,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mvp.android.ui.applock.rememberDeviceAuthentication
 import com.mvp.android.ui.theme.MvpColors
 import com.mvp.android.ui.theme.Sizes
+import com.mvp.android.BuildConfig
+import com.mvp.android.ui.featureflags.FeatureFlagsSection
+import com.mvp.android.ui.featureflags.FeatureFlagsViewModel
+import com.mvp.android.ui.featureflags.PreviewBannerCard
 import com.mvp.android.ui.theme.Spacing
+import com.mvp.core.featureflags.domain.model.FeatureFlag
 import com.mvp.core.analytics.domain.model.AnalyticsJournal
 import com.mvp.core.crashreporting.domain.model.CrashReport
 import com.mvp.core.analytics.domain.model.TrackedEvent
@@ -65,8 +70,9 @@ import java.text.DateFormat
 import java.util.Date
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
+fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel(), flagsViewModel: FeatureFlagsViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val flags by flagsViewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val appVersion = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "-"
@@ -120,6 +126,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = koinViewModel()) {
         onFlushAnalytics = { viewModel.onFlushAnalytics() },
         onTestCrash = { viewModel.onTestCrash() },
         onRestartOnboarding = { viewModel.onRestartOnboarding() },
+        // Feature en développement : derrière la constante de build, absente du code release (ADR 0021).
+        previewBanner = { if (BuildConfig.DEV_FLAGS && flags.isEnabled(FeatureFlag.PreviewBanner)) PreviewBannerCard() },
+        featureFlagsSection = {
+            FeatureFlagsSection(
+                state = flags,
+                onOverride = { flagState, enabled -> flagsViewModel.onOverride(flagState.flag, enabled) },
+                onReset = { flagsViewModel.onReset() },
+                onRefresh = { flagsViewModel.forceRefresh() },
+            )
+        },
     )
 }
 
@@ -141,6 +157,8 @@ private fun SettingsContent(
     onFlushAnalytics: () -> Unit,
     onTestCrash: () -> Unit,
     onRestartOnboarding: () -> Unit,
+    previewBanner: @Composable () -> Unit = {},
+    featureFlagsSection: @Composable () -> Unit = {},
 ) {
     Scaffold { padding ->
         Column(
@@ -154,6 +172,7 @@ private fun SettingsContent(
         ) {
             Text("Réglages", style = MaterialTheme.typography.headlineSmall)
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            previewBanner()
 
             SectionTitle("Profil")
             OutlinedTextField(
@@ -215,6 +234,8 @@ private fun SettingsContent(
                 AnalyticsJournalSection(state.analyticsJournal, onSendTestEvent, onFlushAnalytics)
                 HorizontalDivider()
                 CrashJournalSection(state.crashJournal, onTestCrash)
+                HorizontalDivider()
+                featureFlagsSection()
             }
 
             HorizontalDivider()

@@ -16,6 +16,8 @@ struct iOSApp: App {
         // Plantages : enregistrés seulement avec le consentement Rapports de plantage, ceux du lancement précédent
         // partent maintenant (ADR 0020).
         Task { @MainActor in _ = try? await UseCases.shared.startCrashReporting().invoke(params: NoParams.shared) }
+        // Feature flags distants (ADR 0021) : partent du cache, relus au plus une fois toutes les 15 minutes.
+        Self.refreshFeatureFlags()
         TodoReminders.start()
         // Mode hors ligne : les modifications des tâches partent dès que le réseau revient (ADR 0012).
         TodoSync.start()
@@ -48,8 +50,15 @@ struct iOSApp: App {
         }
         // Mesure d'audience : ce qui attend part quand l'app passe en arrière-plan (rien sans consentement).
         .onChange(of: scenePhase) { phase in
+            if phase == .active { Self.refreshFeatureFlags() }
             guard phase == .background else { return }
             Task { @MainActor in _ = try? await UseCases.shared.flushAnalytics().invoke(params: NoParams.shared) }
+        }
+    }
+
+    private static func refreshFeatureFlags() {
+        Task { @MainActor in
+            _ = try? await UseCases.shared.refreshRemoteFlags().invoke(params: RemoteFlagsRefresh(force: false))
         }
     }
 }

@@ -5,6 +5,7 @@ import DesignSystemUI
 
 public struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
+    @StateObject private var flags = FeatureFlagsViewModel()
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dsAccent) private var accent
     @FocusState private var profileFocused: Bool
@@ -26,6 +27,23 @@ public struct SettingsView: View {
                         .listRowBackground(Color(argb: colors.background))
                 }
             }
+
+            #if DEBUG
+            // Feature en développement (ADR 0021) : absente du code d'un build release.
+            if flags.isEnabled("preview_banner") {
+                Section {
+                    VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                        Text("Bientôt")
+                            .font(DS.Typography.titleMedium)
+                            .foregroundColor(Color(argb: colors.onSurface))
+                        Text("Une nouvelle fonction en préparation, visible seulement dans les builds de debug.")
+                            .font(DS.Typography.caption)
+                            .foregroundColor(Color(argb: colors.onSurface))
+                    }
+                }
+                .listRowBackground(Color(argb: colors.surface))
+            }
+            #endif
 
             Section(header: header("Profil", colors)) {
                 TextField("Nom", text: $viewModel.name)
@@ -119,6 +137,7 @@ public struct SettingsView: View {
                 analyticsJournalSection(journal, colors)
             }
             crashJournalSection(viewModel.crashJournal, colors)
+            featureFlagsSection(colors)
             #endif
 
             Section(header: header("Compte", colors)) {
@@ -152,13 +171,19 @@ public struct SettingsView: View {
         .scrollContentBackground(.hidden)
         .scrollDismissesKeyboard(.immediately)
         .background(Color(argb: colors.background))
-        .onAppear { viewModel.start() }
+        .onAppear {
+            viewModel.start()
+            flags.start()
+        }
         .task { await viewModel.syncNotificationPermission() }
         // L'utilisateur peut couper les notifications dans Réglages iOS pendant que l'app est en arrière-plan.
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             Task { await viewModel.syncNotificationPermission() }
         }
-        .onDisappear { viewModel.stop() }
+        .onDisappear {
+            viewModel.stop()
+            flags.stop()
+        }
     }
 
     /// Ferme le clavier avant d'enregistrer, pour que le tap suivant atteigne le formulaire.
@@ -229,6 +254,39 @@ public struct SettingsView: View {
                 .disabled(journal.pending.isEmpty)
             journalRows("En attente", journal.pending, colors)
             journalRows("Envoyés", journal.sent, colors)
+        }
+        .listRowBackground(Color(argb: colors.surface))
+    }
+
+    /// Menu « Feature flags (debug) » : priorité réglage local, puis distant, puis valeur par défaut (ADR 0021).
+    private func featureFlagsSection(_ colors: ColorTokens) -> some View {
+        Section(header: header("Feature flags (debug)", colors)) {
+            Text("Priorité : réglage local, puis valeur distante, puis valeur par défaut. Une feature en développement n'est jamais visible en release.")
+                .font(DS.Typography.caption)
+                .foregroundColor(Color(argb: colors.onSurface))
+            ForEach(flags.flags, id: \.flag.key) { state in
+                Toggle(isOn: Binding(
+                    get: { state.enabled },
+                    set: { enabled in Task { await flags.setOverride(state, enabled: enabled) } }
+                )) {
+                    rowText(
+                        state.flag.label,
+                        subtitle: "\(state.flag.key) · \(FeatureFlagsViewModel.stageLabel(state)) · \(FeatureFlagsViewModel.originLabel(state))",
+                        colors
+                    )
+                }
+                .tint(Color(argb: colors.primary))
+            }
+            if let message = flags.message {
+                Text(message)
+                    .font(DS.Typography.caption)
+                    .foregroundColor(Color(argb: colors.onSurface))
+            }
+            Button("Réinitialiser") { Task { await flags.reset() } }
+                .tint(Color(argb: colors.primary))
+            Button("Rafraîchir le distant") { Task { await flags.forceRefresh() } }
+                .tint(Color(argb: colors.primary))
+                .disabled(flags.refreshing)
         }
         .listRowBackground(Color(argb: colors.surface))
     }

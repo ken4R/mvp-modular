@@ -13,6 +13,7 @@ import com.mvp.feature.todo.data.sync.FakeTodoRemoteDataSource
 import com.mvp.feature.todo.data.sync.TodoRecord
 import com.mvp.feature.todo.data.sync.TodoSyncRepositoryImpl
 import com.mvp.feature.todo.domain.model.AttachmentType
+import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import kotlinx.coroutines.flow.first
@@ -128,19 +129,51 @@ class SqlDelightTodoLocalDataSourceTest {
     }
 
     @Test
+    fun locationReminderSurvivesRestartAndStaysOnTheDevice() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Appeler Paul", isDone = false))
+        source.markSent(source.pendingChanges())
+        clock = 2_000L
+
+        assertEquals(office, source.setLocationReminder("a", office)?.locationReminder)
+
+        assertEquals(office, newDataSource().get("a")?.locationReminder)
+        // Propre à l'appareil, comme le rappel à l'heure : rien ne part au serveur.
+        assertEquals(emptyList(), source.pendingChanges())
+        assertNull(source.setLocationReminder("a", null)?.locationReminder)
+        assertNull(newDataSource().get("a")?.locationReminder)
+        assertNull(source.setLocationReminder("inconnue", office))
+    }
+
+    @Test
+    fun applyRemoteKeepsTheLocalLocationReminder() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Appeler Paul", isDone = false, locationReminder = office))
+        source.markSent(source.pendingChanges())
+
+        source.applyRemote(listOf(TodoRecord("a", "Appeler Paul et Marie", isDone = false, updatedAt = 5_000L)))
+
+        assertEquals(Todo("a", "Appeler Paul et Marie", isDone = false, locationReminder = office), source.get("a"))
+    }
+
+    @Test
     fun logoutDeletesAllTodosAndCancelsReminders() = scope.runTest {
         val source = newDataSource()
         source.upsert(Todo("a", "Acheter du pain", isDone = false, reminderAt = 42L))
         source.upsert(Todo("b", "Appeler Paul", isDone = true))
+        source.upsert(Todo("c", "Au bureau", isDone = false, locationReminder = office))
         val reminders = FakeReminderScheduler()
+        val locationReminders = FakeLocationReminderScheduler()
 
         val sync = TodoSyncRepositoryImpl(source, FakeTodoRemoteDataSource(FakeConnectivityObserver(online = true), latencyMillis = 0))
 
-        assertEquals(AppResult.Success(Unit), TodoUserSessionObserver(source, reminders, sync).clearUserData())
+        assertEquals(AppResult.Success(Unit), TodoUserSessionObserver(source, reminders, locationReminders, sync).clearUserData())
 
+        // Les lieux des rappels par lieu partent avec les tâches (ADR 0023).
         assertEquals(emptyList(), newDataSource().observe().first())
         assertEquals(emptyList(), newDataSource().pendingChanges())
         assertEquals(1, reminders.cancelAllCalls)
+        assertEquals(1, locationReminders.cancelAllCalls)
     }
 
     @Test
@@ -383,7 +416,7 @@ class SqlDelightTodoLocalDataSourceTest {
         source.addAttachment("p1", "a", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1))
         val sync = TodoSyncRepositoryImpl(source, FakeTodoRemoteDataSource(FakeConnectivityObserver(online = true), latencyMillis = 0))
 
-        TodoUserSessionObserver(source, FakeReminderScheduler(), sync).clearUserData()
+        TodoUserSessionObserver(source, FakeReminderScheduler(), FakeLocationReminderScheduler(), sync).clearUserData()
 
         assertEquals(emptyList(), newDataSource().observeAttachments("a").first())
         assertEquals(emptyList(), files.names())
@@ -397,12 +430,12 @@ class SqlDelightTodoLocalDataSourceTest {
         val sync = TodoSyncRepositoryImpl(source, FakeTodoRemoteDataSource(FakeConnectivityObserver(online = true), latencyMillis = 0))
         files.failure = IllegalStateException("Dossier impossible à effacer")
 
-        val result = TodoUserSessionObserver(source, FakeReminderScheduler(), sync).clearUserData()
+        val result = TodoUserSessionObserver(source, FakeReminderScheduler(), FakeLocationReminderScheduler(), sync).clearUserData()
 
         // La déconnexion n'a pas lieu : la session est gardée et l'effacement pourra être retenté.
         assertIs<AppResult.Failure>(result)
         files.failure = null
-        assertEquals(AppResult.Success(Unit), TodoUserSessionObserver(source, FakeReminderScheduler(), sync).clearUserData())
+        assertEquals(AppResult.Success(Unit), TodoUserSessionObserver(source, FakeReminderScheduler(), FakeLocationReminderScheduler(), sync).clearUserData())
         assertEquals(emptyList(), files.names())
     }
 
@@ -514,11 +547,16 @@ class SqlDelightTodoLocalDataSourceTest {
             // Version 6 : pas d'échéance, et elle peut en recevoir une.
             assertNull(source.get("a")?.dueDate)
             assertEquals(20_754, source.setDueDate("a", 20_754)?.dueDate)
+            // Version 7 : pas de rappel par lieu, et elle peut en recevoir un.
+            assertNull(source.get("a")?.locationReminder)
+            assertEquals(office, source.setLocationReminder("a", office)?.locationReminder)
         } finally {
             oldDriver.close()
         }
     }
 }
+
+private val office = LocationReminder(48.856614, 2.352222, 200, "Bureau")
 
 /** Schéma de `todo.db` avant les rappels (version 1), pour tester la migration. */
 private object SchemaV1 : SqlSchema<QueryResult.Value<Unit>> {

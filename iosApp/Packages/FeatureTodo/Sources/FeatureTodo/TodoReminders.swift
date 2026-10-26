@@ -2,11 +2,12 @@ import Foundation
 import UserNotifications
 import Shared
 
-/// Rappels de tâches : à démarrer une fois au lancement de l'app (ou de la démo).
+/// Rappels de tâches, à l'heure et par lieu : à démarrer une fois au lancement de l'app (ou de la démo).
 /// La logique (quels rappels programmer, quand les annuler) est dans KMP ; ici, seulement
 /// le démarrage, l'affichage des notifications quand l'app est au premier plan, et le tap.
 public enum TodoReminders {
     private static var subscription: Subscription?
+    private static var locationSubscription: Subscription?
     private static let delegate = ReminderNotificationDelegate()
 
     public static func start() {
@@ -15,6 +16,15 @@ public enum TodoReminders {
         // Posé dès le lancement : un tap qui lance l'app est remis à ce délégué.
         UNUserNotificationCenter.current().delegate = delegate
         subscription = UseCases.shared.startTodoReminders()
+        // Rappels par lieu (ADR 0023) : iOS déclenche lui-même la notification à l'arrivée, ce délégué gère le tap.
+        locationSubscription = UseCases.shared.startTodoLocationReminders()
+    }
+
+    /// Relit les permissions de localisation (retour au premier plan) : les rappels par lieu sont reposés ou retirés.
+    public static func refreshLocationAvailability() {
+        Task { @MainActor in
+            _ = try? await UseCases.shared.refreshLocationRemindersAvailability().invoke(params: NoParams.shared)
+        }
     }
 }
 

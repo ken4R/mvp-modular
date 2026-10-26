@@ -4,6 +4,7 @@ import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.result.getOrNull
 import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.FilteredTodos
+import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.model.TodoFilter
@@ -37,6 +38,16 @@ class TodoFilterUseCaseTest {
     private suspend fun filtered(filter: TodoFilter): FilteredTodos = observe(filter).first().getOrNull()!!
 
     private suspend fun ids(filter: TodoFilter): List<String> = filtered(filter).todos.map { it.id }
+
+    @Test
+    fun reminderFilterAlsoKeepsLocationReminders() = scope.runTest {
+        val withPlace = Todo("bureau", "Imprimer", isDone = false, locationReminder = LocationReminder(48.0, 2.0, 200, "Bureau"))
+        val observeAll = ObserveFilteredTodosUseCase(FixedTodoRepository(todos + withPlace), dispatcher)
+
+        val result = observeAll(TodoFilter(withReminder = true)).first().getOrNull()!!
+
+        assertEquals(listOf("dentiste", "bureau"), result.todos.map { it.id })
+    }
 
     @Test
     fun noFilterKeepsEveryTodoPendingFirst() = scope.runTest {
@@ -87,6 +98,7 @@ private class FixedTodoRepository(private val todos: List<Todo>) : TodoRepositor
     override suspend fun setReminder(id: String, at: Long?): AppResult<Todo> = error("non utilisé")
     override suspend fun setNote(id: String, note: String): AppResult<Todo> = error("non utilisé")
     override suspend fun setDueDate(id: String, dueDate: Int?): AppResult<Todo> = error("non utilisé")
+    override suspend fun setLocationReminder(id: String, reminder: LocationReminder?): AppResult<Todo> = error("non utilisé")
     override fun observeAttachments(todoId: String): Flow<List<TodoAttachment>> = error("non utilisé")
     override suspend fun addAttachment(
         todoId: String,

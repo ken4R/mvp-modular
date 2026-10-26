@@ -12,6 +12,13 @@
 
     <!-- Météo à ma position : position approximative seulement, demandée par l'écran Météo -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Rappels par lieu (ADR 0023), demandées par la fiche d'une tâche au moment de poser un rappel : position exacte
+         (zones de 100 à 500 m), puis « Toujours autoriser » (Android 10+) pour que le système surveille la zone app fermée.
+         La position reste sur l'appareil. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <!-- Rappels par lieu : reposer les alertes de proximité après un redémarrage (WorkManager la déclare aussi) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Déverrouillage biométrique (Réglages > Sécurité) : BiometricManager.canAuthenticate l'exige, sinon SecurityException -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
@@ -59,6 +66,23 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/todo_widget_info" />
+        </receiver>
+
+        <!-- Rappels par lieu (ADR 0023) : alertes de proximité du système (core:notifications). Non exporté : seul le
+             système, qui détient le PendingIntent explicite, peut l'appeler. -->
+        <receiver
+            android:name="com.mvp.core.notifications.LocationNotificationReceiver"
+            android:exported="false" />
+
+        <!-- Reposer les alertes de proximité, effacées par un redémarrage ou une mise à jour de l'app. Diffusions
+             système protégées : le récepteur n'a pas besoin d'être exporté. -->
+        <receiver
+            android:name=".reminder.LocationRemindersRestoreReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
         </receiver>
     </application>
 </manifest>

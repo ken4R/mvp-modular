@@ -5,6 +5,7 @@ import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.feature.todo.data.source.TodoLocalDataSource
 import com.mvp.feature.todo.domain.model.AttachmentType
+import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.repository.TodoRepository
@@ -38,6 +39,9 @@ internal class TodoRepositoryImpl(
 
     override suspend fun setDueDate(id: String, dueDate: Int?): AppResult<Todo> =
         local.setDueDate(id, dueDate)?.let { AppResult.Success(it) } ?: AppResult.Failure(AppError.NotFound)
+
+    override suspend fun setLocationReminder(id: String, reminder: LocationReminder?): AppResult<Todo> =
+        local.setLocationReminder(id, reminder)?.let { AppResult.Success(it) } ?: AppResult.Failure(AppError.NotFound)
 
     override fun observeAttachments(todoId: String): Flow<List<TodoAttachment>> = local.observeAttachments(todoId)
 

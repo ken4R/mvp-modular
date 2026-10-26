@@ -2,6 +2,7 @@ package com.mvp.feature.weather
 
 import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.location.GeoPosition
+import com.mvp.core.common.domain.location.LocationAccuracy
 import com.mvp.core.common.domain.location.LocationProvider
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.usecase.NoParams
@@ -25,7 +26,7 @@ class LocalWeatherUseCaseTest {
 
     private var position: AppResult<GeoPosition> = AppResult.Success(GeoPosition(45.764043, 4.835659))
     private val location = object : LocationProvider {
-        override suspend fun currentPosition() = position
+        override suspend fun currentPosition(accuracy: LocationAccuracy) = position
     }
     private val repository = FakeWeatherRepository()
     private val getLocalWeather = GetLocalWeatherUseCase(location, repository, dispatcher)

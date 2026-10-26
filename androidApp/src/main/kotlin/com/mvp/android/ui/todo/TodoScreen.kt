@@ -312,6 +312,7 @@ private fun TodoRow(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
+            todo.locationReminder?.let { Text("En arrivant : ${it.label}", style = MaterialTheme.typography.bodySmall) }
             detailsSummary(todo)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             todo.reminderAt?.let { at ->
                 Row(verticalAlignment = Alignment.CenterVertically) {

@@ -8,6 +8,8 @@ import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.result.onFailure
 import com.mvp.core.common.domain.result.onSuccess
 import com.mvp.core.common.domain.usecase.NoParams
+import com.mvp.feature.todo.domain.model.LocationReminder
+import com.mvp.feature.todo.domain.model.LocationReminderHere
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.model.TodoCalendarEvent
@@ -18,11 +20,17 @@ import com.mvp.feature.todo.domain.model.TodoShareRequest
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.ExportTodoToCalendarUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveLocationRemindersAvailableUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoAttachmentsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
+import com.mvp.feature.todo.domain.usecase.RefreshLocationRemindersAvailabilityUseCase
+import com.mvp.feature.todo.domain.usecase.RemoveLocationReminderUseCase
+import com.mvp.feature.todo.domain.usecase.SetLocationReminderHereUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoDueDateUseCase
 import com.mvp.feature.todo.domain.usecase.ShareTodoUseCase
 import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +41,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.coroutines.cancellation.CancellationException
 
 data class TodoDetailUiState(
     /** `null` tant que la tâche n'est pas lue, ou si elle a été supprimée entre-temps (voir [isMissing]). */
@@ -51,6 +58,14 @@ data class TodoDetailUiState(
     /** Événement prêt pour l'écran d'ajout du calendrier (ADR 0022) : ouvert une fois, puis `onCalendarEventShown`. */
     val calendarEvent: TodoCalendarEvent? = null,
     val error: String? = null,
+    /** Rappel par lieu (ADR 0023) : nom et rayon choisis avant « Me le rappeler en arrivant ici ». */
+    val placeLabel: String = "",
+    val placeRadius: Int = LocationReminder.DEFAULT_RADIUS,
+    val isLocating: Boolean = false,
+    val placeError: String? = null,
+    /** `false` : les rappels par lieu posés ne partent pas (position exacte ou « Toujours autoriser » manquante). */
+    val locationRemindersAvailable: Boolean = true,
+    val remindersEnabled: Boolean = true,
 ) {
     val noteChanged: Boolean get() = todo != null && noteDraft.trim() != todo.note
     val canAddAttachment: Boolean get() = !isAdding && attachments.size < AddTodoAttachmentUseCase.MAX_ATTACHMENTS_PER_TODO
@@ -69,6 +84,11 @@ class TodoDetailViewModel(
     private val shareTodo: ShareTodoUseCase,
     private val setDueDate: SetTodoDueDateUseCase,
     private val exportToCalendar: ExportTodoToCalendarUseCase,
+    private val setLocationReminderHere: SetLocationReminderHereUseCase,
+    private val removeLocationReminder: RemoveLocationReminderUseCase,
+    private val refreshLocationReminders: RefreshLocationRemindersAvailabilityUseCase,
+    observeLocationRemindersAvailable: ObserveLocationRemindersAvailableUseCase,
+    observeRemindersEnabled: ObserveRemindersEnabledUseCase,
     private val reader: AttachmentReader,
 ) : ViewModel() {
 
@@ -78,13 +98,22 @@ class TodoDetailViewModel(
     private var openedId: String? = null
     private var observers: List<Job> = emptyList()
 
+    init {
+        observeLocationRemindersAvailable(NoParams).onEach { result ->
+            if (result is AppResult.Success) _state.update { it.copy(locationRemindersAvailable = result.data) }
+        }.launchIn(viewModelScope)
+        observeRemindersEnabled(NoParams).onEach { result ->
+            if (result is AppResult.Success) _state.update { it.copy(remindersEnabled = result.data) }
+        }.launchIn(viewModelScope)
+    }
+
     /** Rouvrir la même tâche (retour sur l'onglet, rotation) garde le brouillon de la note. */
     fun open(todoId: String) {
         if (openedId == todoId) return
         saveChangedNote()
         observers.forEach { it.cancel() }
         openedId = todoId
-        _state.value = TodoDetailUiState()
+        _state.update { TodoDetailUiState(locationRemindersAvailable = it.locationRemindersAvailable, remindersEnabled = it.remindersEnabled) }
         var noteLoaded = false
         observers = listOf(
             observeTodos(NoParams).onEach { result ->
@@ -112,7 +141,7 @@ class TodoDetailViewModel(
         observers.forEach { it.cancel() }
         observers = emptyList()
         openedId = null
-        _state.value = TodoDetailUiState()
+        _state.update { TodoDetailUiState(locationRemindersAvailable = it.locationRemindersAvailable, remindersEnabled = it.remindersEnabled) }
     }
 
     /** Enregistre la note modifiée sans fermer la fiche : app en arrière-plan, changement d'onglet. */
@@ -213,7 +242,48 @@ class TodoDetailViewModel(
 
     fun onCalendarUnavailable() = _state.update { it.copy(calendarEvent = null, error = "Aucune application de calendrier") }
 
+    fun onPlaceLabelChange(value: String) = _state.update { it.copy(placeLabel = value, placeError = null) }
+
+    fun onPlaceRadiusChange(radius: Int) = _state.update { it.copy(placeRadius = radius) }
+
+    /**
+     * « Me le rappeler en arrivant ici », la position exacte déjà accordée : KMP mesure la position et la garde sur
+     * l'appareil. Rien ne part ailleurs.
+     */
+    fun onSetPlaceHere() = viewModelScope.launch {
+        val todoId = openedId ?: return@launch
+        val current = _state.value
+        if (current.isLocating) return@launch
+        _state.update { it.copy(isLocating = true, placeError = null) }
+        setLocationReminderHere(LocationReminderHere(todoId, current.placeRadius, current.placeLabel))
+            .onSuccess { _state.update { it.copy(placeLabel = "", placeError = null) } }
+            .onFailure { error -> _state.update { it.copy(placeError = error.toPlaceMessage()) } }
+        _state.update { it.copy(isLocating = false) }
+        refreshLocationAvailability()
+    }
+
+    /** La position exacte a été refusée (approximative seulement, ou refus). */
+    fun onPrecisePermissionRefused() = _state.update { it.copy(placeError = AppError.PermissionDenied.toPlaceMessage()) }
+
+    fun onRemovePlace() = viewModelScope.launch {
+        val todoId = openedId ?: return@launch
+        removeLocationReminder(todoId)
+            .onSuccess { _state.update { it.copy(placeError = null) } }
+            .onFailure { error -> _state.update { it.copy(placeError = error.toDetailMessage()) } }
+    }
+
+    /** Après une demande de permission : les rappels par lieu sont reposés ou retirés. */
+    fun refreshLocationAvailability() {
+        viewModelScope.launch { refreshLocationReminders(NoParams) }
+    }
+
     private fun showError(error: AppError) = _state.update { it.copy(error = error.toDetailMessage()) }
+}
+
+private fun AppError.toPlaceMessage(): String = when (this) {
+    AppError.PermissionDenied -> "Autorisez la position exacte pour poser un rappel par lieu."
+    AppError.Unavailable -> "Position introuvable : activez la localisation, ou réessayez à l'extérieur."
+    else -> toDetailMessage()
 }
 
 private fun AppError.toDetailMessage(): String = when (this) {

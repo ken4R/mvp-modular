@@ -1,6 +1,7 @@
 package com.mvp.feature.todo.data.source
 
 import com.mvp.feature.todo.domain.model.AttachmentType
+import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import kotlinx.coroutines.flow.Flow
@@ -29,6 +30,9 @@ interface TodoLocalDataSource {
 
     /** Pose ou retire l'échéance en une seule opération ; `null` si la tâche n'existe pas (ou plus). */
     fun setDueDate(id: String, dueDate: Int?): Todo?
+
+    /** Pose ou retire le rappel par lieu en une seule opération ; `null` si la tâche n'existe pas (ou plus). */
+    fun setLocationReminder(id: String, reminder: LocationReminder?): Todo?
 
     /** Supprime la tâche et ses pièces jointes. */
     fun delete(id: String): Boolean
@@ -63,6 +67,9 @@ internal class InMemoryTodoLocalDataSource(initial: List<Todo> = emptyList()) : 
     override fun setNote(id: String, note: String): Todo? = modify(id) { it.copy(note = note) }
 
     override fun setDueDate(id: String, dueDate: Int?): Todo? = modify(id) { it.copy(dueDate = dueDate) }
+
+    override fun setLocationReminder(id: String, reminder: LocationReminder?): Todo? =
+        modify(id) { it.copy(locationReminder = reminder) }
 
     private fun modify(id: String, transform: (Todo) -> Todo): Todo? {
         var modified: Todo? = null

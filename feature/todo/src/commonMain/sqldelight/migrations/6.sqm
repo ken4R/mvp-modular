@@ -1,0 +1,5 @@
+-- Version 6 -> 7 : rappel par lieu des tâches (ADR 0023), propre à l'appareil. Les tâches existantes n'en ont pas.
+ALTER TABLE TodoEntity ADD COLUMN location_latitude REAL;
+ALTER TABLE TodoEntity ADD COLUMN location_longitude REAL;
+ALTER TABLE TodoEntity ADD COLUMN location_radius INTEGER;
+ALTER TABLE TodoEntity ADD COLUMN location_label TEXT;

@@ -8,6 +8,8 @@
 -- comme le rappel, elle sert aux statistiques (migration 4.sqm, ADR 0019).
 -- due_date : jour d'échéance en jours depuis le 1970-01-01 (date du calendrier, sans fuseau), NULL sans échéance ;
 -- synchronisée comme le titre (migration 5.sqm, ADR 0022).
+-- location_* : rappel par lieu (centre en degrés, rayon en mètres, nom), tous NULL sans rappel ; propre à l'appareil
+-- comme le rappel à l'heure, jamais synchronisé ni partagé (migration 6.sqm, ADR 0023).
 CREATE TABLE TodoEntity (
     id TEXT NOT NULL PRIMARY KEY,
     title TEXT NOT NULL,
@@ -16,7 +18,11 @@ CREATE TABLE TodoEntity (
     updated_at INTEGER NOT NULL DEFAULT 0,
     note TEXT NOT NULL DEFAULT '',
     completed_at INTEGER,
-    due_date INTEGER
+    due_date INTEGER,
+    location_latitude REAL,
+    location_longitude REAL,
+    location_radius INTEGER,
+    location_label TEXT
 );
 
 -- Avec le nombre de pièces jointes (TodoAttachmentEntity.sq) : la jointure fait réémettre la liste quand on en
@@ -39,11 +45,15 @@ selectById:
 SELECT * FROM TodoEntity WHERE id = ?;
 
 insert:
-INSERT INTO TodoEntity(id, title, is_done, reminder_at, updated_at, note, completed_at, due_date)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO TodoEntity(
+    id, title, is_done, reminder_at, updated_at, note, completed_at, due_date,
+    location_latitude, location_longitude, location_radius, location_label
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 update:
-UPDATE TodoEntity SET title = ?, is_done = ?, reminder_at = ?, updated_at = ?, note = ?, completed_at = ?, due_date = ?
+UPDATE TodoEntity SET title = ?, is_done = ?, reminder_at = ?, updated_at = ?, note = ?, completed_at = ?, due_date = ?,
+    location_latitude = ?, location_longitude = ?, location_radius = ?, location_label = ?
 WHERE id = ?;
 
 -- Statistiques (ADR 0019) : heures des tâches terminées. Une tâche supprimée ne compte plus. COALESCE : colonne

@@ -6,6 +6,7 @@ import com.mvp.core.database.DatabaseDriverFactory
 import com.mvp.core.files.PrivateFileStoreFactory
 import com.mvp.feature.todo.data.calendar.SystemDayCalendar
 import com.mvp.feature.todo.data.db.TodoDatabase
+import com.mvp.feature.todo.data.reminder.NotificationLocationReminderScheduler
 import com.mvp.feature.todo.data.reminder.NotificationReminderScheduler
 import com.mvp.feature.todo.data.repository.TodoRepositoryImpl
 import com.mvp.feature.todo.data.session.TodoUserSessionObserver
@@ -20,6 +21,7 @@ import com.mvp.feature.todo.data.sync.TodoSyncLocalDataSource
 import com.mvp.feature.todo.data.sync.TodoSyncRepositoryImpl
 import com.mvp.feature.todo.domain.calendar.DayCalendar
 import com.mvp.feature.todo.domain.calendar.WeekCalendar
+import com.mvp.feature.todo.domain.reminder.LocationReminderScheduler
 import com.mvp.feature.todo.domain.reminder.ReminderScheduler
 import com.mvp.feature.todo.domain.repository.TodoRepository
 import com.mvp.feature.todo.domain.repository.TodoStatsRepository
@@ -32,17 +34,22 @@ import com.mvp.feature.todo.domain.usecase.ExportTodoToCalendarUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveCompletionStatsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveFilteredTodosUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveLocationRemindersAvailableUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoAttachmentsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoCalendarUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
+import com.mvp.feature.todo.domain.usecase.RefreshLocationRemindersAvailabilityUseCase
+import com.mvp.feature.todo.domain.usecase.RemoveLocationReminderUseCase
+import com.mvp.feature.todo.domain.usecase.SetLocationReminderHereUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoDueDateUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
 import com.mvp.feature.todo.domain.usecase.ShareTodoUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoDraftUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoSyncUseCase
+import com.mvp.feature.todo.domain.usecase.SyncTodoLocationRemindersUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
@@ -78,13 +85,15 @@ val todoModule = module {
     // Calendrier des échéances (ADR 0022) : jours dans le fuseau de l'appareil.
     single<DayCalendar> { SystemDayCalendar() }
     single<ReminderScheduler> { NotificationReminderScheduler(get()) }
+    // Rappels par lieu (ADR 0023) : LocationNotificationScheduler vient de core:notifications.
+    single<LocationReminderScheduler> { NotificationLocationReminderScheduler(get()) }
     // Pas encore de backend : faux serveur en mémoire. ConnectivityObserver vient de core:connectivity.
     single<TodoRemoteDataSource> { FakeTodoRemoteDataSource(get()) }
     single { TodoSyncRepositoryImpl(get(), get()) }
     single<TodoSyncRepository> { get<TodoSyncRepositoryImpl>() }
     // Prévenu par feature:auth : les tâches et leurs modifications en attente sont effacées, leurs rappels
     // annulés à la déconnexion, après la synchronisation en cours.
-    single { TodoUserSessionObserver(get(), get(), get()) } bind UserSessionObserver::class
+    single { TodoUserSessionObserver(get(), get(), get(), get()) } bind UserSessionObserver::class
 
     // Domain
     factory { ObserveTodosUseCase(get(), get<AppDispatchers>().io) }
@@ -120,6 +129,12 @@ val todoModule = module {
     factory { SetTodoDueDateUseCase(get(), get<AppDispatchers>().io) }
     factory { ObserveTodoCalendarUseCase(get(), get(), systemNow, get<AppDispatchers>().default) }
     factory { ExportTodoToCalendarUseCase(get(), get<AppDispatchers>().io) }
+    // Rappels par lieu (ADR 0023) : LocationProvider vient de core:location ; le lieu reste sur l'appareil.
+    factory { SetLocationReminderHereUseCase(get(), get(), get<AppDispatchers>().io) }
+    factory { RemoveLocationReminderUseCase(get(), get<AppDispatchers>().io) }
+    factory { SyncTodoLocationRemindersUseCase(get(), get(), get(), get(), get<AppDispatchers>().io) }
+    factory { ObserveLocationRemindersAvailableUseCase(get(), get<AppDispatchers>().io) }
+    factory { RefreshLocationRemindersAvailabilityUseCase(get(), get<AppDispatchers>().default) }
 }
 
 /** Dossier des fichiers des pièces jointes, effacé à la déconnexion. */

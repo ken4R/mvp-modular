@@ -289,7 +289,7 @@ class TodoSyncTest {
         val slowServer = FakeTodoRemoteDataSource(connectivity, latencyMillis = 400)
         val phone = Device()
         val sync = TodoSyncRepositoryImpl(phone.local, slowServer)
-        val observer = TodoUserSessionObserver(phone.local, FakeReminderScheduler(), sync)
+        val observer = TodoUserSessionObserver(phone.local, FakeReminderScheduler(), FakeLocationReminderScheduler(), sync)
         phone.local.upsert(Todo("a", "Tâche", isDone = false))
 
         val running = launch { sync.sync() }
@@ -328,7 +328,7 @@ class TodoSyncTest {
     @Test
     fun automaticSyncStopsAtLogoutAndResumesRightAfterTheNextLogin() = scope.runTest {
         val phone = Device()
-        val observer = TodoUserSessionObserver(phone.local, FakeReminderScheduler(), phone.sync)
+        val observer = TodoUserSessionObserver(phone.local, FakeReminderScheduler(), FakeLocationReminderScheduler(), phone.sync)
         val job = launch { StartTodoSyncUseCase(phone.sync, connectivity, session, dispatcher)(NoParams).collect {} }
         testScheduler.advanceUntilIdle()
         observer.clearUserData()
@@ -350,7 +350,7 @@ class TodoSyncTest {
     fun logoutErasesTodosOutboxAndServerAndBlocksSyncUntilNextLogin() = scope.runTest {
         val phone = Device()
         val reminders = FakeReminderScheduler()
-        val observer = TodoUserSessionObserver(phone.local, reminders, phone.sync)
+        val observer = TodoUserSessionObserver(phone.local, reminders, FakeLocationReminderScheduler(), phone.sync)
         phone.local.upsert(Todo("a", "Envoyée", isDone = false))
         phone.sync.sync()
         connectivity.online.value = false

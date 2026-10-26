@@ -7,7 +7,7 @@ enum class TodoStatusFilter { All, Pending, Done }
 
 /**
  * Recherche et filtres de la liste des tâches. [query] : mots cherchés dans le titre et la note, sans casse ni
- * accents ; tous doivent apparaître. Les filtres se cumulent.
+ * accents ; tous doivent apparaître. Les filtres se cumulent. [withReminder] : rappel à l'heure ou par lieu.
  */
 data class TodoFilter(
     val query: String = "",
@@ -28,7 +28,7 @@ data class TodoFilter(
                 TodoStatusFilter.Pending -> !todo.isDone
                 TodoStatusFilter.Done -> todo.isDone
             } &&
-                (!withReminder || todo.reminderAt != null) &&
+                (!withReminder || todo.reminderAt != null || todo.locationReminder != null) &&
                 (!withAttachments || todo.attachmentCount > 0) &&
                 SearchText.matches(terms, todo.title, todo.note)
         }

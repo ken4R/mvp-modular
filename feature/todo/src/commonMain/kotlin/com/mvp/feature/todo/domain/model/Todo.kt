@@ -5,6 +5,7 @@ package com.mvp.feature.todo.domain.model
  * [note] : texte libre, vide sans note. [attachmentCount] : nombre de pièces jointes (ADR 0014).
  * [dueDate] : jour d'échéance en jours depuis le 1970-01-01 (date du calendrier, sans heure ni fuseau, voir
  * [com.mvp.feature.todo.domain.calendar.CalendarDate]), `null` sans échéance (ADR 0022).
+ * [locationReminder] : rappel à l'arrivée dans un lieu, `null` sans (ADR 0023).
  */
 data class Todo(
     val id: String,
@@ -14,6 +15,7 @@ data class Todo(
     val note: String = "",
     val attachmentCount: Int = 0,
     val dueDate: Int? = null,
+    val locationReminder: LocationReminder? = null,
 ) {
     /** Règle du retard (ADR 0022) : tâche à faire dont l'échéance est avant [today] (jours depuis le 1970-01-01). */
     fun isOverdue(today: Int): Boolean = !isDone && dueDate?.let { it < today } == true

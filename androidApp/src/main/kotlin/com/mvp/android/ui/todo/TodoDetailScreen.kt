@@ -1,8 +1,14 @@
 package com.mvp.android.ui.todo
 
+import android.Manifest
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.provider.CalendarContract
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -23,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -51,15 +58,16 @@ import com.mvp.android.ui.theme.Radius
 import com.mvp.android.ui.theme.Sizes
 import com.mvp.android.ui.theme.Spacing
 import com.mvp.feature.todo.domain.model.AttachmentType
+import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.model.TodoCalendarEvent
 import com.mvp.feature.todo.domain.model.TodoShare
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
-import org.koin.androidx.compose.koinViewModel
 import java.io.File
 import java.time.ZoneId
 import java.util.Locale
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * Fiche d'une tâche (ADR 0014) : échéance et export vers le calendrier (ADR 0022), note et pièces jointes. Affichée à la place de la liste, dans l'onglet : elle
@@ -106,6 +114,7 @@ fun TodoDetailScreen(todoId: String, onClose: () -> Unit, viewModel: TodoDetailV
     if (state.askIncludeNote) {
         IncludeNoteDialog(onConfirm = { viewModel.onShareConfirmed(it) }, onDismiss = viewModel::onShareCancelled)
     }
+    val place = rememberPlacePermissions(viewModel)
 
     val previewed = state.previewed
     BackHandler { if (previewed != null) viewModel.onPreview(null) else close() }
@@ -136,6 +145,7 @@ fun TodoDetailScreen(todoId: String, onClose: () -> Unit, viewModel: TodoDetailV
                         onPickDueDate = { pickDueDate(context, state.todo?.dueDate) { viewModel.onSetDueDate(it) } },
                         onRemoveDueDate = { viewModel.onSetDueDate(null) },
                         onAddToCalendar = { viewModel.onAddToCalendar() },
+                        place = place,
                         onNoteChange = viewModel::onNoteChange,
                         onSaveNote = { viewModel.onSaveNote() },
                         onPickPhoto = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
@@ -155,6 +165,7 @@ private fun DetailContent(
     onPickDueDate: () -> Unit,
     onRemoveDueDate: () -> Unit,
     onAddToCalendar: () -> Unit,
+    place: PlaceActions,
     onNoteChange: (String) -> Unit,
     onSaveNote: () -> Unit,
     onPickPhoto: () -> Unit,
@@ -163,6 +174,7 @@ private fun DetailContent(
     onDelete: (String) -> Unit,
 ) {
     DueDateSection(state.todo?.dueDate, state.todo?.isOverdueToday() == true, onPickDueDate, onRemoveDueDate, onAddToCalendar)
+    LocationReminderSection(state, place)
 
     OutlinedTextField(
         value = state.noteDraft,
@@ -227,6 +239,174 @@ private fun DueDateSection(
         }
     }
 }
+
+/** Actions de la section « Rappel par lieu », permissions comprises. */
+private class PlaceActions(
+    val onLabelChange: (String) -> Unit,
+    val onRadiusChange: (Int) -> Unit,
+    val onPlaceHere: () -> Unit,
+    val onAllow: () -> Unit,
+    val onRemove: () -> Unit,
+)
+
+/**
+ * Permissions des rappels par lieu (ADR 0023), demandées au moment de poser un rappel : d'abord la position exacte,
+ * puis, une fois le rappel posé, « Toujours autoriser » (Android 10+), expliqué avant l'écran du système. Sur
+ * Android 11+, cette dernière s'accorde dans les paramètres de l'app, que le système ouvre lui-même.
+ */
+@Composable
+private fun rememberPlacePermissions(viewModel: TodoDetailViewModel): PlaceActions {
+    val context = LocalContext.current
+    var explainBackground by remember { mutableStateOf(false) }
+    val requestBackground = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        viewModel.refreshLocationAvailability()
+    }
+    val placeHere = {
+        viewModel.onSetPlaceHere()
+        if (!context.hasBackgroundLocation()) explainBackground = true
+    }
+    val requestPrecise = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        // L'utilisateur peut n'accorder que la position approximative (Android 12+) : elle ne suffit pas.
+        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true) placeHere() else viewModel.onPrecisePermissionRefused()
+        viewModel.refreshLocationAvailability()
+    }
+    if (explainBackground) {
+        BackgroundLocationDialog(
+            onConfirm = {
+                explainBackground = false
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) requestBackground.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            },
+            onDismiss = { explainBackground = false },
+        )
+    }
+    val precise = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+    return PlaceActions(
+        onLabelChange = viewModel::onPlaceLabelChange,
+        onRadiusChange = viewModel::onPlaceRadiusChange,
+        onPlaceHere = { if (context.hasPreciseLocation()) placeHere() else requestPrecise.launch(precise) },
+        onAllow = {
+            when {
+                !context.hasPreciseLocation() -> requestPrecise.launch(precise)
+                !context.hasBackgroundLocation() -> explainBackground = true
+                // Déjà accordées mais refusées ailleurs (localisation coupée…) : les paramètres de l'app.
+                else -> context.startActivity(appSettingsIntent(context))
+            }
+        },
+        onRemove = { viewModel.onRemovePlace() },
+    )
+}
+
+/** Rappel par lieu (ADR 0023) : à chaque arrivée dans la zone, tant que la tâche est à faire. La position reste sur l'appareil. */
+@Composable
+private fun LocationReminderSection(state: TodoDetailUiState, actions: PlaceActions) {
+    val todo = state.todo
+    val place = todo?.locationReminder
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Text("Rappel par lieu", style = MaterialTheme.typography.titleMedium)
+        if (place != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "En arrivant à ${place.label} (${place.radiusMeters} m)",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                TextButton(onClick = actions.onRemove) { Text("Retirer", maxLines = 1) }
+            }
+            if (!state.locationRemindersAvailable) {
+                Text(
+                    "Ce rappel ne part pas : autorisez la position exacte et « Toujours autoriser ».",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                OutlinedButton(onClick = actions.onAllow) { Text("Autoriser") }
+            }
+        } else {
+            // Compact dans la fiche : le nom et le rayon se choisissent dans une boîte de dialogue.
+            var choosing by remember { mutableStateOf(false) }
+            OutlinedButton(onClick = { choosing = true }, enabled = todo != null && !todo.isDone && !state.isLocating) {
+                Text(if (state.isLocating) "Recherche de la position…" else "Ajouter un rappel par lieu")
+            }
+            if (choosing) {
+                PlaceDialog(
+                    state = state,
+                    actions = actions,
+                    onConfirm = {
+                        choosing = false
+                        actions.onPlaceHere()
+                    },
+                    onDismiss = { choosing = false },
+                )
+            }
+        }
+        state.placeError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        if (!state.remindersEnabled) {
+            Text("Activez les notifications dans Réglages pour recevoir les rappels.", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+/** Nom et rayon du lieu, puis « Me le rappeler en arrivant ici » : la position actuelle devient le lieu du rappel. */
+@Composable
+private fun PlaceDialog(state: TodoDetailUiState, actions: PlaceActions, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rappel par lieu") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                OutlinedTextField(
+                    value = state.placeLabel,
+                    onValueChange = actions.onLabelChange,
+                    label = { Text("Nom du lieu (ex. Bureau)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    LocationReminder.RADII.forEach { radius ->
+                        FilterChip(
+                            selected = state.placeRadius == radius,
+                            onClick = { actions.onRadiusChange(radius) },
+                            label = { Text("$radius m") },
+                        )
+                    }
+                }
+                Text(
+                    "Votre position actuelle devient le lieu du rappel. Elle reste sur cet appareil et n'est jamais envoyée. " +
+                        "Le rappel part à chaque arrivée tant que la tâche est à faire.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Me le rappeler en arrivant ici") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } },
+    )
+}
+
+/** Expliqué avant l'écran du système : sans « Toujours autoriser », la zone n'est pas surveillée app fermée. */
+@Composable
+private fun BackgroundLocationDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rappels app fermée") },
+        text = {
+            Text(
+                "Pour que le rappel parte quand l'app est fermée, choisissez « Toujours autoriser » pour la position. " +
+                    "Elle sert seulement à savoir si vous arrivez au lieu choisi, et reste sur cet appareil.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Continuer") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Plus tard") } },
+    )
+}
+
+private fun Context.hasPreciseLocation() =
+    checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+private fun Context.hasBackgroundLocation() = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+    checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+private fun appSettingsIntent(context: Context) =
+    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
 
 @Composable
 private fun Header(title: String, actionLabel: String, onAction: () -> Unit, onShare: (() -> Unit)? = null) {

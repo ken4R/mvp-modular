@@ -25,6 +25,7 @@
     <application
         android:name=".MvpApplication"
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="MVP Modular"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <!-- singleTask : un lien ouvert depuis une autre app revient à l'activité existante (onNewIntent)

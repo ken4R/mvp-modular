@@ -27,11 +27,16 @@ internal class TodoUserSessionObserver(
         return AppResult.Success(Unit)
     }
 
+    // Chaque étape est tentée même si une autre échoue (les rappels affichés montrent le titre des tâches) ; la
+    // première erreur fait ensuite échouer la déconnexion, qui pourra être retentée.
     override suspend fun clearUserData(): AppResult<Unit> = safeCall {
         sync.signOut {
-            local.clear()
-            reminders.cancelAll()
-            locationReminders.cancelAll()
+            val failures = listOf(
+                runCatching { local.clear() },
+                runCatching { reminders.cancelAll() },
+                runCatching { locationReminders.cancelAll() },
+            ).mapNotNull { it.exceptionOrNull() }
+            failures.firstOrNull()?.let { throw it }
         }
     }
 }

@@ -16,7 +16,8 @@ import kotlinx.coroutines.sync.withLock
  * Alertes de proximité du `LocationManager` (sans Google Play Services, ADR 0023). Chaque alerte porte un
  * `PendingIntent` explicite vers [LocationNotificationReceiver], qui poste la notification à l'entrée dans la zone.
  *
- * Les identifiants posés (« groupe:id:empreinte », jamais de coordonnées) sont gardés dans des préférences privées
+ * Les identifiants posés (« groupe:id:empreinte », jamais de coordonnées) sont gardés dans des préférences privées,
+ * exclues des sauvegardes et des transferts d'appareil (`data_extraction_rules.xml` de l'app),
  * pour retirer plus tard les alertes qui ne sont plus voulues. Une alerte n'est tenue pour posée que si son
  * `PendingIntent` existe encore : un redémarrage du téléphone ou un arrêt forcé de l'app les efface tous.
  */
@@ -47,13 +48,14 @@ internal class ProximityLocationNotificationScheduler(
             identifier.takeIf { add(manager, group, it, notification) }
         }
         save(group, registered - changes.toRemove + added)
+        LocationNotificationReceiver.forgetDeliveries(context, group, keep = wanted.map { it.displayTag(group) }.toSet())
     }
 
     override suspend fun cancelAll(group: String) = mutex.withLock {
         context.getSystemService(LocationManager::class.java)?.let { manager ->
             registered(group).forEach { remove(manager, it) }
         }
-        preferences.edit().remove(registeredKey(group)).apply()
+        preferences.edit().remove(registeredKey(group)).commit()
         LocationNotificationReceiver.forgetDeliveries(context, group)
         ReminderNotifications.cancelDelivered(context, group)
     }
@@ -112,8 +114,11 @@ internal class ProximityLocationNotificationScheduler(
     private fun registered(group: String): Set<String> =
         preferences.getStringSet(registeredKey(group), null)?.toSet().orEmpty()
 
-    private fun save(group: String, identifiers: Set<String>) =
-        preferences.edit().putStringSet(registeredKey(group), identifiers).apply()
+    // commit() : écrit avant de rendre la main (hors thread principal), pour qu'une alerte posée soit toujours dans la
+    // liste, même si le processus est tué juste après, et donc retirée à la déconnexion.
+    private fun save(group: String, identifiers: Set<String>) {
+        preferences.edit().putStringSet(registeredKey(group), identifiers).commit()
+    }
 
     private fun registeredKey(group: String) = "registered:$group"
 

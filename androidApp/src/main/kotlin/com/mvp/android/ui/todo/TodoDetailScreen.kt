@@ -261,10 +261,14 @@ private fun rememberPlacePermissions(viewModel: TodoDetailViewModel): PlaceActio
     val requestBackground = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         viewModel.refreshLocationAvailability()
     }
-    val placeHere = {
-        viewModel.onSetPlaceHere()
+    // « Toujours autoriser » seulement une fois le rappel posé : pas pour une pose refusée (position introuvable…).
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(state.placeJustSet) {
+        if (!state.placeJustSet) return@LaunchedEffect
         if (!context.hasBackgroundLocation()) explainBackground = true
+        viewModel.onPlaceSetHandled()
     }
+    val placeHere = { viewModel.onSetPlaceHere() }
     val requestPrecise = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
         // L'utilisateur peut n'accorder que la position approximative (Android 12+) : elle ne suffit pas.
         if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true) placeHere() else viewModel.onPrecisePermissionRefused()

@@ -18,7 +18,8 @@ import android.os.Build
 internal object ReminderNotifications {
 
     /** Rien n'est affiché si la permission est retirée ou les notifications coupées dans les paramètres système. */
-    fun post(context: Context, tag: String, title: String, body: String, deepLink: String?) {
+    /** [onlyAlertOnce] : rappel par lieu reçu de nouveau alors qu'il est encore affiché, mis à jour sans nouveau son. */
+    fun post(context: Context, tag: String, title: String, body: String, deepLink: String?, onlyAlertOnce: Boolean = false) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -32,8 +33,7 @@ internal object ReminderNotifications {
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)
-            // Déjà affichée (rappel par lieu reçu deux fois) : mise à jour sans nouveau son.
-            .setOnlyAlertOnce(true)
+            .setOnlyAlertOnce(onlyAlertOnce)
             // Écran verrouillé sécurisé : contenu masqué (le texte peut être une donnée personnelle).
             .setVisibility(Notification.VISIBILITY_PRIVATE)
             .setContentIntent(openAppIntent(context, tag, deepLink))

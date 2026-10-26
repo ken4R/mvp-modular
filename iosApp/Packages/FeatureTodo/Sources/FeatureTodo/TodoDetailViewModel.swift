@@ -65,18 +65,18 @@ final class TodoDetailViewModel: ObservableObject {
             onError: { [weak self] error in self?.error = error.detailMessage }
         )
         locationSubscription = UseCases.shared.observeLocationRemindersAvailable(
-            onAvailable: { [weak self] available in self?.locationRemindersAvailable = available },
+            onAvailable: { [weak self] available in self?.locationRemindersAvailable = available.boolValue },
             onError: { _ in }
         )
         remindersEnabledSubscription = UseCases.shared.observeRemindersEnabled(
-            onEnabled: { [weak self] enabled in self?.remindersEnabled = enabled },
+            onEnabled: { [weak self] enabled in self?.remindersEnabled = enabled.boolValue },
             onError: { _ in }
         )
         TodoReminders.refreshLocationAvailability()
     }
 
     /// Rayons proposés par KMP (mètres).
-    var placeRadii: [Int] { LocationReminder.Companion.shared.RADII.map { $0.intValue } }
+    var placeRadii: [Int] { LocationReminder.Companion.shared.RADII.map { Int($0.int32Value) } }
 
     /// « Me le rappeler en arrivant ici » : KMP demande l'autorisation la première fois, mesure la position exacte et
     /// la garde sur l'iPhone. Rien ne part ailleurs.

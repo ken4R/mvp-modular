@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import platform.CoreLocation.CLAccuracyAuthorizationFullAccuracy
+import platform.CoreLocation.CLAccuracyAuthorization
 import platform.CoreLocation.CLAuthorizationStatus
 import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationManager
@@ -68,7 +68,7 @@ internal class CoreLocationProvider : LocationProvider {
         }
         // Position approximative seulement (choix par défaut de l'app, NSLocationDefaultAccuracyReduced) : iOS ne
         // donnerait qu'une position à quelques kilomètres près.
-        if (accuracy == LocationAccuracy.Precise && manager.accuracyAuthorization != CLAccuracyAuthorizationFullAccuracy) {
+        if (accuracy == LocationAccuracy.Precise && manager.accuracyAuthorization != CLAccuracyAuthorization.CLAccuracyAuthorizationFullAccuracy) {
             return AppResult.Failure(AppError.PermissionDenied)
         }
         manager.requestLocation()

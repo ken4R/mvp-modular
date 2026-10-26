@@ -66,6 +66,8 @@ data class TodoDetailUiState(
     /** `false` : les rappels par lieu posés ne partent pas (position exacte ou « Toujours autoriser » manquante). */
     val locationRemindersAvailable: Boolean = true,
     val remindersEnabled: Boolean = true,
+    /** Rappel par lieu posé : l'écran propose « Toujours autoriser » s'il manque, une fois, puis `onPlaceSetHandled`. */
+    val placeJustSet: Boolean = false,
 ) {
     val noteChanged: Boolean get() = todo != null && noteDraft.trim() != todo.note
     val canAddAttachment: Boolean get() = !isAdding && attachments.size < AddTodoAttachmentUseCase.MAX_ATTACHMENTS_PER_TODO
@@ -256,11 +258,13 @@ class TodoDetailViewModel(
         if (current.isLocating) return@launch
         _state.update { it.copy(isLocating = true, placeError = null) }
         setLocationReminderHere(LocationReminderHere(todoId, current.placeRadius, current.placeLabel))
-            .onSuccess { _state.update { it.copy(placeLabel = "", placeError = null) } }
+            .onSuccess { _state.update { it.copy(placeLabel = "", placeError = null, placeJustSet = true) } }
             .onFailure { error -> _state.update { it.copy(placeError = error.toPlaceMessage()) } }
         _state.update { it.copy(isLocating = false) }
         refreshLocationAvailability()
     }
+
+    fun onPlaceSetHandled() = _state.update { it.copy(placeJustSet = false) }
 
     /** La position exacte a été refusée (approximative seulement, ou refus). */
     fun onPrecisePermissionRefused() = _state.update { it.copy(placeError = AppError.PermissionDenied.toPlaceMessage()) }

@@ -280,7 +280,8 @@ private extension TodoDetailView {
                 Text(error)
                     .font(DS.Typography.caption)
                     .foregroundColor(Color(argb: colors.error))
-                if viewModel.placeNeedsSettings {
+                // Pas en double avec le bouton du bandeau « ce rappel ne part pas ».
+                if viewModel.placeNeedsSettings, viewModel.todo?.locationReminder == nil {
                     Button("Ouvrir Réglages", action: openSettings)
                 }
             }

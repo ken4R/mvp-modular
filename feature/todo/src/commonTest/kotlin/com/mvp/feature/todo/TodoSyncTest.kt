@@ -80,6 +80,23 @@ class TodoSyncTest {
     }
 
     @Test
+    fun dueDateTravelsWithTheTaskButTheReminderStaysOnTheDevice() = scope.runTest {
+        val phone = Device()
+        val tablet = Device()
+        phone.local.upsert(Todo("a", "Acheter du pain", isDone = false))
+        phone.sync.sync()
+        tablet.sync.sync()
+        clock = 2_000L
+        phone.local.setDueDate("a", 20_754)
+        phone.local.setReminder("a", 42L)
+        phone.sync.sync()
+
+        tablet.sync.sync()
+
+        assertEquals(listOf(Todo("a", "Acheter du pain", isDone = false, dueDate = 20_754)), tablet.todos())
+    }
+
+    @Test
     fun noteTravelsWithTheTaskButAttachmentsStayOnTheDevice() = scope.runTest {
         val phone = Device()
         val tablet = Device()

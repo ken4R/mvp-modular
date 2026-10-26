@@ -3,6 +3,7 @@ package com.mvp.feature.todo.data.source
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
+import com.mvp.core.deeplink.domain.DeepLinks
 import com.mvp.core.files.PrivateFileStore
 import com.mvp.feature.todo.data.db.TodoAttachmentEntity
 import com.mvp.feature.todo.data.db.TodoDatabase
@@ -10,6 +11,7 @@ import com.mvp.feature.todo.data.db.TodoEntity
 import com.mvp.feature.todo.data.stats.TodoStatsLocalDataSource
 import com.mvp.feature.todo.data.sync.TodoRecord
 import com.mvp.feature.todo.data.sync.TodoSyncLocalDataSource
+import com.mvp.feature.todo.domain.calendar.CalendarDate
 import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
@@ -24,7 +26,7 @@ import kotlin.time.ExperimentalTime
 
 /**
  * Tâches stockées dans SQLite : elles survivent au redémarrage de l'app. Chaque modification du titre, de
- * l'état ou de la note entre dans la file d'envoi de la synchronisation dans la même transaction (ADR 0012) ;
+ * l'état, de la note ou de l'échéance (ADR 0022) entre dans la file d'envoi de la synchronisation dans la même transaction (ADR 0012) ;
  * le rappel et les pièces jointes, propres à l'appareil, n'y entrent pas. Le contenu des pièces jointes est dans
  * [files], un fichier par pièce jointe nommé par son id (ADR 0014) : écrit avant sa ligne, supprimé après elle,
  * donc une ligne a toujours son fichier. L'heure à laquelle une tâche est terminée est gardée sur l'appareil pour
@@ -51,7 +53,10 @@ internal class SqlDelightTodoLocalDataSource(
         if (existing == null) {
             val changedAt = now()
             val completedAt = changedAt.takeIf { todo.isDone }
-            queries.insert(todo.id, todo.title, todo.isDone.toLong(), todo.reminderAt, changedAt, todo.note, completedAt)
+            queries.insert(
+                todo.id, todo.title, todo.isDone.toLong(), todo.reminderAt, changedAt, todo.note, completedAt,
+                todo.dueDate?.toLong(),
+            )
             enqueue(todo.id, changedAt)
         } else {
             write(existing, todo)
@@ -65,6 +70,8 @@ internal class SqlDelightTodoLocalDataSource(
     override fun setReminder(id: String, at: Long?): Todo? = modify(id) { it.copy(reminderAt = at) }
 
     override fun setNote(id: String, note: String): Todo? = modify(id) { it.copy(note = note) }
+
+    override fun setDueDate(id: String, dueDate: Int?): Todo? = modify(id) { it.copy(dueDate = dueDate) }
 
     override fun delete(id: String): Boolean {
         val removedFiles = queries.transactionWithResult<List<String>?> {
@@ -142,12 +149,19 @@ internal class SqlDelightTodoLocalDataSource(
         pending.count().asFlow().mapToOne(dispatcher).map { it.toInt() }
 
     override fun pendingChanges(): List<TodoRecord> =
-        pending.selectPending { todoId, isDeleted, changedAt, title, isDone, note ->
+        pending.selectPending { todoId, isDeleted, changedAt, title, isDone, note, dueDate ->
             // Sans ligne dans TodoEntity, la tâche n'existe plus : c'est une suppression.
             if (isDeleted != 0L || title == null || isDone == null) {
                 TodoRecord(id = todoId, title = "", isDone = false, updatedAt = changedAt, isDeleted = true)
             } else {
-                TodoRecord(id = todoId, title = title, isDone = isDone != 0L, updatedAt = changedAt, note = note.orEmpty())
+                TodoRecord(
+                    id = todoId,
+                    title = title,
+                    isDone = isDone != 0L,
+                    updatedAt = changedAt,
+                    note = note.orEmpty(),
+                    dueDate = dueDate?.toInt(),
+                )
             }
         }.executeAsList()
 
@@ -164,7 +178,10 @@ internal class SqlDelightTodoLocalDataSource(
     private fun applyRemoteRecord(record: TodoRecord): List<String> {
         if (pending.selectIsPending(record.id).executeAsOne() > 0L) return emptyList()
         // Le serveur n'est pas cru sur parole : une version que l'app n'aurait pas pu écrire est ignorée.
-        if (!record.isDeleted && !(record.title.isValidTitle() && record.note.isValidNote())) return emptyList()
+        // Un id qui n'est pas un UUID de l'app finirait dans un lien (partage, calendrier) : ignoré, suppression comprise.
+        if (!DeepLinks.isValidTodoId(record.id)) return emptyList()
+        val valid = record.title.isValidTitle() && record.note.isValidNote() && record.dueDate.isValidDueDate()
+        if (!record.isDeleted && !valid) return emptyList()
         val local = queries.selectById(record.id).executeAsOneOrNull()
         when {
             // Déjà supprimée ici, ou modifiée ici plus récemment (déjà envoyée) : rien à faire. À égalité
@@ -179,11 +196,11 @@ internal class SqlDelightTodoLocalDataSource(
             // Terminée ailleurs : à l'heure de la modification reçue, l'approximation la plus proche (ADR 0019).
             local == null -> queries.insert(
                 record.id, record.title, record.isDone.toLong(), null, record.updatedAt, record.note,
-                record.updatedAt.takeIf { record.isDone },
+                record.updatedAt.takeIf { record.isDone }, record.dueDate?.toLong(),
             )
             else -> queries.update(
                 record.title, record.isDone.toLong(), local.reminder_at, record.updatedAt, record.note,
-                completedAt(local, record.isDone, record.updatedAt), record.id,
+                completedAt(local, record.isDone, record.updatedAt), record.dueDate?.toLong(), record.id,
             )
         }
         return emptyList()
@@ -195,13 +212,14 @@ internal class SqlDelightTodoLocalDataSource(
         transform(toTodo(existing, attachmentCount)).also { write(existing, it) }
     }
 
-    /** Met à jour la ligne ; seul un changement du titre, de l'état ou de la note est daté et part au serveur. */
+    /** Met à jour la ligne ; seul un changement du titre, de l'état, de la note ou de l'échéance est daté et part au serveur. */
     private fun write(existing: TodoEntity, todo: Todo) {
-        val synced = existing.title != todo.title || (existing.is_done != 0L) != todo.isDone || existing.note != todo.note
+        val synced = existing.title != todo.title || (existing.is_done != 0L) != todo.isDone ||
+            existing.note != todo.note || existing.due_date != todo.dueDate?.toLong()
         val updatedAt = if (synced) changedAfter(existing) else existing.updated_at
         queries.update(
             todo.title, todo.isDone.toLong(), todo.reminderAt, updatedAt, todo.note,
-            completedAt(existing, todo.isDone, updatedAt), todo.id,
+            completedAt(existing, todo.isDone, updatedAt), todo.dueDate?.toLong(), todo.id,
         )
         if (synced) enqueue(todo.id, updatedAt)
     }
@@ -249,7 +267,7 @@ internal class SqlDelightTodoLocalDataSource(
 
 private fun toTodo(entity: TodoEntity, attachmentCount: Long) = rowToTodo(
     entity.id, entity.title, entity.is_done, entity.reminder_at, entity.updated_at, entity.note, entity.completed_at,
-    attachmentCount,
+    entity.due_date, attachmentCount,
 )
 
 /** Une ligne de `selectAll` ou `selectWithAttachmentCountById` (colonnes de TodoEntity + nombre de pièces jointes). */
@@ -262,12 +280,23 @@ private fun rowToTodo(
     updatedAt: Long,
     note: String,
     completedAt: Long?,
+    dueDate: Long?,
     attachmentCount: Long,
-) = Todo(id = id, title = title, isDone = isDone != 0L, reminderAt = reminderAt, note = note, attachmentCount = attachmentCount.toInt())
+) = Todo(
+    id = id,
+    title = title,
+    isDone = isDone != 0L,
+    reminderAt = reminderAt,
+    note = note,
+    attachmentCount = attachmentCount.toInt(),
+    dueDate = dueDate?.toInt(),
+)
 
 private fun String.isValidTitle(): Boolean = isNotBlank() && length <= AddTodoUseCase.MAX_TITLE_LENGTH
 
 private fun String.isValidNote(): Boolean = length <= UpdateTodoNoteUseCase.MAX_NOTE_LENGTH
+
+private fun Int?.isValidDueDate(): Boolean = this == null || CalendarDate.isValidDueDate(this)
 
 private fun Boolean.toLong(): Long = if (this) 1L else 0L
 

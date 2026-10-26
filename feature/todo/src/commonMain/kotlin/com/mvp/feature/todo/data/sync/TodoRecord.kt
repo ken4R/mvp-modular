@@ -2,7 +2,7 @@ package com.mvp.feature.todo.data.sync
 
 /**
  * Version d'une tâche échangée avec le serveur (ADR 0012). Le rappel et les pièces jointes n'en font pas
- * partie : ils restent propres à l'appareil. La note, elle, en fait partie (ADR 0014).
+ * partie : ils restent propres à l'appareil. La note (ADR 0014) et l'échéance (ADR 0022), elles, en font partie.
  * [updatedAt] : heure de la modification (epoch ms), qui départage deux versions (la plus récente gagne).
  * [isDeleted] : tâche supprimée ; le serveur en garde la trace pour que la suppression atteigne les autres appareils et qu'une version plus ancienne ne la fasse pas réapparaître.
  */
@@ -13,4 +13,6 @@ internal data class TodoRecord(
     val updatedAt: Long,
     val isDeleted: Boolean = false,
     val note: String = "",
+    /** Jour d'échéance en jours depuis le 1970-01-01, `null` sans échéance. */
+    val dueDate: Int? = null,
 )

@@ -95,6 +95,12 @@ jobs:
           plist=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app/Info.plist' | head -1)
           /usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$plist"
           /usr/libexec/PlistBuddy -c 'Print :NSLocationDefaultAccuracyReduced' "$plist"
+      - name: Texte de permission du calendrier (iOS 16, ADR 0022) dans l'Info.plist des apps qui exportent une tâche
+        run: |
+          for app in iosApp TodoDemo; do
+            plist=$(find ~/Library/Developer/Xcode/DerivedData -path "*/Debug-iphonesimulator/$app.app/Info.plist" | head -1)
+            /usr/libexec/PlistBuddy -c 'Print :NSCalendarsUsageDescription' "$plist"
+          done
       - name: Extension du widget Tâches embarquée dans l'app, sans le framework Kotlin (ADR 0011)
         run: |
           app=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app' -type d | head -1)

@@ -55,6 +55,12 @@ object DeepLinks {
         }
     }
 
+    /**
+     * `true` si [id] peut figurer dans un lien de tâche (UUID de l'app) : un id reçu d'ailleurs (serveur) qui ne
+     * l'est pas ne doit pas finir dans un lien, où il pourrait ajouter une adresse (ADR 0022).
+     */
+    fun isValidTodoId(id: String): Boolean = TODO_ID.matches(id)
+
     /** Lien vers [link], au format lu par [parse]. Le titre d'une [DeepLink.NewTask] n'est jamais mis dans un lien. */
     fun url(link: DeepLink): String = PREFIX + when (link) {
         is DeepLink.Tasks -> "tasks" + link.todoId?.let { "/$it" }.orEmpty()

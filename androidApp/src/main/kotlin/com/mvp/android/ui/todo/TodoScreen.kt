@@ -62,7 +62,8 @@ import java.time.format.FormatStyle
  * [onDraftRequestHandled] une fois pris en compte. La tâche n'est ajoutée qu'avec le bouton « Ajouter ».
  * [onOpenComposeMultiplatform] : affiche un bouton vers la version Compose Multiplatform de l'écran (ADR 0010).
  * Un tap sur une tâche ouvre sa fiche (note et pièces jointes, ADR 0014) à la place de la liste ; le bouton
- * « Statistiques », le graphique des tâches terminées par semaine (ADR 0019).
+ * « Statistiques », le graphique des tâches terminées par semaine (ADR 0019) ; le bouton « Calendrier », les tâches par
+ * date d'échéance (ADR 0022), d'où une tâche ouverte revient au calendrier.
  */
 @Composable
 fun TodoScreen(
@@ -78,11 +79,13 @@ fun TodoScreen(
     val listState = rememberLazyListState()
     var openedTodoId by rememberSaveable { mutableStateOf<String?>(null) }
     var showStats by rememberSaveable { mutableStateOf(false) }
+    var showCalendar by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(focusRequest) {
         focusRequest?.let {
             // Un lien vers une tâche revient à la liste, où elle est mise en évidence.
             openedTodoId = null
             showStats = false
+            showCalendar = false
             viewModel.focus(it)
         }
         onFocusRequestHandled()
@@ -93,6 +96,7 @@ fun TodoScreen(
             // garde le texte déjà saisi ; sinon le titre dicté le remplace.
             openedTodoId = null
             showStats = false
+            showCalendar = false
             if (it.isNotEmpty()) viewModel.onInputChange(it)
         }
         onDraftRequestHandled()
@@ -103,6 +107,10 @@ fun TodoScreen(
     }
     if (showStats) {
         TodoStatsScreen(onClose = { showStats = false })
+        return
+    }
+    if (showCalendar) {
+        TodoCalendarScreen(onClose = { showCalendar = false }, onOpenTodo = { openedTodoId = it })
         return
     }
     // Défile jusqu'à la tâche mise en évidence, puis retire la mise en évidence.
@@ -118,6 +126,7 @@ fun TodoScreen(
         listState = listState,
         onOpenComposeMultiplatform = onOpenComposeMultiplatform,
         onOpenStats = { showStats = true },
+        onOpenCalendar = { showCalendar = true },
         onInputChange = viewModel::onInputChange,
         onAdd = { viewModel.onAdd() },
         onToggle = { viewModel.onToggle(it) },
@@ -151,6 +160,7 @@ private fun TodoContent(
     listState: LazyListState,
     onOpenComposeMultiplatform: (() -> Unit)?,
     onOpenStats: () -> Unit,
+    onOpenCalendar: () -> Unit,
     onInputChange: (String) -> Unit,
     onAdd: () -> Unit,
     onToggle: (String) -> Unit,
@@ -166,8 +176,10 @@ private fun TodoContent(
             modifier = Modifier.fillMaxSize().padding(padding).padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Mes tâches", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+            Text("Mes tâches", style = MaterialTheme.typography.headlineSmall)
+            // Défile à l'horizontale sur les petits écrans plutôt que d'écraser les libellés.
+            Row(modifier = Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onOpenCalendar) { Text("Calendrier") }
                 TextButton(onClick = onOpenStats) { Text("Statistiques") }
                 onOpenComposeMultiplatform?.let { TextButton(onClick = it) { Text("Version Compose MP") } }
             }
@@ -292,6 +304,14 @@ private fun TodoRow(
                 style = MaterialTheme.typography.bodyLarge,
                 textDecoration = if (todo.isDone) TextDecoration.LineThrough else null,
             )
+            todo.dueDate?.let { dueDate ->
+                val overdue = todo.isOverdueToday()
+                Text(
+                    "Échéance le ${formatDueDate(dueDate)}" + if (overdue) " · en retard" else "",
+                    color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             detailsSummary(todo)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             todo.reminderAt?.let { at ->
                 Row(verticalAlignment = Alignment.CenterVertically) {

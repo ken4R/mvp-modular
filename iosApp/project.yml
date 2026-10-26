@@ -90,6 +90,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios
         # Nom sous l'icône, et nom que Siri attend dans « Ajoute une tâche dans MVP Modular » (ADR 0018).
         INFOPLIST_KEY_CFBundleDisplayName: MVP Modular
+        # iOS 16 seulement : l'écran d'ajout d'événement exige l'accès au calendrier ; depuis iOS 17 il n'en demande aucun (ADR 0022).
+        INFOPLIST_KEY_NSCalendarsUsageDescription: "Sur iOS 16, l'accès au calendrier est nécessaire pour y ajouter une tâche. L'app ne lit pas vos événements."
         INFOPLIST_KEY_NSFaceIDUsageDescription: "Face ID protège l'accès à l'app si vous activez le déverrouillage."
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative (environ 1 km) est envoyée au service météo Open-Meteo pour afficher la météo là où vous êtes. Elle n'est pas enregistrée."
     dependencies:
@@ -145,6 +147,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.demo.todo
         INFOPLIST_KEY_CFBundleDisplayName: Todo Demo
+        # iOS 16 seulement : l'écran d'ajout d'événement exige l'accès au calendrier ; depuis iOS 17 il n'en demande aucun (ADR 0022).
+        INFOPLIST_KEY_NSCalendarsUsageDescription: "Sur iOS 16, l'accès au calendrier est nécessaire pour y ajouter une tâche. L'app ne lit pas vos événements."
     dependencies:
       - target: KotlinShared
       - package: SharedKMP

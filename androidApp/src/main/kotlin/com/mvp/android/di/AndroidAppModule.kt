@@ -11,6 +11,7 @@ import com.mvp.android.ui.featureflags.FeatureFlagsViewModel
 import com.mvp.android.ui.onboarding.OnboardingViewModel
 import com.mvp.android.ui.settings.SettingsViewModel
 import com.mvp.android.ui.todo.AttachmentReader
+import com.mvp.android.ui.todo.TodoCalendarViewModel
 import com.mvp.android.ui.todo.TodoDetailViewModel
 import com.mvp.android.ui.todo.TodoStatsViewModel
 import com.mvp.android.ui.todo.TodoViewModel
@@ -27,6 +28,8 @@ val androidAppModule = module {
     viewModelOf(::TodoDetailViewModel)
     // Statistiques des tâches terminées (ADR 0019).
     viewModelOf(::TodoStatsViewModel)
+    // Calendrier des tâches par échéance (ADR 0022).
+    viewModelOf(::TodoCalendarViewModel)
     viewModelOf(::WeatherViewModel)
     viewModelOf(::CatalogViewModel)
     viewModelOf(::SettingsViewModel)

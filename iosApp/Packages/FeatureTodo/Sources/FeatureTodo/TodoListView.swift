@@ -14,6 +14,11 @@ public struct TodoListView: View {
     @State private var openedTodoId: String?
     /// Statistiques des tâches terminées (ADR 0019), affichées à la place de la liste.
     @State private var showStats = false
+    /// Calendrier des tâches par échéance (ADR 0022), affiché à la place de la liste ; une fiche ouverte depuis le
+    /// calendrier y revient.
+    @State private var showCalendar = false
+    /// Gardé par la liste : le mois parcouru survit à l'ouverture d'une fiche depuis le calendrier.
+    @StateObject private var calendarViewModel = TodoCalendarViewModel()
     /// Tâche demandée par un lien profond : prise en compte puis remise à `nil`.
     @Binding private var focusRequest: String?
     /// Titre dicté par le raccourci Siri (ADR 0018) : prérempli dans « Nouvelle tâche », puis remis à `nil`.
@@ -39,6 +44,8 @@ public struct TodoListView: View {
                     .id(openedTodoId)
             } else if showStats {
                 TodoStatsView { showStats = false }
+            } else if showCalendar {
+                TodoCalendarView(viewModel: calendarViewModel, onClose: { showCalendar = false }, onOpenTodo: { openedTodoId = $0 })
             } else {
                 list
             }
@@ -56,11 +63,17 @@ public struct TodoListView: View {
     private var list: some View {
         let colors = DS.colors(colorScheme, accent)
         return VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            HStack {
-                Text("Mes tâches")
-                    .font(DS.Typography.titleLarge)
-                    .foregroundColor(Color(argb: colors.onBackground))
-                Spacer(minLength: DS.Spacing.sm)
+            Text("Mes tâches")
+                .font(DS.Typography.titleLarge)
+                .foregroundColor(Color(argb: colors.onBackground))
+            HStack(spacing: DS.Spacing.md) {
+                Button("Calendrier") {
+                    inputFocused = false
+                    searchFocused = false
+                    showCalendar = true
+                }
+                .font(DS.Typography.label)
+                .tint(Color(argb: colors.primary))
                 Button("Statistiques") {
                     inputFocused = false
                     searchFocused = false
@@ -208,6 +221,7 @@ public struct TodoListView: View {
         // Un lien vers une tâche revient à la liste, où elle est mise en évidence.
         openedTodoId = nil
         showStats = false
+        showCalendar = false
         Task { await viewModel.focus(id) }
     }
 
@@ -218,6 +232,7 @@ public struct TodoListView: View {
         // Le champ « Nouvelle tâche » est sur la liste. Un titre vide garde le texte déjà saisi.
         openedTodoId = nil
         showStats = false
+        showCalendar = false
         if !title.isEmpty { viewModel.input = title }
     }
 
@@ -258,6 +273,11 @@ private struct TodoRow: View {
                             Text("Rappel le \(date.formatted(date: .abbreviated, time: .shortened))")
                                 .font(DS.Typography.caption)
                                 .foregroundColor(Color(argb: colors.onSurface))
+                        }
+                        if let due = todo.dueCalendarDate {
+                            Text("Échéance le \(DueDates.short(due))" + (todo.isOverdueToday ? " · en retard" : ""))
+                                .font(DS.Typography.caption)
+                                .foregroundColor(Color(argb: todo.isOverdueToday ? colors.error : colors.onSurface))
                         }
                         if let summary = todo.detailsSummary {
                             Text(summary)

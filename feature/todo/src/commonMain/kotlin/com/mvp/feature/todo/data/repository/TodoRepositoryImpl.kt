@@ -36,6 +36,9 @@ internal class TodoRepositoryImpl(
     override suspend fun setNote(id: String, note: String): AppResult<Todo> =
         local.setNote(id, note)?.let { AppResult.Success(it) } ?: AppResult.Failure(AppError.NotFound)
 
+    override suspend fun setDueDate(id: String, dueDate: Int?): AppResult<Todo> =
+        local.setDueDate(id, dueDate)?.let { AppResult.Success(it) } ?: AppResult.Failure(AppError.NotFound)
+
     override fun observeAttachments(todoId: String): Flow<List<TodoAttachment>> = local.observeAttachments(todoId)
 
     // safeCall : l'écriture du fichier peut échouer (stockage plein).

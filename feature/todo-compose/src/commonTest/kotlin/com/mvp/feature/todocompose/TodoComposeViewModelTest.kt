@@ -167,6 +167,8 @@ private class InMemoryTodoRepository : TodoRepository {
 
     override suspend fun setNote(id: String, note: String): AppResult<Todo> = update(id) { it.copy(note = note) }
 
+    override suspend fun setDueDate(id: String, dueDate: Int?): AppResult<Todo> = update(id) { it.copy(dueDate = dueDate) }
+
     // Pièces jointes : absentes de l'écran Compose.
     override fun observeAttachments(todoId: String): Flow<List<TodoAttachment>> = flowOf(emptyList())
 

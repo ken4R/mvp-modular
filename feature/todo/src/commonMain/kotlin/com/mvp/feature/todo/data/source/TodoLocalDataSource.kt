@@ -27,6 +27,9 @@ interface TodoLocalDataSource {
     /** Remplace la note en une seule opération ; `null` si la tâche n'existe pas (ou plus). */
     fun setNote(id: String, note: String): Todo?
 
+    /** Pose ou retire l'échéance en une seule opération ; `null` si la tâche n'existe pas (ou plus). */
+    fun setDueDate(id: String, dueDate: Int?): Todo?
+
     /** Supprime la tâche et ses pièces jointes. */
     fun delete(id: String): Boolean
 
@@ -58,6 +61,8 @@ internal class InMemoryTodoLocalDataSource(initial: List<Todo> = emptyList()) : 
     override fun setReminder(id: String, at: Long?): Todo? = modify(id) { it.copy(reminderAt = at) }
 
     override fun setNote(id: String, note: String): Todo? = modify(id) { it.copy(note = note) }
+
+    override fun setDueDate(id: String, dueDate: Int?): Todo? = modify(id) { it.copy(dueDate = dueDate) }
 
     private fun modify(id: String, transform: (Todo) -> Todo): Todo? {
         var modified: Todo? = null

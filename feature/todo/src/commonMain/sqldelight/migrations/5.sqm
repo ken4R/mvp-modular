@@ -1,0 +1,2 @@
+-- Version 5 -> 6 : jour d'échéance des tâches, pour le calendrier (ADR 0022). Les tâches existantes n'en ont pas.
+ALTER TABLE TodoEntity ADD COLUMN due_date INTEGER;

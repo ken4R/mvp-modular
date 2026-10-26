@@ -5,7 +5,7 @@ import SwiftUI
 import DesignSystemUI
 import UniformTypeIdentifiers
 
-/// Fiche d'une tâche (ADR 0014) : note et pièces jointes. Affichée à la place de la liste, dans l'onglet, et
+/// Fiche d'une tâche (ADR 0014) : échéance et export vers le calendrier (ADR 0022), note et pièces jointes. Affichée à la place de la liste, dans l'onglet, et
 /// jamais en feuille : elle reste sous le verrou d'AppLockGate. Son contenu est masqué dès que la scène n'est
 /// plus active, verrou activé ou non : l'aperçu du sélecteur d'apps ne montre aucune pièce jointe.
 /// Aperçus dans l'app (photo, PDF, texte), sans confier le fichier à une autre app.
@@ -120,6 +120,8 @@ struct TodoDetailView: View {
 
     private func content(colors: ColorTokens) -> some View {
         List {
+            dueDateSection(colors: colors)
+
             Section {
                 TextEditor(text: $viewModel.noteDraft)
                     .font(DS.Typography.body)
@@ -181,6 +183,56 @@ struct TodoDetailView: View {
         .listStyle(.insetGrouped)
         .scrollDismissesKeyboard(.interactively)
         .tint(Color(argb: colors.primary))
+    }
+}
+
+private extension TodoDetailView {
+    /// Échéance : la choisir (sélecteur compact), la retirer, ou l'ajouter au calendrier de l'iPhone.
+    @ViewBuilder
+    func dueDateSection(colors: ColorTokens) -> some View {
+        Section {
+            if let todo = viewModel.todo, let due = todo.dueCalendarDate?.localDate {
+                DatePicker(
+                    "Date",
+                    selection: Binding(get: { due }, set: { date in Task { await viewModel.setDueDate(date) } }),
+                    in: DueDates.range,
+                    displayedComponents: .date
+                )
+                .environment(\.calendar, DueDates.calendar)
+                if todo.isOverdue {
+                    Text("En retard")
+                        .font(DS.Typography.caption)
+                        .foregroundColor(Color(argb: colors.error))
+                }
+                Button {
+                    noteFocused = false
+                    Task { await viewModel.addToCalendar() }
+                } label: {
+                    Label("Ajouter au calendrier", systemImage: "calendar.badge.plus")
+                }
+                Button("Retirer l'échéance", role: .destructive) { Task { await viewModel.setDueDate(nil) } }
+            } else {
+                Button {
+                    Task { await viewModel.setDueDate(Date()) }
+                } label: {
+                    Label("Ajouter une échéance", systemImage: "calendar")
+                }
+                .disabled(viewModel.todo == nil)
+            }
+            if let error = viewModel.dueDateError {
+                Text(error)
+                    .font(DS.Typography.caption)
+                    .foregroundColor(Color(argb: colors.error))
+            }
+        } header: {
+            Text("Échéance")
+        } footer: {
+            if viewModel.todo?.dueDate != nil {
+                Text("Le titre et la date seulement, jamais la note. L'événement reste dans le calendrier même après la déconnexion.")
+            } else {
+                Text("Aujourd'hui par défaut, puis modifiable.")
+            }
+        }
     }
 }
 

@@ -10,13 +10,17 @@ import com.mvp.core.common.domain.result.onSuccess
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
+import com.mvp.feature.todo.domain.model.TodoCalendarEvent
+import com.mvp.feature.todo.domain.model.TodoDueDate
 import com.mvp.feature.todo.domain.model.TodoNote
 import com.mvp.feature.todo.domain.model.TodoShare
 import com.mvp.feature.todo.domain.model.TodoShareRequest
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
+import com.mvp.feature.todo.domain.usecase.ExportTodoToCalendarUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoAttachmentsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
+import com.mvp.feature.todo.domain.usecase.SetTodoDueDateUseCase
 import com.mvp.feature.todo.domain.usecase.ShareTodoUseCase
 import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +48,8 @@ data class TodoDetailUiState(
     val askIncludeNote: Boolean = false,
     /** Contenu prêt pour la feuille de partage : l'écran l'ouvre une fois, puis appelle `onShareShown`. */
     val share: TodoShare? = null,
+    /** Événement prêt pour l'écran d'ajout du calendrier (ADR 0022) : ouvert une fois, puis `onCalendarEventShown`. */
+    val calendarEvent: TodoCalendarEvent? = null,
     val error: String? = null,
 ) {
     val noteChanged: Boolean get() = todo != null && noteDraft.trim() != todo.note
@@ -51,7 +57,7 @@ data class TodoDetailUiState(
 }
 
 /**
- * Fiche d'une tâche : note et pièces jointes (ADR 0014). Une seule instance pour l'onglet Tâches : [open] la
+ * Fiche d'une tâche : note, pièces jointes (ADR 0014) et échéance (ADR 0022). Une seule instance pour l'onglet Tâches : [open] la
  * remplit pour une tâche, [close] enregistre la note modifiée puis la vide.
  */
 class TodoDetailViewModel(
@@ -61,6 +67,8 @@ class TodoDetailViewModel(
     private val addAttachment: AddTodoAttachmentUseCase,
     private val deleteAttachment: DeleteTodoAttachmentUseCase,
     private val shareTodo: ShareTodoUseCase,
+    private val setDueDate: SetTodoDueDateUseCase,
+    private val exportToCalendar: ExportTodoToCalendarUseCase,
     private val reader: AttachmentReader,
 ) : ViewModel() {
 
@@ -184,6 +192,26 @@ class TodoDetailViewModel(
     }
 
     fun onShareShown() = _state.update { it.copy(share = null) }
+
+    /** [dueDate] en jours depuis le 1970-01-01, `null` pour retirer l'échéance. */
+    fun onSetDueDate(dueDate: Int?) = viewModelScope.launch {
+        val todoId = openedId ?: return@launch
+        setDueDate(TodoDueDate(todoId, dueDate))
+            .onSuccess { _state.update { it.copy(error = null) } }
+            .onFailure(::showError)
+    }
+
+    /** « Ajouter au calendrier » : l'écran d'ajout du calendrier du téléphone, à confirmer par l'utilisateur. */
+    fun onAddToCalendar() = viewModelScope.launch {
+        val todoId = openedId ?: return@launch
+        exportToCalendar(todoId)
+            .onSuccess { event -> _state.update { it.copy(calendarEvent = event, error = null) } }
+            .onFailure(::showError)
+    }
+
+    fun onCalendarEventShown() = _state.update { it.copy(calendarEvent = null) }
+
+    fun onCalendarUnavailable() = _state.update { it.copy(calendarEvent = null, error = "Aucune application de calendrier") }
 
     private fun showError(error: AppError) = _state.update { it.copy(error = error.toDetailMessage()) }
 }

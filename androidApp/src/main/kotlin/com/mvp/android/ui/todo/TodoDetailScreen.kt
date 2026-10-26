@@ -1,6 +1,8 @@
 package com.mvp.android.ui.todo
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.provider.CalendarContract
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -50,15 +52,17 @@ import com.mvp.android.ui.theme.Sizes
 import com.mvp.android.ui.theme.Spacing
 import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.TodoAttachment
+import com.mvp.feature.todo.domain.model.TodoCalendarEvent
 import com.mvp.feature.todo.domain.model.TodoShare
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
 import org.koin.androidx.compose.koinViewModel
 import java.io.File
+import java.time.ZoneId
 import java.util.Locale
 
 /**
- * Fiche d'une tâche (ADR 0014) : note et pièces jointes. Affichée à la place de la liste, dans l'onglet : elle
+ * Fiche d'une tâche (ADR 0014) : échéance et export vers le calendrier (ADR 0022), note et pièces jointes. Affichée à la place de la liste, dans l'onglet : elle
  * reste derrière le verrou de l'app, et l'aperçu des apps récentes est masqué. Sélecteurs système sans permission : photos (Photo Picker) et fichiers
  * (PDF, texte, images).
  */
@@ -88,6 +92,16 @@ fun TodoDetailScreen(todoId: String, onClose: () -> Unit, viewModel: TodoDetailV
         val share = state.share ?: return@LaunchedEffect
         context.startActivity(shareIntent(share))
         viewModel.onShareShown()
+    }
+    // Écran d'ajout du calendrier du téléphone (ADR 0022) : rien n'est écrit sans la confirmation de l'utilisateur.
+    LaunchedEffect(state.calendarEvent) {
+        val event = state.calendarEvent ?: return@LaunchedEffect
+        try {
+            context.startActivity(calendarIntent(event))
+            viewModel.onCalendarEventShown()
+        } catch (e: ActivityNotFoundException) {
+            viewModel.onCalendarUnavailable()
+        }
     }
     if (state.askIncludeNote) {
         IncludeNoteDialog(onConfirm = { viewModel.onShareConfirmed(it) }, onDismiss = viewModel::onShareCancelled)
@@ -119,6 +133,9 @@ fun TodoDetailScreen(todoId: String, onClose: () -> Unit, viewModel: TodoDetailV
                     )
                     DetailContent(
                         state = state,
+                        onPickDueDate = { pickDueDate(context, state.todo?.dueDate) { viewModel.onSetDueDate(it) } },
+                        onRemoveDueDate = { viewModel.onSetDueDate(null) },
+                        onAddToCalendar = { viewModel.onAddToCalendar() },
                         onNoteChange = viewModel::onNoteChange,
                         onSaveNote = { viewModel.onSaveNote() },
                         onPickPhoto = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
@@ -135,6 +152,9 @@ fun TodoDetailScreen(todoId: String, onClose: () -> Unit, viewModel: TodoDetailV
 @Composable
 private fun DetailContent(
     state: TodoDetailUiState,
+    onPickDueDate: () -> Unit,
+    onRemoveDueDate: () -> Unit,
+    onAddToCalendar: () -> Unit,
     onNoteChange: (String) -> Unit,
     onSaveNote: () -> Unit,
     onPickPhoto: () -> Unit,
@@ -142,6 +162,8 @@ private fun DetailContent(
     onOpen: (TodoAttachment) -> Unit,
     onDelete: (String) -> Unit,
 ) {
+    DueDateSection(state.todo?.dueDate, state.todo?.isDone == true, onPickDueDate, onRemoveDueDate, onAddToCalendar)
+
     OutlinedTextField(
         value = state.noteDraft,
         onValueChange = onNoteChange,
@@ -171,6 +193,37 @@ private fun DetailContent(
     LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         items(state.attachments, key = { it.id }) { attachment ->
             AttachmentRow(attachment = attachment, onOpen = { onOpen(attachment) }, onDelete = { onDelete(attachment.id) })
+        }
+    }
+}
+
+/** Échéance de la tâche : la choisir, la retirer, ou l'ajouter au calendrier du téléphone. */
+@Composable
+private fun DueDateSection(
+    dueDate: Int?,
+    isDone: Boolean,
+    onPick: () -> Unit,
+    onRemove: () -> Unit,
+    onAddToCalendar: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Text("Échéance", style = MaterialTheme.typography.titleMedium)
+        if (dueDate == null) {
+            OutlinedButton(onClick = onPick) { Text("Choisir une date") }
+        } else {
+            Text(formatLongDueDate(dueDate), style = MaterialTheme.typography.bodyLarge)
+            if (isOverdue(dueDate, isDone)) {
+                Text("En retard", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                OutlinedButton(onClick = onPick) { Text("Modifier", maxLines = 1) }
+                TextButton(onClick = onRemove) { Text("Retirer", maxLines = 1) }
+            }
+            OutlinedButton(onClick = onAddToCalendar) { Text("Ajouter au calendrier") }
+            Text(
+                "Le titre et la date seulement, jamais la note. L'événement reste dans le calendrier même après la déconnexion.",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }
@@ -230,6 +283,24 @@ private fun shareIntent(share: TodoShare): Intent {
         putExtra(Intent.EXTRA_TEXT, share.text)
     }
     return Intent.createChooser(send, "Partager la tâche")
+}
+
+/**
+ * Écran d'ajout d'événement de l'app de calendrier (`ACTION_INSERT`), sans permission : l'utilisateur choisit le
+ * compte et confirme. Une journée entière, de minuit à minuit dans le fuseau de l'appareil. Ouvert dans sa propre
+ * tâche, comme le partage : il n'apparaît pas dans l'aperçu récent de l'app.
+ */
+private fun calendarIntent(event: TodoCalendarEvent): Intent {
+    val zone = ZoneId.systemDefault()
+    val day = event.date.toLocalDate()
+    return Intent(Intent.ACTION_INSERT, CalendarContract.Events.CONTENT_URI).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+        putExtra(CalendarContract.Events.TITLE, event.title)
+        putExtra(CalendarContract.Events.DESCRIPTION, "Ouvrir dans MVP Modular : ${event.link}")
+        putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, true)
+        putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, day.atStartOfDay(zone).toInstant().toEpochMilli())
+        putExtra(CalendarContract.EXTRA_EVENT_END_TIME, day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli())
+    }
 }
 
 @Composable

@@ -54,6 +54,8 @@ import com.mvp.feature.settings.domain.usecase.SetNotificationsEnabledUseCase
 import com.mvp.feature.settings.domain.usecase.SetThemeModeUseCase
 import com.mvp.feature.settings.domain.usecase.UnlockAppUseCase
 import com.mvp.feature.settings.domain.usecase.UpdateProfileUseCase
+import com.mvp.feature.todo.domain.model.CalendarMonth
+import com.mvp.feature.todo.domain.model.CalendarMonthRequest
 import com.mvp.feature.todo.domain.model.CompletionStats
 import com.mvp.feature.todo.domain.model.FilteredTodos
 import com.mvp.feature.todo.domain.model.Todo
@@ -66,14 +68,17 @@ import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
+import com.mvp.feature.todo.domain.usecase.ExportTodoToCalendarUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveCompletionStatsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveFilteredTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoAttachmentsUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveTodoCalendarUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
+import com.mvp.feature.todo.domain.usecase.SetTodoDueDateUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
 import com.mvp.feature.todo.domain.usecase.ShareTodoUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoDraftUseCase
@@ -165,6 +170,8 @@ object UseCases : KoinComponent {
     fun deleteTodo(): DeleteTodoUseCase = get()
     fun findTodo(): FindTodoUseCase = get()
     fun setTodoReminder(): SetTodoReminderUseCase = get()
+    fun setTodoDueDate(): SetTodoDueDateUseCase = get()
+    fun exportTodoToCalendar(): ExportTodoToCalendarUseCase = get()
     fun updateTodoNote(): UpdateTodoNoteUseCase = get()
     fun addTodoAttachment(): AddTodoAttachmentUseCase = get()
     fun deleteTodoAttachment(): DeleteTodoAttachmentUseCase = get()
@@ -334,6 +341,26 @@ object UseCases : KoinComponent {
             .onEach { result ->
                 when (result) {
                     is AppResult.Success -> onStats(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /**
+     * Calendrier des tâches par échéance pour le mois [request] (ADR 0022), recalculé à minuit. Un autre mois demande
+     * un nouvel abonnement, l'ancien étant annulé. Les callbacks sont appelés sur le main thread.
+     */
+    fun observeTodoCalendar(
+        request: CalendarMonthRequest,
+        onMonth: (CalendarMonth) -> Unit,
+        onError: (AppError) -> Unit,
+    ): Subscription {
+        val job = get<ObserveTodoCalendarUseCase>()(request)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onMonth(result.data)
                     is AppResult.Failure -> onError(result.error)
                 }
             }

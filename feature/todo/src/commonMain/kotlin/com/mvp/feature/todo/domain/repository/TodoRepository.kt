@@ -14,6 +14,9 @@ interface TodoRepository {
     suspend fun setReminder(id: String, at: Long?): AppResult<Todo>
     suspend fun setNote(id: String, note: String): AppResult<Todo>
 
+    /** [dueDate] en jours depuis le 1970-01-01, `null` pour retirer l'échéance (ADR 0022). */
+    suspend fun setDueDate(id: String, dueDate: Int?): AppResult<Todo>
+
     /** Pièces jointes de la tâche [todoId], dans l'ordre d'ajout ; vide si elle n'existe pas. */
     fun observeAttachments(todoId: String): Flow<List<TodoAttachment>>
 

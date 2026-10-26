@@ -86,6 +86,7 @@ private class FixedTodoRepository(private val todos: List<Todo>) : TodoRepositor
     override suspend fun deleteTodo(id: String): AppResult<Unit> = error("non utilisé")
     override suspend fun setReminder(id: String, at: Long?): AppResult<Todo> = error("non utilisé")
     override suspend fun setNote(id: String, note: String): AppResult<Todo> = error("non utilisé")
+    override suspend fun setDueDate(id: String, dueDate: Int?): AppResult<Todo> = error("non utilisé")
     override fun observeAttachments(todoId: String): Flow<List<TodoAttachment>> = error("non utilisé")
     override suspend fun addAttachment(
         todoId: String,

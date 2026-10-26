@@ -73,6 +73,7 @@ object Sizes {
     val accentSwatch = DesignSystem.sizes.accentSwatch.dp
     val selectionBorder = DesignSystem.sizes.selectionBorder.dp
     val chart = DesignSystem.sizes.chart.dp
+    val calendarDay = DesignSystem.sizes.calendarDay.dp
 }
 
 /** Couleurs du design system sans rôle Material 3 équivalent : `MvpColors.highlight`. */

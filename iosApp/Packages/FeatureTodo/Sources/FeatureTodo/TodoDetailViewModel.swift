@@ -3,7 +3,7 @@ import PhotosUI
 import Shared
 import SwiftUI
 
-/// Fiche d'une tâche : note et pièces jointes (ADR 0014). La logique (formats, tailles, stockage) est dans KMP ;
+/// Fiche d'une tâche : échéance (ADR 0022), note et pièces jointes (ADR 0014). La logique (formats, tailles, stockage) est dans KMP ;
 /// ici, la lecture des fichiers choisis et l'état de l'écran.
 @MainActor
 final class TodoDetailViewModel: ObservableObject {
@@ -14,6 +14,8 @@ final class TodoDetailViewModel: ObservableObject {
     @Published private(set) var attachments: [TodoAttachment] = []
     @Published private(set) var isAdding = false
     @Published private(set) var error: String?
+    /// Erreur de l'échéance ou de l'ajout au calendrier, affichée dans sa section.
+    @Published private(set) var dueDateError: String?
     /// Contenus prêts pour ShareLink (ADR 0017), recalculés à chaque changement de la tâche : sans la note, et
     /// avec la note enregistrée (`nil` si la tâche n'en a pas).
     @Published private(set) var share: TodoShare?
@@ -98,6 +100,27 @@ final class TodoDetailViewModel: ObservableObject {
     private static func loadShare(todoId: String, includeNote: Bool) async -> TodoShare? {
         let result = try? await UseCases.shared.shareTodo().invoke(params: TodoShareRequest(todoId: todoId, includeNote: includeNote))
         return (result as? AppResultSuccess<AnyObject>)?.data as? TodoShare
+    }
+
+    /// `date == nil` retire l'échéance ; seul le jour compte (calendrier grégorien, fuseau de l'appareil).
+    func setDueDate(_ date: Date?) async {
+        let dueDate = date.map { KotlinInt(value: CalendarDate.of($0).epochDay) }
+        let result = try? await UseCases.shared.setTodoDueDate().invoke(params: TodoDueDate(todoId: todoId, dueDate: dueDate))
+        if let failure = result as? AppResultFailure {
+            dueDateError = failure.error.detailMessage
+        } else {
+            dueDateError = nil
+        }
+    }
+
+    /// « Ajouter au calendrier » : l'écran d'ajout du système, prérempli par KMP (titre, date, lien ; jamais la note).
+    func addToCalendar() async {
+        let result = try? await UseCases.shared.exportTodoToCalendar().invoke(params: todoId as NSString)
+        if let failure = result as? AppResultFailure {
+            dueDateError = failure.error.detailMessage
+        } else if let event = (result as? AppResultSuccess<AnyObject>)?.data as? TodoCalendarEvent {
+            dueDateError = await CalendarExport.present(event)
+        }
     }
 
     func saveNote() async {

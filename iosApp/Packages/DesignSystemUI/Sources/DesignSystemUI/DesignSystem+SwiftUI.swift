@@ -31,6 +31,7 @@ public enum DS {
         public static var accentSwatch: CGFloat { CGFloat(tokens.sizes.accentSwatch) }
         public static var selectionBorder: CGFloat { CGFloat(tokens.sizes.selectionBorder) }
         public static var chart: CGFloat { CGFloat(tokens.sizes.chart) }
+        public static var calendarDay: CGFloat { CGFloat(tokens.sizes.calendarDay) }
     }
 
     public enum Typography {

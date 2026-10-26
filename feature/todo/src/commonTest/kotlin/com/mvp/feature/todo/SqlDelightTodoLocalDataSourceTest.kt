@@ -256,6 +256,55 @@ class SqlDelightTodoLocalDataSourceTest {
     }
 
     @Test
+    fun dueDateSurvivesRestartAndEntersTheOutbox() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Acheter du pain", isDone = false))
+        source.markSent(source.pendingChanges())
+        clock = 2_000L
+
+        assertEquals(Todo("a", "Acheter du pain", isDone = false, dueDate = 20_754), source.setDueDate("a", 20_754))
+
+        assertEquals(Todo("a", "Acheter du pain", isDone = false, dueDate = 20_754), newDataSource().get("a"))
+        assertEquals(
+            listOf(TodoRecord("a", "Acheter du pain", isDone = false, updatedAt = 2_000L, dueDate = 20_754)),
+            source.pendingChanges(),
+        )
+
+        // Retirée : la tâche repart au serveur sans échéance ; la même échéance ne change rien.
+        source.markSent(source.pendingChanges())
+        clock = 3_000L
+        source.setDueDate("a", null)
+        assertEquals(listOf(TodoRecord("a", "Acheter du pain", isDone = false, updatedAt = 3_000L)), source.pendingChanges())
+        source.markSent(source.pendingChanges())
+        source.setDueDate("a", null)
+        assertEquals(emptyList(), source.pendingChanges())
+        assertNull(source.setDueDate("inconnue", 20_754))
+    }
+
+    @Test
+    fun applyRemoteBringsTheDueDateAndIgnoresAnOutOfRangeOne() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Tâche", isDone = false, reminderAt = 42L))
+        source.markSent(source.pendingChanges())
+
+        source.applyRemote(
+            listOf(
+                TodoRecord("a", "Tâche", isDone = false, updatedAt = 3_000L, dueDate = 20_754),
+                TodoRecord("b", "Créée ailleurs", isDone = false, updatedAt = 3_000L, dueDate = 20_760),
+                TodoRecord("far", "Tâche", isDone = false, updatedAt = 3_000L, dueDate = 1_000_000),
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                Todo("a", "Tâche", isDone = false, reminderAt = 42L, dueDate = 20_754),
+                Todo("b", "Créée ailleurs", isDone = false, dueDate = 20_760),
+            ),
+            source.observe().first(),
+        )
+    }
+
+    @Test
     fun attachmentIsStoredWithItsFileCountedAndKeptOutOfTheOutbox() = scope.runTest {
         val source = newDataSource()
         source.upsert(Todo("a", "Tâche", isDone = false))
@@ -460,6 +509,9 @@ class SqlDelightTodoLocalDataSourceTest {
             assertEquals(1, source.get("a")?.attachmentCount)
             // Version 5 : terminée avant la synchronisation, sans heure de fin, elle ne compte pas.
             assertEquals(emptyList(), source.observeCompletionTimes().first())
+            // Version 6 : pas d'échéance, et elle peut en recevoir une.
+            assertNull(source.get("a")?.dueDate)
+            assertEquals(20_754, source.setDueDate("a", 20_754)?.dueDate)
         } finally {
             oldDriver.close()
         }

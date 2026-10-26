@@ -274,6 +274,11 @@ private struct TodoRow: View {
                                 .font(DS.Typography.caption)
                                 .foregroundColor(Color(argb: colors.onSurface))
                         }
+                        if let place = todo.locationReminder {
+                            Text("En arrivant : \(place.label)")
+                                .font(DS.Typography.caption)
+                                .foregroundColor(Color(argb: colors.onSurface))
+                        }
                         if let due = todo.dueCalendarDate {
                             Text("Échéance le \(DueDates.short(due))" + (todo.isOverdueToday ? " · en retard" : ""))
                                 .font(DS.Typography.caption)

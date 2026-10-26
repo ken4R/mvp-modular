@@ -6,6 +6,7 @@ import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.notification.NotificationsPreference
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.feature.todo.domain.model.AttachmentType
+import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.repository.TodoRepository
@@ -168,6 +169,8 @@ private class InMemoryTodoRepository : TodoRepository {
     override suspend fun setNote(id: String, note: String): AppResult<Todo> = update(id) { it.copy(note = note) }
 
     override suspend fun setDueDate(id: String, dueDate: Int?): AppResult<Todo> = update(id) { it.copy(dueDate = dueDate) }
+    override suspend fun setLocationReminder(id: String, reminder: LocationReminder?): AppResult<Todo> =
+        update(id) { it.copy(locationReminder = reminder) }
 
     // Pièces jointes : absentes de l'écran Compose.
     override fun observeAttachments(todoId: String): Flow<List<TodoAttachment>> = flowOf(emptyList())

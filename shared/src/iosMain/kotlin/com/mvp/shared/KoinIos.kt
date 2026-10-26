@@ -14,6 +14,10 @@ import com.mvp.core.crashreporting.domain.model.TestCrashException
 import com.mvp.core.crashreporting.domain.usecase.ObserveCrashJournalUseCase
 import com.mvp.core.crashreporting.domain.usecase.StartCrashReportingUseCase
 import com.mvp.core.deeplink.domain.model.DeepLink
+import com.mvp.core.deeplink.domain.usecase.ConsumeDeepLinkUseCase
+import com.mvp.core.deeplink.domain.usecase.ObservePendingDeepLinkUseCase
+import com.mvp.core.deeplink.domain.usecase.OpenDeepLinkUseCase
+import com.mvp.core.designsystem.Appearance
 import com.mvp.core.featureflags.domain.model.FeatureFlag
 import com.mvp.core.featureflags.domain.model.FeatureFlagState
 import com.mvp.core.featureflags.domain.usecase.ClearFeatureFlagOverridesUseCase
@@ -21,10 +25,6 @@ import com.mvp.core.featureflags.domain.usecase.ObserveFeatureFlagUseCase
 import com.mvp.core.featureflags.domain.usecase.ObserveFeatureFlagsUseCase
 import com.mvp.core.featureflags.domain.usecase.RefreshRemoteFlagsUseCase
 import com.mvp.core.featureflags.domain.usecase.SetFeatureFlagOverrideUseCase
-import com.mvp.core.designsystem.Appearance
-import com.mvp.core.deeplink.domain.usecase.ConsumeDeepLinkUseCase
-import com.mvp.core.deeplink.domain.usecase.ObservePendingDeepLinkUseCase
-import com.mvp.core.deeplink.domain.usecase.OpenDeepLinkUseCase
 import com.mvp.feature.auth.domain.usecase.LoginUseCase
 import com.mvp.feature.auth.domain.usecase.LogoutUseCase
 import com.mvp.feature.auth.domain.usecase.ObserveSessionUseCase
@@ -72,17 +72,22 @@ import com.mvp.feature.todo.domain.usecase.ExportTodoToCalendarUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveCompletionStatsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveFilteredTodosUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveLocationRemindersAvailableUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoAttachmentsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoCalendarUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
+import com.mvp.feature.todo.domain.usecase.RefreshLocationRemindersAvailabilityUseCase
+import com.mvp.feature.todo.domain.usecase.RemoveLocationReminderUseCase
+import com.mvp.feature.todo.domain.usecase.SetLocationReminderHereUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoDueDateUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
 import com.mvp.feature.todo.domain.usecase.ShareTodoUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoDraftUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoSyncUseCase
+import com.mvp.feature.todo.domain.usecase.SyncTodoLocationRemindersUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
@@ -171,6 +176,9 @@ object UseCases : KoinComponent {
     fun findTodo(): FindTodoUseCase = get()
     fun setTodoReminder(): SetTodoReminderUseCase = get()
     fun setTodoDueDate(): SetTodoDueDateUseCase = get()
+    fun setLocationReminderHere(): SetLocationReminderHereUseCase = get()
+    fun removeLocationReminder(): RemoveLocationReminderUseCase = get()
+    fun refreshLocationRemindersAvailability(): RefreshLocationRemindersAvailabilityUseCase = get()
     fun exportTodoToCalendar(): ExportTodoToCalendarUseCase = get()
     fun updateTodoNote(): UpdateTodoNoteUseCase = get()
     fun addTodoAttachment(): AddTodoAttachmentUseCase = get()
@@ -451,6 +459,26 @@ object UseCases : KoinComponent {
      * À appeler une seule fois au lancement de l'app, et à garder pendant toute sa vie.
      */
     fun startTodoReminders(): Subscription = Subscription(get<SyncTodoRemindersUseCase>()(NoParams).launchIn(scope))
+
+    /**
+     * Garde les rappels par lieu alignés sur les tâches, le réglage Notifications et les permissions (ADR 0023).
+     * À appeler une seule fois au lancement de l'app, et à garder pendant toute sa vie.
+     */
+    fun startTodoLocationReminders(): Subscription =
+        Subscription(get<SyncTodoLocationRemindersUseCase>()(NoParams).launchIn(scope))
+
+    /** `true` si les rappels par lieu peuvent partir (position exacte autorisée). Les callbacks sont appelés sur le main thread. */
+    fun observeLocationRemindersAvailable(onAvailable: (Boolean) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveLocationRemindersAvailableUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onAvailable(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
 
     /** Les callbacks sont appelés sur le main thread. */
     fun observeSettings(onSettings: (UserSettings) -> Unit, onError: (AppError) -> Unit): Subscription {

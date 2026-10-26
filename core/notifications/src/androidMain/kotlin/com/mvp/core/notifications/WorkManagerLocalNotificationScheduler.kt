@@ -1,6 +1,5 @@
 package com.mvp.core.notifications
 
-import android.app.NotificationManager
 import android.content.Context
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
@@ -50,10 +49,7 @@ internal class WorkManagerLocalNotificationScheduler(
 
     override suspend fun cancelAll(group: String) {
         workManager.cancelAllWorkByTag(group)
-        val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        manager.activeNotifications
-            .filter { it.tag?.startsWith("$group:") == true }
-            .forEach { manager.cancel(it.tag, it.id) }
+        ReminderNotifications.cancelDelivered(context, group)
     }
 }
 

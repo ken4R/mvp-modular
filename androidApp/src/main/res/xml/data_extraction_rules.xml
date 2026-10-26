@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ : allowBackup="false" n'empêche plus le transfert d'un appareil à l'autre. Les préférences des rappels
+     par lieu (ids des tâches et heures d'envoi, ADR 0023) restent sur cet appareil : leurs alertes n'existent pas sur
+     le nouveau. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="location_notifications.xml" />
+        <exclude domain="sharedpref" path="location_notifications_delivered.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="location_notifications.xml" />
+        <exclude domain="sharedpref" path="location_notifications_delivered.xml" />
+    </device-transfer>
+</data-extraction-rules>

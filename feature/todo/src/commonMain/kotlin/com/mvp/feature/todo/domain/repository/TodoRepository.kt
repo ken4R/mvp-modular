@@ -2,6 +2,7 @@ package com.mvp.feature.todo.domain.repository
 
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.feature.todo.domain.model.AttachmentType
+import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import kotlinx.coroutines.flow.Flow
@@ -16,6 +17,9 @@ interface TodoRepository {
 
     /** [dueDate] en jours depuis le 1970-01-01, `null` pour retirer l'échéance (ADR 0022). */
     suspend fun setDueDate(id: String, dueDate: Int?): AppResult<Todo>
+
+    /** `null` retire le rappel par lieu (ADR 0023). */
+    suspend fun setLocationReminder(id: String, reminder: LocationReminder?): AppResult<Todo>
 
     /** Pièces jointes de la tâche [todoId], dans l'ordre d'ajout ; vide si elle n'existe pas. */
     fun observeAttachments(todoId: String): Flow<List<TodoAttachment>>

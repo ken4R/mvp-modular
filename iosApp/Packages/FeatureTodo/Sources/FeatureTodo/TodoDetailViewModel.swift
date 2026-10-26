@@ -20,11 +20,23 @@ final class TodoDetailViewModel: ObservableObject {
     /// avec la note enregistrée (`nil` si la tâche n'en a pas).
     @Published private(set) var share: TodoShare?
     @Published private(set) var shareWithNote: TodoShare?
+    /// Rappel par lieu (ADR 0023) : nom et rayon choisis avant « Me le rappeler en arrivant ici ».
+    @Published var placeLabel = ""
+    @Published var placeRadius = Int(LocationReminder.Companion.shared.DEFAULT_RADIUS)
+    @Published private(set) var isLocating = false
+    @Published private(set) var placeError: String?
+    /// La position exacte manque : la section propose d'ouvrir Réglages.
+    @Published private(set) var placeNeedsSettings = false
+    /// `false` : les rappels par lieu posés ne partent pas (position refusée ou approximative).
+    @Published private(set) var locationRemindersAvailable = true
+    @Published private(set) var remindersEnabled = true
 
     private let todoId: String
     private var noteLoaded = false
     private var todosSubscription: Subscription?
     private var attachmentsSubscription: Subscription?
+    private var locationSubscription: Subscription?
+    private var remindersEnabledSubscription: Subscription?
     private var shareTask: Task<Void, Never>?
     private var calendarTask: Task<Void, Never>?
 
@@ -52,6 +64,42 @@ final class TodoDetailViewModel: ObservableObject {
             onAttachments: { [weak self] attachments in self?.attachments = attachments },
             onError: { [weak self] error in self?.error = error.detailMessage }
         )
+        locationSubscription = UseCases.shared.observeLocationRemindersAvailable(
+            onAvailable: { [weak self] available in self?.locationRemindersAvailable = available.boolValue },
+            onError: { _ in }
+        )
+        remindersEnabledSubscription = UseCases.shared.observeRemindersEnabled(
+            onEnabled: { [weak self] enabled in self?.remindersEnabled = enabled.boolValue },
+            onError: { _ in }
+        )
+        TodoReminders.refreshLocationAvailability()
+    }
+
+    /// Rayons proposés par KMP (mètres).
+    var placeRadii: [Int] { LocationReminder.Companion.shared.RADII.map { Int($0.int32Value) } }
+
+    /// « Me le rappeler en arrivant ici » : KMP demande l'autorisation la première fois, mesure la position exacte et
+    /// la garde sur l'iPhone. Rien ne part ailleurs.
+    func setPlaceHere() async {
+        guard !isLocating else { return }
+        isLocating = true
+        defer { isLocating = false }
+        let request = LocationReminderHere(todoId: todoId, radiusMeters: Int32(placeRadius), label: placeLabel)
+        let result = try? await UseCases.shared.setLocationReminderHere().invoke(params: request)
+        if let failure = result as? AppResultFailure {
+            placeError = failure.error.placeMessage
+            placeNeedsSettings = failure.error is AppErrorPermissionDenied
+        } else {
+            placeError = nil
+            placeNeedsSettings = false
+            placeLabel = ""
+        }
+        TodoReminders.refreshLocationAvailability()
+    }
+
+    func removePlace() async {
+        let result = try? await UseCases.shared.removeLocationReminder().invoke(params: todoId as NSString)
+        if let failure = result as? AppResultFailure { placeError = failure.error.detailMessage } else { placeError = nil }
     }
 
     /// La fiche n'est plus affichée : la note modifiée est enregistrée. Le brouillon est gardé si elle revient.
@@ -64,6 +112,10 @@ final class TodoDetailViewModel: ObservableObject {
         todosSubscription = nil
         attachmentsSubscription?.cancel()
         attachmentsSubscription = nil
+        locationSubscription?.cancel()
+        locationSubscription = nil
+        remindersEnabledSubscription?.cancel()
+        remindersEnabledSubscription = nil
         shareTask?.cancel()
         shareTask = nil
         // Fiche quittée (verrou, arrière-plan) pendant la demande d'accès d'iOS 16 : l'écran d'ajout ne s'ouvre pas.
@@ -190,6 +242,15 @@ private extension AppError {
         case is AppErrorNotFound: return "Tâche introuvable"
         case is AppErrorUnknown: return "Enregistrement impossible, vérifiez l'espace disponible"
         default: return "Erreur inattendue"
+        }
+    }
+
+    /// Erreurs de « Me le rappeler en arrivant ici ».
+    var placeMessage: String {
+        switch self {
+        case is AppErrorPermissionDenied: return "Autorisez la position exacte pour MVP Modular dans Réglages > Confidentialité > Service de localisation."
+        case is AppErrorUnavailable: return "Position introuvable, réessayez à l'extérieur ou près d'une fenêtre."
+        default: return detailMessage
         }
     }
 }

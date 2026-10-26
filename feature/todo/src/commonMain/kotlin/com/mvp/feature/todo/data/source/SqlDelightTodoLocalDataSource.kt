@@ -13,6 +13,7 @@ import com.mvp.feature.todo.data.sync.TodoRecord
 import com.mvp.feature.todo.data.sync.TodoSyncLocalDataSource
 import com.mvp.feature.todo.domain.calendar.CalendarDate
 import com.mvp.feature.todo.domain.model.AttachmentType
+import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
@@ -27,7 +28,7 @@ import kotlin.time.ExperimentalTime
 /**
  * Tâches stockées dans SQLite : elles survivent au redémarrage de l'app. Chaque modification du titre, de
  * l'état, de la note ou de l'échéance (ADR 0022) entre dans la file d'envoi de la synchronisation dans la même transaction (ADR 0012) ;
- * le rappel et les pièces jointes, propres à l'appareil, n'y entrent pas. Le contenu des pièces jointes est dans
+ * les rappels (à l'heure et par lieu, ADR 0023) et les pièces jointes, propres à l'appareil, n'y entrent pas. Le contenu des pièces jointes est dans
  * [files], un fichier par pièce jointe nommé par son id (ADR 0014) : écrit avant sa ligne, supprimé après elle,
  * donc une ligne a toujours son fichier. L'heure à laquelle une tâche est terminée est gardée sur l'appareil pour
  * les statistiques (ADR 0019). [now] date les modifications (epoch ms).
@@ -53,9 +54,10 @@ internal class SqlDelightTodoLocalDataSource(
         if (existing == null) {
             val changedAt = now()
             val completedAt = changedAt.takeIf { todo.isDone }
+            val place = todo.locationReminder
             queries.insert(
                 todo.id, todo.title, todo.isDone.toLong(), todo.reminderAt, changedAt, todo.note, completedAt,
-                todo.dueDate?.toLong(),
+                todo.dueDate?.toLong(), place?.latitude, place?.longitude, place?.radiusMeters?.toLong(), place?.label,
             )
             enqueue(todo.id, changedAt)
         } else {
@@ -72,6 +74,9 @@ internal class SqlDelightTodoLocalDataSource(
     override fun setNote(id: String, note: String): Todo? = modify(id) { it.copy(note = note) }
 
     override fun setDueDate(id: String, dueDate: Int?): Todo? = modify(id) { it.copy(dueDate = dueDate) }
+
+    override fun setLocationReminder(id: String, reminder: LocationReminder?): Todo? =
+        modify(id) { it.copy(locationReminder = reminder) }
 
     override fun delete(id: String): Boolean {
         val removedFiles = queries.transactionWithResult<List<String>?> {
@@ -194,13 +199,15 @@ internal class SqlDelightTodoLocalDataSource(
                 return attachmentIds
             }
             // Terminée ailleurs : à l'heure de la modification reçue, l'approximation la plus proche (ADR 0019).
+            // Les rappels (à l'heure, par lieu) restent ceux de l'appareil : le serveur n'en connaît aucun.
             local == null -> queries.insert(
                 record.id, record.title, record.isDone.toLong(), null, record.updatedAt, record.note,
-                record.updatedAt.takeIf { record.isDone }, record.dueDate?.toLong(),
+                record.updatedAt.takeIf { record.isDone }, record.dueDate?.toLong(), null, null, null, null,
             )
             else -> queries.update(
                 record.title, record.isDone.toLong(), local.reminder_at, record.updatedAt, record.note,
-                completedAt(local, record.isDone, record.updatedAt), record.dueDate?.toLong(), record.id,
+                completedAt(local, record.isDone, record.updatedAt), record.dueDate?.toLong(),
+                local.location_latitude, local.location_longitude, local.location_radius, local.location_label, record.id,
             )
         }
         return emptyList()
@@ -217,9 +224,11 @@ internal class SqlDelightTodoLocalDataSource(
         val synced = existing.title != todo.title || (existing.is_done != 0L) != todo.isDone ||
             existing.note != todo.note || existing.due_date != todo.dueDate?.toLong()
         val updatedAt = if (synced) changedAfter(existing) else existing.updated_at
+        val place = todo.locationReminder
         queries.update(
             todo.title, todo.isDone.toLong(), todo.reminderAt, updatedAt, todo.note,
-            completedAt(existing, todo.isDone, updatedAt), todo.dueDate?.toLong(), todo.id,
+            completedAt(existing, todo.isDone, updatedAt), todo.dueDate?.toLong(),
+            place?.latitude, place?.longitude, place?.radiusMeters?.toLong(), place?.label, todo.id,
         )
         if (synced) enqueue(todo.id, updatedAt)
     }
@@ -267,7 +276,8 @@ internal class SqlDelightTodoLocalDataSource(
 
 private fun toTodo(entity: TodoEntity, attachmentCount: Long) = rowToTodo(
     entity.id, entity.title, entity.is_done, entity.reminder_at, entity.updated_at, entity.note, entity.completed_at,
-    entity.due_date, attachmentCount,
+    entity.due_date, entity.location_latitude, entity.location_longitude, entity.location_radius, entity.location_label,
+    attachmentCount,
 )
 
 /** Une ligne de `selectAll` ou `selectWithAttachmentCountById` (colonnes de TodoEntity + nombre de pièces jointes). */
@@ -281,6 +291,10 @@ private fun rowToTodo(
     note: String,
     completedAt: Long?,
     dueDate: Long?,
+    locationLatitude: Double?,
+    locationLongitude: Double?,
+    locationRadius: Long?,
+    locationLabel: String?,
     attachmentCount: Long,
 ) = Todo(
     id = id,
@@ -290,7 +304,16 @@ private fun rowToTodo(
     note = note,
     attachmentCount = attachmentCount.toInt(),
     dueDate = dueDate?.toInt(),
+    locationReminder = locationReminder(locationLatitude, locationLongitude, locationRadius, locationLabel),
 )
+
+/** Les quatre colonnes ou aucune : une ligne incomplète (écrite à la main) n'a pas de rappel par lieu. */
+private fun locationReminder(latitude: Double?, longitude: Double?, radius: Long?, label: String?): LocationReminder? =
+    if (latitude == null || longitude == null || radius == null || label == null) {
+        null
+    } else {
+        LocationReminder(latitude, longitude, radius.toInt(), label)
+    }
 
 private fun String.isValidTitle(): Boolean = isNotBlank() && length <= AddTodoUseCase.MAX_TITLE_LENGTH
 

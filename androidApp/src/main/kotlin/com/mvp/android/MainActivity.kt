@@ -23,8 +23,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.mvp.android.ui.analytics.AnalyticsViewModel
 import com.mvp.android.ui.appearance.AppearanceViewModel
@@ -41,9 +42,9 @@ import com.mvp.android.ui.auth.LoginScreen
 import com.mvp.android.ui.auth.SessionUiState
 import com.mvp.android.ui.auth.SessionViewModel
 import com.mvp.android.ui.catalog.CatalogScreen
-import com.mvp.android.ui.featureflags.FeatureFlagsViewModel
 import com.mvp.android.ui.common.RecentsPrivacy
 import com.mvp.android.ui.deeplink.DeepLinkViewModel
+import com.mvp.android.ui.featureflags.FeatureFlagsViewModel
 import com.mvp.android.ui.onboarding.OnboardingScreen
 import com.mvp.android.ui.onboarding.OnboardingViewModel
 import com.mvp.android.ui.settings.SettingsScreen
@@ -51,10 +52,14 @@ import com.mvp.android.ui.theme.MvpTheme
 import com.mvp.android.ui.todo.TodoScreen
 import com.mvp.android.ui.weather.WeatherScreen
 import com.mvp.core.common.domain.analytics.AnalyticsScreen
-import com.mvp.core.designsystem.Appearance
+import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.core.deeplink.domain.model.DeepLink
+import com.mvp.core.designsystem.Appearance
 import com.mvp.core.featureflags.domain.model.FeatureFlag
+import com.mvp.feature.todo.domain.usecase.RefreshLocationRemindersAvailabilityUseCase
 import com.mvp.feature.todocompose.ui.TodoComposeScreen
+import kotlinx.coroutines.launch
+import org.koin.android.ext.android.get
 import org.koin.androidx.compose.koinViewModel
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -128,6 +133,9 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         // Lancement et retour au premier plan : le distant n'est relu qu'une fois toutes les 15 minutes.
         featureFlagsViewModel.refresh()
+        // Rappels par lieu (ADR 0023) : une permission de localisation accordée dans les paramètres du système ne
+        // prévient pas l'app ; relue ici, les rappels sont reposés ou retirés.
+        lifecycleScope.launch { get<RefreshLocationRemindersAvailabilityUseCase>()(NoParams) }
     }
 
     override fun onNewIntent(intent: Intent) {

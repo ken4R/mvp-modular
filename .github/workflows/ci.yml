@@ -95,6 +95,9 @@ jobs:
           plist=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app/Info.plist' | head -1)
           /usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$plist"
           /usr/libexec/PlistBuddy -c 'Print :NSLocationDefaultAccuracyReduced' "$plist"
+          # Rappels par lieu (ADR 0023) : la démo Tâches demande aussi la position.
+          plist=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/TodoDemo.app/Info.plist' | head -1)
+          /usr/libexec/PlistBuddy -c 'Print :NSLocationWhenInUseUsageDescription' "$plist"
       - name: Texte de permission du calendrier (iOS 16, ADR 0022) dans l'Info.plist des apps qui exportent une tâche
         run: |
           for app in iosApp TodoDemo; do

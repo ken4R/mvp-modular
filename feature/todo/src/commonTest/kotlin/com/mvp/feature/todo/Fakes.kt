@@ -4,10 +4,15 @@ import com.mvp.core.common.domain.analytics.AnalyticsEvent
 import com.mvp.core.common.domain.analytics.AnalyticsTracker
 import com.mvp.core.common.domain.applock.AppLockPreference
 import com.mvp.core.common.domain.connectivity.ConnectivityObserver
+import com.mvp.core.common.domain.location.GeoPosition
+import com.mvp.core.common.domain.location.LocationAccuracy
+import com.mvp.core.common.domain.location.LocationProvider
 import com.mvp.core.common.domain.notification.NotificationsPreference
+import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.session.SessionExpiry
 import com.mvp.core.files.PrivateFileStore
 import com.mvp.feature.todo.domain.model.Todo
+import com.mvp.feature.todo.domain.reminder.LocationReminderScheduler
 import com.mvp.feature.todo.domain.reminder.ReminderScheduler
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +33,46 @@ class FakeReminderScheduler : ReminderScheduler {
     override suspend fun cancelAll() {
         cancelAllCalls++
         scheduled = emptyList()
+    }
+}
+
+/** Garde les rappels par lieu « posés » en mémoire ; [available] simule les permissions de localisation. */
+class FakeLocationReminderScheduler(available: Boolean = true) : LocationReminderScheduler {
+    val available = MutableStateFlow(available)
+    var scheduled: List<Todo> = emptyList()
+        private set
+    var expiresAt: Long? = null
+        private set
+    var cancelAllCalls = 0
+        private set
+    var refreshCalls = 0
+        private set
+    var failure: Throwable? = null
+
+    override fun observeAvailability(): Flow<Boolean> = available
+
+    override fun refreshAvailability() {
+        refreshCalls++
+    }
+
+    override suspend fun replaceAll(todos: List<Todo>, expiresAt: Long) {
+        failure?.let { throw it }
+        scheduled = todos
+        this.expiresAt = expiresAt
+    }
+
+    override suspend fun cancelAll() {
+        cancelAllCalls++
+        scheduled = emptyList()
+    }
+}
+
+/** Position de l'appareil pilotée par le test ; garde la précision demandée. */
+class FakeLocationProvider(var result: AppResult<GeoPosition>) : LocationProvider {
+    val requested = mutableListOf<LocationAccuracy>()
+    override suspend fun currentPosition(accuracy: LocationAccuracy): AppResult<GeoPosition> {
+        requested += accuracy
+        return result
     }
 }
 

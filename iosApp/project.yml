@@ -93,7 +93,8 @@ targets:
         # iOS 16 seulement : l'écran d'ajout d'événement exige l'accès au calendrier ; depuis iOS 17 il n'en demande aucun (ADR 0022).
         INFOPLIST_KEY_NSCalendarsUsageDescription: "Sur iOS 16, l'accès au calendrier est nécessaire pour y ajouter une tâche. L'app ne lit pas vos événements."
         INFOPLIST_KEY_NSFaceIDUsageDescription: "Face ID protège l'accès à l'app si vous activez le déverrouillage."
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative (environ 1 km) est envoyée au service météo Open-Meteo pour afficher la météo là où vous êtes. Elle n'est pas enregistrée."
+        # Météo (ADR 0005) et rappels par lieu (ADR 0023) : « Lorsque l'app est active » suffit aux deux.
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Météo : votre position approximative (environ 1 km) est envoyée à Open-Meteo pour afficher la météo là où vous êtes, sans être enregistrée. Rappels par lieu : la position exacte du lieu choisi reste sur cet iPhone et n'est envoyée nulle part."
     dependencies:
       - target: KotlinShared
       - package: SharedKMP
@@ -149,6 +150,8 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Todo Demo
         # iOS 16 seulement : l'écran d'ajout d'événement exige l'accès au calendrier ; depuis iOS 17 il n'en demande aucun (ADR 0022).
         INFOPLIST_KEY_NSCalendarsUsageDescription: "Sur iOS 16, l'accès au calendrier est nécessaire pour y ajouter une tâche. L'app ne lit pas vos événements."
+        # Rappels par lieu (ADR 0023) : la fiche d'une tâche demande la position.
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Rappels par lieu : la position exacte du lieu choisi reste sur cet iPhone et n'est envoyée nulle part."
     dependencies:
       - target: KotlinShared
       - package: SharedKMP
@@ -264,7 +267,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.demo.onboarding
         INFOPLIST_KEY_CFBundleDisplayName: Onboarding Demo
         INFOPLIST_KEY_NSFaceIDUsageDescription: "Face ID protège l'accès à l'app si vous activez le déverrouillage."
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Votre position approximative (environ 1 km) est envoyée au service météo Open-Meteo pour afficher la météo là où vous êtes. Elle n'est pas enregistrée."
+        # Météo (ADR 0005) et rappels par lieu (ADR 0023) : « Lorsque l'app est active » suffit aux deux.
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Météo : votre position approximative (environ 1 km) est envoyée à Open-Meteo pour afficher la météo là où vous êtes, sans être enregistrée. Rappels par lieu : la position exacte du lieu choisi reste sur cet iPhone et n'est envoyée nulle part."
     dependencies:
       - target: KotlinShared
       - package: SharedKMP

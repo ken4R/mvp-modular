@@ -56,6 +56,8 @@ struct TodoDetailView: View {
         // d'apps et le verrou. C'est une fenêtre modale UIKit, au-dessus du masque et de l'écran de verrouillage.
         .onChange(of: scenePhase) { phase in
             if phase == .background { PresentedSheets.dismissAll() }
+            // Position exacte accordée ou retirée dans Réglages pendant que l'app était en arrière-plan (ADR 0023).
+            if phase == .active { TodoReminders.refreshLocationAvailability() }
         }
         // Retour, changement d'onglet, verrouillage de l'app : la note modifiée est enregistrée.
         .onDisappear { viewModel.stop() }
@@ -121,6 +123,7 @@ struct TodoDetailView: View {
     private func content(colors: ColorTokens) -> some View {
         List {
             dueDateSection(colors: colors)
+            locationSection(colors: colors)
 
             Section {
                 TextEditor(text: $viewModel.noteDraft)
@@ -233,6 +236,70 @@ private extension TodoDetailView {
                 Text("Aujourd'hui par défaut, puis modifiable.")
             }
         }
+    }
+}
+
+private extension TodoDetailView {
+    /// Rappel par lieu (ADR 0023) : à chaque arrivée dans la zone, tant que la tâche est à faire. La position reste sur l'iPhone.
+    @ViewBuilder
+    func locationSection(colors: ColorTokens) -> some View {
+        Section {
+            if let todo = viewModel.todo, let place = todo.locationReminder {
+                Label("En arrivant à \(place.label) (\(place.radiusMeters) m)", systemImage: "location")
+                    .font(DS.Typography.body)
+                    .foregroundColor(Color(argb: colors.onSurface))
+                Button("Retirer le rappel par lieu", role: .destructive) { Task { await viewModel.removePlace() } }
+                if !viewModel.locationRemindersAvailable {
+                    Text("Ce rappel ne part pas : autorisez la position exacte pour MVP Modular.")
+                        .font(DS.Typography.caption)
+                        .foregroundColor(Color(argb: colors.error))
+                    Button("Ouvrir Réglages", action: openSettings)
+                }
+            } else {
+                TextField("Nom du lieu (ex. Bureau)", text: $viewModel.placeLabel)
+                    .font(DS.Typography.body)
+                    .submitLabel(.done)
+                Picker("Rayon", selection: $viewModel.placeRadius) {
+                    ForEach(viewModel.placeRadii, id: \.self) { radius in
+                        Text("\(radius) m").tag(radius)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Button {
+                    noteFocused = false
+                    Task { await viewModel.setPlaceHere() }
+                } label: {
+                    Label("Me le rappeler en arrivant ici", systemImage: "location.circle")
+                }
+                .disabled(viewModel.todo == nil || viewModel.todo?.isDone == true || viewModel.isLocating)
+                if viewModel.isLocating {
+                    ProgressView()
+                }
+            }
+            if let error = viewModel.placeError {
+                Text(error)
+                    .font(DS.Typography.caption)
+                    .foregroundColor(Color(argb: colors.error))
+                // Pas en double avec le bouton du bandeau « ce rappel ne part pas ».
+                if viewModel.placeNeedsSettings, viewModel.todo?.locationReminder == nil {
+                    Button("Ouvrir Réglages", action: openSettings)
+                }
+            }
+            if !viewModel.remindersEnabled {
+                Text("Activez les notifications dans Réglages de l'app pour recevoir les rappels.")
+                    .font(DS.Typography.caption)
+                    .foregroundColor(Color(argb: colors.onSurface))
+            }
+        } header: {
+            Text("Rappel par lieu")
+        } footer: {
+            Text("La position actuelle, gardée sur cet iPhone et jamais envoyée. Le rappel part à chaque arrivée tant que la tâche est à faire.")
+        }
+    }
+
+    func openSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
     }
 }
 

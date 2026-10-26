@@ -11,7 +11,6 @@ import platform.CoreLocation.CLAccuracyAuthorization
 import platform.CoreLocation.CLCircularRegion
 import platform.CoreLocation.CLLocationCoordinate2DMake
 import platform.CoreLocation.CLLocationManager
-import platform.CoreLocation.CLRegion
 import platform.CoreLocation.kCLAuthorizationStatusAuthorizedAlways
 import platform.CoreLocation.kCLAuthorizationStatusAuthorizedWhenInUse
 import platform.UserNotifications.UNLocationNotificationTrigger
@@ -62,10 +61,10 @@ internal class UserNotificationsLocationNotificationScheduler : LocationNotifica
             notifyOnEntry = true
             notifyOnExit = false
         }
-        // Avec le SDK d'Xcode 26, Kotlin/Native ne voit pas CLCircularRegion comme une sous-classe de CLRegion ; pour
-        // Objective-C, c'en est bien une, et le transtypage est vérifié à l'exécution.
+        // La bibliothèque UserNotifications de Kotlin/Native ne connaît CLRegion que par une déclaration anticipée
+        // (objcnames.classes.CLRegion) : on y transtype la région de CoreLocation, c'est le même objet Objective-C.
         @Suppress("CAST_NEVER_SUCCEEDS")
-        val trigger = UNLocationNotificationTrigger.triggerWithRegion(region as CLRegion, repeats = true)
+        val trigger = UNLocationNotificationTrigger.triggerWithRegion(region as objcnames.classes.CLRegion, repeats = true)
         notificationCenter.addRequest(UNNotificationRequest.requestWithIdentifier(identifier, content, trigger))
     }
 }

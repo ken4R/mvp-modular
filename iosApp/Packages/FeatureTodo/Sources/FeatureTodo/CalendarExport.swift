@@ -7,11 +7,14 @@ import UIKit
 /// (titre, journée entière, lien de la tâche). Rien n'est écrit sans la confirmation de l'utilisateur, qui choisit
 /// aussi le calendrier. Depuis iOS 17, cet écran tourne hors de l'app et ne demande aucun accès au calendrier ; sur
 /// iOS 16, il exige l'accès complet, demandé seulement à ce moment-là.
-/// Présenté par UIKit au-dessus de l'app : `PresentedSheets.dismissAll()` le ferme au passage en arrière-plan.
+/// Présenté par UIKit au-dessus de l'app (et de ses masques) : fermé dès `didEnterBackgroundNotification`, envoyée
+/// avant la capture de l'aperçu du sélecteur d'apps, puis par `PresentedSheets.dismissAll()` avec le verrou.
 @MainActor
 enum CalendarExport {
     private static let store = EKEventStore()
     private static let delegate = EventEditorDelegate()
+    private static weak var editor: EKEventEditViewController?
+    private static var backgroundObserver: NSObjectProtocol?
 
     /// `nil` si l'écran d'ajout est affiché, sinon le message à afficher.
     static func present(_ event: TodoCalendarEvent) async -> String? {
@@ -19,6 +22,8 @@ enum CalendarExport {
             let granted = (try? await store.requestAccess(to: .event)) ?? false
             guard granted else { return "Autorisez l'accès au calendrier dans Réglages > Confidentialité" }
         }
+        // La demande d'accès a pu durer : fiche quittée, app verrouillée ou en arrière-plan, on n'ouvre rien.
+        guard !Task.isCancelled, UIApplication.shared.applicationState == .active else { return nil }
         guard let day = event.date.localDate, let presenter = topViewController() else {
             return "Calendrier indisponible"
         }
@@ -32,8 +37,19 @@ enum CalendarExport {
         editor.eventStore = store
         editor.event = calendarEvent
         editor.editViewDelegate = delegate
+        closeInBackground()
         presenter.present(editor, animated: true)
+        self.editor = editor
         return nil
+    }
+
+    private static func closeInBackground() {
+        guard backgroundObserver == nil else { return }
+        backgroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main
+        ) { _ in
+            Task { @MainActor in editor?.dismiss(animated: false) }
+        }
     }
 
     private static func topViewController() -> UIViewController? {

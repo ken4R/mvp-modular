@@ -305,7 +305,7 @@ private fun TodoRow(
                 textDecoration = if (todo.isDone) TextDecoration.LineThrough else null,
             )
             todo.dueDate?.let { dueDate ->
-                val overdue = isOverdue(dueDate, todo.isDone)
+                val overdue = todo.isOverdueToday()
                 Text(
                     "Échéance le ${formatDueDate(dueDate)}" + if (overdue) " · en retard" else "",
                     color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,

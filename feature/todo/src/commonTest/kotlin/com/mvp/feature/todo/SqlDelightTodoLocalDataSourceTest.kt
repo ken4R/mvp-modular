@@ -292,6 +292,8 @@ class SqlDelightTodoLocalDataSourceTest {
                 TodoRecord("a", "Tâche", isDone = false, updatedAt = 3_000L, dueDate = 20_754),
                 TodoRecord("b", "Créée ailleurs", isDone = false, updatedAt = 3_000L, dueDate = 20_760),
                 TodoRecord("far", "Tâche", isDone = false, updatedAt = 3_000L, dueDate = 1_000_000),
+                // Un id qui ajouterait une adresse au lien de la tâche (partage, calendrier).
+                TodoRecord("x https://piege.example", "Tâche", isDone = false, updatedAt = 3_000L, dueDate = 20_760),
             ),
         )
 

@@ -199,14 +199,14 @@ private extension TodoDetailView {
                     displayedComponents: .date
                 )
                 .environment(\.calendar, DueDates.calendar)
-                if todo.isOverdue {
+                if todo.isOverdueToday {
                     Text("En retard")
                         .font(DS.Typography.caption)
                         .foregroundColor(Color(argb: colors.error))
                 }
                 Button {
                     noteFocused = false
-                    Task { await viewModel.addToCalendar() }
+                    viewModel.addToCalendar()
                 } label: {
                     Label("Ajouter au calendrier", systemImage: "calendar.badge.plus")
                 }

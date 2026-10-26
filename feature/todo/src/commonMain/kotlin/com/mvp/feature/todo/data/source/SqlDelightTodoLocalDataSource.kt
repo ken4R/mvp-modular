@@ -3,6 +3,7 @@ package com.mvp.feature.todo.data.source
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
+import com.mvp.core.deeplink.domain.DeepLinks
 import com.mvp.core.files.PrivateFileStore
 import com.mvp.feature.todo.data.db.TodoAttachmentEntity
 import com.mvp.feature.todo.data.db.TodoDatabase
@@ -177,6 +178,8 @@ internal class SqlDelightTodoLocalDataSource(
     private fun applyRemoteRecord(record: TodoRecord): List<String> {
         if (pending.selectIsPending(record.id).executeAsOne() > 0L) return emptyList()
         // Le serveur n'est pas cru sur parole : une version que l'app n'aurait pas pu écrire est ignorée.
+        // Un id qui n'est pas un UUID de l'app finirait dans un lien (partage, calendrier) : ignoré, suppression comprise.
+        if (!DeepLinks.isValidTodoId(record.id)) return emptyList()
         val valid = record.title.isValidTitle() && record.note.isValidNote() && record.dueDate.isValidDueDate()
         if (!record.isDeleted && !valid) return emptyList()
         val local = queries.selectById(record.id).executeAsOneOrNull()

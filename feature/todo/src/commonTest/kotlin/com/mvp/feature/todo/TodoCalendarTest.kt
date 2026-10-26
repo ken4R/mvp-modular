@@ -128,10 +128,20 @@ class TodoCalendarTest {
         assertEquals(0, before.overdueCount)
         assertEquals(CalendarDate(2026, 10, 26), after.today)
         assertEquals(1, after.overdueCount)
+        // Vérifié chaque minute, réémis seulement au changement de jour.
         assertEquals(HOUR, testScheduler.currentTime)
 
         local.setDueDate("a", null)
         assertEquals(1, month(2026, 10).undatedCount)
+    }
+
+    @Test
+    fun overdueRuleIsAPendingTodoDueBeforeToday() {
+        val today = day(2026, 10, 26)
+        assertTrue(Todo("a", "A", isDone = false, dueDate = today - 1).isOverdue(today))
+        assertFalse(Todo("a", "A", isDone = false, dueDate = today).isOverdue(today))
+        assertFalse(Todo("a", "A", isDone = true, dueDate = today - 1).isOverdue(today))
+        assertFalse(Todo("a", "A", isDone = false).isOverdue(today))
     }
 
     @Test

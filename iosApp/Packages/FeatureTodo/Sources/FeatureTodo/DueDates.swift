@@ -11,13 +11,17 @@ enum DueDates {
         return calendar
     }
 
-    /// Recréé à chaque appel : le fuseau courant de l'appareil.
+    /// Gardés par format, recréés si le fuseau de l'appareil change (les cases du calendrier en demandent 42).
+    private static var formatters: [String: DateFormatter] = [:]
+
     static func formatter(_ format: String) -> DateFormatter {
+        if let cached = formatters[format], cached.timeZone == TimeZone.current { return cached }
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.locale = Locale(identifier: "fr_FR")
         formatter.timeZone = .current
         formatter.dateFormat = format
+        formatters[format] = formatter
         return formatter
     }
 
@@ -62,9 +66,6 @@ extension Todo {
         dueDate.map { CalendarDate.Companion.shared.fromEpochDay(epochDay: $0.int32Value) }
     }
 
-    /// Échéance passée d'une tâche encore à faire, d'après la date du jour de l'appareil.
-    var isOverdue: Bool {
-        guard !isDone, let dueDate else { return false }
-        return dueDate.int32Value < CalendarDate.today().epochDay
-    }
+    /// Règle du retard de KMP (`Todo.isOverdue`), appliquée à la date du jour de l'appareil.
+    var isOverdueToday: Bool { isOverdue(today: CalendarDate.today().epochDay) }
 }

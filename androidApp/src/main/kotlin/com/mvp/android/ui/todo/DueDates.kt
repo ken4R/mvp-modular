@@ -3,6 +3,7 @@ package com.mvp.android.ui.todo
 import android.app.DatePickerDialog
 import android.content.Context
 import com.mvp.feature.todo.domain.calendar.CalendarDate
+import com.mvp.feature.todo.domain.model.Todo
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -19,8 +20,8 @@ internal fun formatDueDate(epochDay: Int): String = SHORT_DUE_DATE.format(dueLoc
 /** « Mercredi 28 octobre 2026 » dans la fiche. */
 internal fun formatLongDueDate(epochDay: Int): String = LONG_DUE_DATE.format(dueLocalDate(epochDay)).capitalized()
 
-/** Échéance passée d'une tâche encore à faire, d'après la date du jour de l'appareil. */
-internal fun isOverdue(epochDay: Int, isDone: Boolean): Boolean = !isDone && epochDay < LocalDate.now().toEpochDay()
+/** Règle du retard de KMP (`Todo.isOverdue`), appliquée à la date du jour de l'appareil. */
+internal fun Todo.isOverdueToday(): Boolean = isOverdue(LocalDate.now().toEpochDay().toInt())
 
 internal fun String.capitalized(): String = replaceFirstChar { it.titlecase(Locale.FRENCH) }
 

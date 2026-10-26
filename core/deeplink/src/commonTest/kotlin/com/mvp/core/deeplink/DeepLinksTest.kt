@@ -4,7 +4,9 @@ import com.mvp.core.deeplink.domain.DeepLinks
 import com.mvp.core.deeplink.domain.model.DeepLink
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class DeepLinksTest {
 
@@ -81,5 +83,14 @@ class DeepLinksTest {
         assertEquals("mvpmodular://tasks/abc-123", DeepLinks.url(DeepLink.Tasks("abc-123")))
         // Le titre dicté ne sort jamais dans un lien (ADR 0018).
         assertEquals("mvpmodular://tasks", DeepLinks.url(DeepLink.NewTask("Code de la porte 4521")))
+    }
+
+    @Test
+    fun onlyAppTodoIdsAreValidInALink() {
+        assertTrue(DeepLinks.isValidTodoId("0f8b2c1e-3a4d-4b5e-8f60-1a2b3c4d5e6f"))
+        assertFalse(DeepLinks.isValidTodoId(""))
+        assertFalse(DeepLinks.isValidTodoId("x https://piege.example"))
+        assertFalse(DeepLinks.isValidTodoId("a/b"))
+        assertFalse(DeepLinks.isValidTodoId("a".repeat(65)))
     }
 }

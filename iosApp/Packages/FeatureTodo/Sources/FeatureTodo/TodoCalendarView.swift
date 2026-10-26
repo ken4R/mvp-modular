@@ -6,7 +6,7 @@ import SwiftUI
 /// jour choisi en dessous. Affiché à la place de la liste, dans l'onglet Tâches : il reste sous le verrou
 /// d'AppLockGate. Un tap sur une tâche ouvre sa fiche (`onOpenTodo`), d'où l'on revient au calendrier.
 struct TodoCalendarView: View {
-    @StateObject private var viewModel = TodoCalendarViewModel()
+    @ObservedObject var viewModel: TodoCalendarViewModel
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dsAccent) private var accent
     let onClose: () -> Void

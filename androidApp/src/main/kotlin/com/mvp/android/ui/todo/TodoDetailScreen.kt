@@ -162,7 +162,7 @@ private fun DetailContent(
     onOpen: (TodoAttachment) -> Unit,
     onDelete: (String) -> Unit,
 ) {
-    DueDateSection(state.todo?.dueDate, state.todo?.isDone == true, onPickDueDate, onRemoveDueDate, onAddToCalendar)
+    DueDateSection(state.todo?.dueDate, state.todo?.isOverdueToday() == true, onPickDueDate, onRemoveDueDate, onAddToCalendar)
 
     OutlinedTextField(
         value = state.noteDraft,
@@ -201,7 +201,7 @@ private fun DetailContent(
 @Composable
 private fun DueDateSection(
     dueDate: Int?,
-    isDone: Boolean,
+    overdue: Boolean,
     onPick: () -> Unit,
     onRemove: () -> Unit,
     onAddToCalendar: () -> Unit,
@@ -212,7 +212,7 @@ private fun DueDateSection(
             OutlinedButton(onClick = onPick) { Text("Choisir une date") }
         } else {
             Text(formatLongDueDate(dueDate), style = MaterialTheme.typography.bodyLarge)
-            if (isOverdue(dueDate, isDone)) {
+            if (overdue) {
                 Text("En retard", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {

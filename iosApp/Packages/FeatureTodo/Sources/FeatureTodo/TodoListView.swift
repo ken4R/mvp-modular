@@ -17,6 +17,8 @@ public struct TodoListView: View {
     /// Calendrier des tâches par échéance (ADR 0022), affiché à la place de la liste ; une fiche ouverte depuis le
     /// calendrier y revient.
     @State private var showCalendar = false
+    /// Gardé par la liste : le mois parcouru survit à l'ouverture d'une fiche depuis le calendrier.
+    @StateObject private var calendarViewModel = TodoCalendarViewModel()
     /// Tâche demandée par un lien profond : prise en compte puis remise à `nil`.
     @Binding private var focusRequest: String?
     /// Titre dicté par le raccourci Siri (ADR 0018) : prérempli dans « Nouvelle tâche », puis remis à `nil`.
@@ -43,7 +45,7 @@ public struct TodoListView: View {
             } else if showStats {
                 TodoStatsView { showStats = false }
             } else if showCalendar {
-                TodoCalendarView(onClose: { showCalendar = false }, onOpenTodo: { openedTodoId = $0 })
+                TodoCalendarView(viewModel: calendarViewModel, onClose: { showCalendar = false }, onOpenTodo: { openedTodoId = $0 })
             } else {
                 list
             }
@@ -273,9 +275,9 @@ private struct TodoRow: View {
                                 .foregroundColor(Color(argb: colors.onSurface))
                         }
                         if let due = todo.dueCalendarDate {
-                            Text("Échéance le \(DueDates.short(due))" + (todo.isOverdue ? " · en retard" : ""))
+                            Text("Échéance le \(DueDates.short(due))" + (todo.isOverdueToday ? " · en retard" : ""))
                                 .font(DS.Typography.caption)
-                                .foregroundColor(Color(argb: todo.isOverdue ? colors.error : colors.onSurface))
+                                .foregroundColor(Color(argb: todo.isOverdueToday ? colors.error : colors.onSurface))
                         }
                         if let summary = todo.detailsSummary {
                             Text(summary)

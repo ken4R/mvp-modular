@@ -14,4 +14,7 @@ data class Todo(
     val note: String = "",
     val attachmentCount: Int = 0,
     val dueDate: Int? = null,
-)
+) {
+    /** Règle du retard (ADR 0022) : tâche à faire dont l'échéance est avant [today] (jours depuis le 1970-01-01). */
+    fun isOverdue(today: Int): Boolean = !isDone && dueDate?.let { it < today } == true
+}

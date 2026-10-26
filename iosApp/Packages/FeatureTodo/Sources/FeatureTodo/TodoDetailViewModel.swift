@@ -26,6 +26,7 @@ final class TodoDetailViewModel: ObservableObject {
     private var todosSubscription: Subscription?
     private var attachmentsSubscription: Subscription?
     private var shareTask: Task<Void, Never>?
+    private var calendarTask: Task<Void, Never>?
 
     init(todoId: String) {
         self.todoId = todoId
@@ -65,6 +66,9 @@ final class TodoDetailViewModel: ObservableObject {
         attachmentsSubscription = nil
         shareTask?.cancel()
         shareTask = nil
+        // Fiche quittée (verrou, arrière-plan) pendant la demande d'accès d'iOS 16 : l'écran d'ajout ne s'ouvre pas.
+        calendarTask?.cancel()
+        calendarTask = nil
     }
 
     private func apply(_ todo: Todo?) {
@@ -114,12 +118,18 @@ final class TodoDetailViewModel: ObservableObject {
     }
 
     /// « Ajouter au calendrier » : l'écran d'ajout du système, prérempli par KMP (titre, date, lien ; jamais la note).
-    func addToCalendar() async {
-        let result = try? await UseCases.shared.exportTodoToCalendar().invoke(params: todoId as NSString)
-        if let failure = result as? AppResultFailure {
-            dueDateError = failure.error.detailMessage
-        } else if let event = (result as? AppResultSuccess<AnyObject>)?.data as? TodoCalendarEvent {
-            dueDateError = await CalendarExport.present(event)
+    func addToCalendar() {
+        calendarTask?.cancel()
+        let todoId = todoId
+        calendarTask = Task { [weak self] in
+            let result = try? await UseCases.shared.exportTodoToCalendar().invoke(params: todoId as NSString)
+            guard !Task.isCancelled else { return }
+            if let failure = result as? AppResultFailure {
+                self?.dueDateError = failure.error.detailMessage
+            } else if let event = (result as? AppResultSuccess<AnyObject>)?.data as? TodoCalendarEvent {
+                let error = await CalendarExport.present(event)
+                if !Task.isCancelled { self?.dueDateError = error }
+            }
         }
     }
 

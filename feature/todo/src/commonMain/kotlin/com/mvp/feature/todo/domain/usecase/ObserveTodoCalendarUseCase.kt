@@ -46,7 +46,9 @@ class ObserveTodoCalendarUseCase(
             val today = calendar.dayOf(current)
             emit(today)
             // Au moins 1 ms : un calendrier qui ne trouverait pas de jour suivant ne fait pas tourner la boucle à vide.
-            delay(maxOf(calendar.startOfDay(today + 1) - current, 1L))
+            // Au plus une minute : delay ne compte pas le temps de veille de l'appareil, ni un changement d'heure ou
+            // de fuseau ; distinctUntilChanged ne laisse passer que le changement de jour.
+            delay(maxOf(calendar.startOfDay(today + 1) - current, 1L).coerceAtMost(MAX_WAIT_MILLIS))
         }
     }.distinctUntilChanged()
 
@@ -65,7 +67,7 @@ class ObserveTodoCalendarUseCase(
                 epochDay = epochDay,
                 isInMonth = date.month == request.month,
                 isToday = epochDay == today,
-                isOverdue = epochDay < today && dayTodos.any { !it.isDone },
+                isOverdue = dayTodos.any { it.isOverdue(today) },
                 todos = dayTodos,
             )
         }
@@ -74,12 +76,13 @@ class ObserveTodoCalendarUseCase(
             month = request.month,
             days = days,
             today = CalendarDate.fromEpochDay(today),
-            overdueCount = todos.count { todo -> !todo.isDone && todo.dueDate?.let { it < today } == true },
+            overdueCount = todos.count { it.isOverdue(today) },
             undatedCount = todos.count { it.dueDate == null },
         )
     }
 
     private companion object {
         const val DAYS_PER_WEEK = 7
+        const val MAX_WAIT_MILLIS = 60_000L
     }
 }

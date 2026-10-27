@@ -55,7 +55,7 @@ class TodoLocationReminderUseCasesTest {
 
         val result = setHere(LocationReminderHere("id-0", radiusMeters = 500, label = "  Bureau  "))
 
-        val expected = Todo("id-0", "Imprimer le rapport", isDone = false, locationReminder = LocationReminder(here.latitude, here.longitude, 500, "Bureau"))
+        val expected = Todo("id-0", "Imprimer le rapport", isDone = false, locationReminder = LocationReminder(here.latitude, here.longitude, 500, "Bureau"), position = "a0")
         assertEquals(AppResult.Success(expected), result)
         assertEquals(listOf(LocationAccuracy.Precise), location.requested)
     }
@@ -116,7 +116,7 @@ class TodoLocationReminderUseCasesTest {
         add("Imprimer")
         setHere(LocationReminderHere("id-0"))
 
-        assertEquals(AppResult.Success(Todo("id-0", "Imprimer", isDone = false)), remove("id-0"))
+        assertEquals(AppResult.Success(Todo("id-0", "Imprimer", isDone = false, position = "a0")), remove("id-0"))
         assertEquals(AppResult.Failure(AppError.NotFound), remove("inconnue"))
     }
 

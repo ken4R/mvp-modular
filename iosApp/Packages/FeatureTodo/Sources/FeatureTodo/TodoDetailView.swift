@@ -122,6 +122,7 @@ struct TodoDetailView: View {
 
     private func content(colors: ColorTokens) -> some View {
         List {
+            prioritySection
             dueDateSection(colors: colors)
             locationSection(colors: colors)
 
@@ -190,6 +191,24 @@ struct TodoDetailView: View {
 }
 
 private extension TodoDetailView {
+    /// Priorité (ADR 0024) : choisie d'un geste, enregistrée tout de suite.
+    var prioritySection: some View {
+        Section {
+            Picker("Priorité", selection: Binding(
+                get: { viewModel.todo?.priorityOption ?? .noPriority },
+                set: { option in Task { await viewModel.setPriority(option) } }
+            )) {
+                ForEach(TodoPriorityOption.allCases, id: \.self) { option in
+                    Text(option.label).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(viewModel.todo == nil)
+        } header: {
+            Text("Priorité")
+        }
+    }
+
     /// Échéance : la choisir (sélecteur compact), la retirer, ou l'ajouter au calendrier de l'iPhone.
     @ViewBuilder
     func dueDateSection(colors: ColorTokens) -> some View {

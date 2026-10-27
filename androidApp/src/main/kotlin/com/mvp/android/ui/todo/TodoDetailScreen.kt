@@ -15,6 +15,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -62,6 +64,7 @@ import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.model.TodoCalendarEvent
 import com.mvp.feature.todo.domain.model.TodoShare
+import com.mvp.feature.todo.domain.model.TodoPriority
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
 import java.io.File
@@ -145,6 +148,7 @@ fun TodoDetailScreen(todoId: String, onClose: () -> Unit, viewModel: TodoDetailV
                         onPickDueDate = { pickDueDate(context, state.todo?.dueDate) { viewModel.onSetDueDate(it) } },
                         onRemoveDueDate = { viewModel.onSetDueDate(null) },
                         onAddToCalendar = { viewModel.onAddToCalendar() },
+                        onSetPriority = { viewModel.onSetPriority(it) },
                         place = place,
                         onNoteChange = viewModel::onNoteChange,
                         onSaveNote = { viewModel.onSaveNote() },
@@ -165,6 +169,7 @@ private fun DetailContent(
     onPickDueDate: () -> Unit,
     onRemoveDueDate: () -> Unit,
     onAddToCalendar: () -> Unit,
+    onSetPriority: (TodoPriority) -> Unit,
     place: PlaceActions,
     onNoteChange: (String) -> Unit,
     onSaveNote: () -> Unit,
@@ -173,6 +178,7 @@ private fun DetailContent(
     onOpen: (TodoAttachment) -> Unit,
     onDelete: (String) -> Unit,
 ) {
+    PrioritySection(state.todo?.priority ?: TodoPriority.None, onSetPriority)
     DueDateSection(state.todo?.dueDate, state.todo?.isOverdueToday() == true, onPickDueDate, onRemoveDueDate, onAddToCalendar)
     LocationReminderSection(state, place)
 
@@ -205,6 +211,23 @@ private fun DetailContent(
     LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         items(state.attachments, key = { it.id }) { attachment ->
             AttachmentRow(attachment = attachment, onOpen = { onOpen(attachment) }, onDelete = { onDelete(attachment.id) })
+        }
+    }
+}
+
+/** Priorité de la tâche (ADR 0024), synchronisée comme le titre. */
+@Composable
+private fun PrioritySection(priority: TodoPriority, onSelect: (TodoPriority) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Text("Priorité", style = MaterialTheme.typography.titleMedium)
+        // Défile à l'horizontale sur les petits écrans plutôt que d'écraser les libellés.
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            PRIORITY_LABELS.forEach { (value, label) ->
+                FilterChip(selected = priority == value, onClick = { onSelect(value) }, label = { Text(label) })
+            }
         }
     }
 }

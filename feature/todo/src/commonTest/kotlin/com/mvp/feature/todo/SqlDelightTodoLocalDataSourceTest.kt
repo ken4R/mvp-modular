@@ -16,6 +16,7 @@ import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
+import com.mvp.feature.todo.domain.model.TodoPriority
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -534,10 +535,15 @@ class SqlDelightTodoLocalDataSourceTest {
             TodoDatabase.Schema.migrate(oldDriver, oldVersion = 1, newVersion = TodoDatabase.Schema.version)
             val source = SqlDelightTodoLocalDataSource(TodoDatabase(oldDriver), dispatcher, FakeFileStore())
 
-            assertEquals(listOf(Todo("a", "Ancienne", isDone = true)), source.observe().first())
-            assertEquals(Todo("a", "Ancienne", isDone = true, reminderAt = 42L), source.setReminder("a", 42L))
+            // Version 8 : clé d'ordre tirée du rowid, pas de priorité.
+            val migrated = Todo("a", "Ancienne", isDone = true, position = "h00000001")
+            assertEquals(listOf(migrated), source.observe().first())
+            assertEquals(migrated.copy(reminderAt = 42L), source.setReminder("a", 42L))
             // Version 3 : les tâches d'avant la synchronisation partent au premier envoi, comme les plus anciennes.
-            assertEquals(listOf(TodoRecord("a", "Ancienne", isDone = true, updatedAt = 0)), source.pendingChanges())
+            assertEquals(
+                listOf(TodoRecord("a", "Ancienne", isDone = true, updatedAt = 0, position = "h00000001")),
+                source.pendingChanges(),
+            )
             // Version 4 : note vide, et la table des pièces jointes existe.
             assertEquals("", source.get("a")?.note)
             assertEquals("Photo.jpg", source.addAttachment("p1", "a", "Photo.jpg", AttachmentType.Photo, byteArrayOf(1))?.fileName)
@@ -550,9 +556,103 @@ class SqlDelightTodoLocalDataSourceTest {
             // Version 7 : pas de rappel par lieu, et elle peut en recevoir un.
             assertNull(source.get("a")?.locationReminder)
             assertEquals(office, source.setLocationReminder("a", office)?.locationReminder)
+            assertEquals(TodoPriority.High, source.setPriority("a", TodoPriority.High)?.priority)
         } finally {
             oldDriver.close()
         }
+    }
+
+    @Test
+    fun migrationToVersion8KeepsTheCreationOrder() = scope.runTest {
+        val oldDriver = createInMemoryDriver(SchemaV1)
+        try {
+            TodoDatabase.Schema.migrate(oldDriver, oldVersion = 1, newVersion = 7)
+            oldDriver.execute(
+                null,
+                "INSERT INTO TodoEntity(id, title, is_done) VALUES ('z', 'Première', 0), ('m', 'Deuxième', 0), ('a', 'Troisième', 0)",
+                0,
+            )
+
+            TodoDatabase.Schema.migrate(oldDriver, oldVersion = 7, newVersion = TodoDatabase.Schema.version)
+            val source = SqlDelightTodoLocalDataSource(TodoDatabase(oldDriver), dispatcher, FakeFileStore())
+
+            val todos = source.observe().first()
+            assertEquals(listOf("z", "m", "a"), todos.map { it.id })
+            assertEquals(listOf("h00000001", "h00000002", "h00000003"), todos.map { it.position })
+            assertTrue(todos.all { it.priority == TodoPriority.None })
+            assertEquals("h00000003", source.lastPosition())
+        } finally {
+            oldDriver.close()
+        }
+    }
+
+    @Test
+    fun todosAreListedByPositionThenCreationOrder() = scope.runTest {
+        val source = newDataSource()
+        assertNull(source.lastPosition())
+        source.upsert(Todo("a", "Clé haute", isDone = false, position = "a5"))
+        source.upsert(Todo("b", "Clé basse", isDone = false, position = "a1"))
+        source.upsert(Todo("d", "Même clé, ajoutée avant", isDone = false, position = "a3"))
+        source.upsert(Todo("c", "Même clé, ajoutée après", isDone = false, position = "a3"))
+
+        assertEquals(listOf("b", "d", "c", "a"), newDataSource().observe().first().map { it.id })
+        assertEquals("a5", source.lastPosition())
+    }
+
+    @Test
+    fun priorityAndPositionAreSavedAndSent() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Tâche", isDone = false, position = "a0"))
+        source.upsert(Todo("b", "Autre", isDone = false, position = "a1"))
+        source.markSent(source.pendingChanges())
+
+        clock = 2_000L
+        source.setPriority("a", TodoPriority.Medium)
+        clock = 3_000L
+        source.setPositions(mapOf("b" to "Zz", "supprimée" to "a5"))
+
+        assertEquals(listOf("b", "a"), newDataSource().observe().first().map { it.id })
+        assertEquals(TodoPriority.Medium, newDataSource().get("a")?.priority)
+        assertEquals(
+            listOf(
+                TodoRecord("a", "Tâche", isDone = false, updatedAt = 2_000L, priority = TodoPriority.Medium, position = "a0"),
+                TodoRecord("b", "Autre", isDone = false, updatedAt = 3_000L, position = "Zz"),
+            ),
+            source.pendingChanges(),
+        )
+        // Rien ne change : rien ne part.
+        source.markSent(source.pendingChanges())
+        source.setPriority("a", TodoPriority.Medium)
+        source.setPositions(mapOf("b" to "Zz"))
+        assertEquals(emptyList(), source.pendingChanges())
+    }
+
+    @Test
+    fun applyRemoteBringsPriorityAndPositionAndIgnoresAnInvalidKey() = scope.runTest {
+        val source = newDataSource()
+        source.upsert(Todo("a", "Tâche", isDone = false, position = "a0"))
+        source.upsert(Todo("b", "Autre", isDone = false, position = "a1"))
+        source.upsert(Todo("c", "Encore", isDone = false, position = "a2"))
+        source.markSent(source.pendingChanges())
+
+        source.applyRemote(
+            listOf(
+                TodoRecord("c", "Encore", isDone = false, updatedAt = 5_000L, priority = TodoPriority.High, position = "Zz"),
+                // Serveur qui ne connaît pas l'ordre : la tâche garde sa clé.
+                TodoRecord("b", "Autre, renommée", isDone = false, updatedAt = 5_000L),
+                // Clé que l'app n'aurait pas pu écrire : version ignorée.
+                TodoRecord("a", "Piège", isDone = false, updatedAt = 5_000L, position = "a0'; DROP"),
+                TodoRecord("new", "Créée ailleurs", isDone = false, updatedAt = 5_000L, position = "x".repeat(65)),
+            ),
+        )
+
+        val todos = source.observe().first()
+        assertEquals(listOf("c", "a", "b"), todos.map { it.id })
+        assertEquals(TodoPriority.High, todos.first().priority)
+        assertEquals("a1", source.get("b")?.position)
+        assertEquals("Autre, renommée", source.get("b")?.title)
+        assertEquals("Tâche", source.get("a")?.title)
+        assertEquals(emptyList(), source.pendingChanges())
     }
 }
 

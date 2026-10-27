@@ -9,7 +9,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-/** Liste des tâches, les non terminées en premier. */
+/** Liste des tâches, les non terminées en premier, chaque groupe dans l'ordre manuel (ADR 0024). */
 class ObserveTodosUseCase(
     private val repository: TodoRepository,
     dispatcher: CoroutineDispatcher,

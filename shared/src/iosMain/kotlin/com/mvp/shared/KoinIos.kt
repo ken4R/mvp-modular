@@ -61,6 +61,8 @@ import com.mvp.feature.todo.domain.model.FilteredTodos
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.model.TodoFilter
+import com.mvp.feature.todo.domain.model.TodoPriority
+import com.mvp.feature.todo.domain.model.TodoPriorityChange
 import com.mvp.feature.todo.domain.model.TodoStatusFilter
 import com.mvp.feature.todo.domain.model.TodoSyncStatus
 import com.mvp.feature.todo.domain.model.TodoWidgetState
@@ -70,6 +72,7 @@ import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ExportTodoToCalendarUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
+import com.mvp.feature.todo.domain.usecase.MoveTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveCompletionStatsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveFilteredTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveLocationRemindersAvailableUseCase
@@ -83,6 +86,7 @@ import com.mvp.feature.todo.domain.usecase.RefreshLocationRemindersAvailabilityU
 import com.mvp.feature.todo.domain.usecase.RemoveLocationReminderUseCase
 import com.mvp.feature.todo.domain.usecase.SetLocationReminderHereUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoDueDateUseCase
+import com.mvp.feature.todo.domain.usecase.SetTodoPriorityUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
 import com.mvp.feature.todo.domain.usecase.ShareTodoUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoDraftUseCase
@@ -111,12 +115,29 @@ import platform.posix.memcpy
 /**
  * Filtre des tâches construit depuis Swift, qui renomme les entrées des enum Kotlin : [status] est le nom Kotlin
  * de l'entrée de `TodoStatusFilter` (« All », « Pending », « Done ») ; un nom inconnu vaut « All ».
+ * [byPriority] : tri par priorité au lieu de l'ordre manuel (ADR 0024).
  */
-fun todoFilter(query: String, status: String, withReminder: Boolean, withAttachments: Boolean): TodoFilter = TodoFilter(
+fun todoFilter(
+    query: String,
+    status: String,
+    withReminder: Boolean,
+    withAttachments: Boolean,
+    byPriority: Boolean,
+): TodoFilter = TodoFilter(
     query = query,
     status = TodoStatusFilter.entries.firstOrNull { it.name == status } ?: TodoStatusFilter.All,
     withReminder = withReminder,
     withAttachments = withAttachments,
+    byPriority = byPriority,
+)
+
+/**
+ * Changement de priorité construit depuis Swift : [priority] est le nom Kotlin de l'entrée de `TodoPriority`
+ * (« None », « Low », « Medium », « High ») ; un nom inconnu vaut « None » (ADR 0024).
+ */
+fun todoPriorityChange(todoId: String, priority: String): TodoPriorityChange = TodoPriorityChange(
+    todoId = todoId,
+    priority = TodoPriority.entries.firstOrNull { it.name == priority } ?: TodoPriority.None,
 )
 
 /**
@@ -176,6 +197,8 @@ object UseCases : KoinComponent {
     fun findTodo(): FindTodoUseCase = get()
     fun setTodoReminder(): SetTodoReminderUseCase = get()
     fun setTodoDueDate(): SetTodoDueDateUseCase = get()
+    fun setTodoPriority(): SetTodoPriorityUseCase = get()
+    fun moveTodo(): MoveTodoUseCase = get()
     fun setLocationReminderHere(): SetLocationReminderHereUseCase = get()
     fun removeLocationReminder(): RemoveLocationReminderUseCase = get()
     fun refreshLocationRemindersAvailability(): RefreshLocationRemindersAvailabilityUseCase = get()

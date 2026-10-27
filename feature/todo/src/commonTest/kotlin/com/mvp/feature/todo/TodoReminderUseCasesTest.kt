@@ -46,7 +46,7 @@ class TodoReminderUseCasesTest {
 
         val result = setReminder(TodoReminder("id-0", at = now + 60_000))
 
-        assertEquals(AppResult.Success(Todo("id-0", "Appeler Paul", isDone = false, reminderAt = now + 60_000)), result)
+        assertEquals(AppResult.Success(Todo("id-0", "Appeler Paul", isDone = false, reminderAt = now + 60_000, position = "a0")), result)
     }
 
     @Test
@@ -62,7 +62,7 @@ class TodoReminderUseCasesTest {
         add("Appeler Paul")
         setReminder(TodoReminder("id-0", at = now + 60_000))
 
-        assertEquals(AppResult.Success(Todo("id-0", "Appeler Paul", isDone = false)), setReminder(TodoReminder("id-0", at = null)))
+        assertEquals(AppResult.Success(Todo("id-0", "Appeler Paul", isDone = false, position = "a0")), setReminder(TodoReminder("id-0", at = null)))
     }
 
     @Test

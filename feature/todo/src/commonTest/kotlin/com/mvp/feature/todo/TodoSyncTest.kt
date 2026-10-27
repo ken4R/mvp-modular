@@ -16,6 +16,7 @@ import com.mvp.feature.todo.data.sync.TodoRemoteDataSource
 import com.mvp.feature.todo.data.sync.TodoSyncRepositoryImpl
 import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.Todo
+import com.mvp.feature.todo.domain.model.TodoPriority
 import com.mvp.feature.todo.domain.model.TodoSyncStatus
 import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoSyncUseCase
@@ -369,5 +370,32 @@ class TodoSyncTest {
         assertEquals(emptyList(), phone.todos())
         assertIs<AppResult.Success<List<*>>>(server.fetchAll())
         assertTrue((server.fetchAll() as AppResult.Success).data.isEmpty())
+    }
+
+    @Test
+    fun reorderAndPriorityMadeOfflineReachAnotherDevice() = scope.runTest {
+        val phone = Device()
+        val tablet = Device()
+        phone.local.upsert(Todo("a", "Première", isDone = false, position = "a0"))
+        phone.local.upsert(Todo("b", "Deuxième", isDone = false, position = "a1"))
+        phone.local.upsert(Todo("c", "Troisième", isDone = false, position = "a2"))
+        phone.sync.sync()
+        tablet.sync.sync()
+
+        connectivity.online.value = false
+        clock = 2_000L
+        phone.local.setPositions(mapOf("c" to "Zz"))
+        clock = 2_001L
+        phone.local.setPriority("b", TodoPriority.High)
+        // Une seule tâche déplacée : une seule modification d'ordre en attente.
+        assertEquals(listOf("c", "b"), phone.local.pendingChanges().map { it.id })
+
+        connectivity.online.value = true
+        phone.sync.sync()
+        tablet.sync.sync()
+
+        assertEquals(listOf("c", "a", "b"), tablet.todos().map { it.id })
+        assertEquals(TodoPriority.High, tablet.local.get("b")?.priority)
+        assertEquals(phone.todos(), tablet.todos())
     }
 }

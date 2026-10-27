@@ -5,10 +5,14 @@ import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
+import com.mvp.feature.todo.domain.model.TodoPriority
 import kotlinx.coroutines.flow.Flow
 
 interface TodoRepository {
+    /** Dans l'ordre manuel (clé [Todo.position], ADR 0024). */
     fun observeTodos(): Flow<List<Todo>>
+
+    /** Ajoutée en bas de la liste. */
     suspend fun addTodo(title: String): AppResult<Todo>
     suspend fun toggleTodo(id: String): AppResult<Todo>
     suspend fun deleteTodo(id: String): AppResult<Unit>
@@ -20,6 +24,14 @@ interface TodoRepository {
 
     /** `null` retire le rappel par lieu (ADR 0023). */
     suspend fun setLocationReminder(id: String, reminder: LocationReminder?): AppResult<Todo>
+
+    suspend fun setPriority(id: String, priority: TodoPriority): AppResult<Todo>
+
+    /**
+     * Nouvelles clés d'ordre, id de tâche → clé, écrites ensemble (ADR 0024). Une tâche supprimée entre-temps est
+     * ignorée.
+     */
+    suspend fun setPositions(positions: Map<String, String>): AppResult<Unit>
 
     /** Pièces jointes de la tâche [todoId], dans l'ordre d'ajout ; vide si elle n'existe pas. */
     fun observeAttachments(todoId: String): Flow<List<TodoAttachment>>

@@ -14,6 +14,8 @@ import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.model.TodoCalendarEvent
 import com.mvp.feature.todo.domain.model.TodoDueDate
+import com.mvp.feature.todo.domain.model.TodoPriority
+import com.mvp.feature.todo.domain.model.TodoPriorityChange
 import com.mvp.feature.todo.domain.model.TodoNote
 import com.mvp.feature.todo.domain.model.TodoShare
 import com.mvp.feature.todo.domain.model.TodoShareRequest
@@ -28,6 +30,7 @@ import com.mvp.feature.todo.domain.usecase.RefreshLocationRemindersAvailabilityU
 import com.mvp.feature.todo.domain.usecase.RemoveLocationReminderUseCase
 import com.mvp.feature.todo.domain.usecase.SetLocationReminderHereUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoDueDateUseCase
+import com.mvp.feature.todo.domain.usecase.SetTodoPriorityUseCase
 import com.mvp.feature.todo.domain.usecase.ShareTodoUseCase
 import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
 import kotlin.coroutines.cancellation.CancellationException
@@ -74,7 +77,7 @@ data class TodoDetailUiState(
 }
 
 /**
- * Fiche d'une tâche : note, pièces jointes (ADR 0014) et échéance (ADR 0022). Une seule instance pour l'onglet Tâches : [open] la
+ * Fiche d'une tâche : note, pièces jointes (ADR 0014), échéance (ADR 0022) et priorité (ADR 0024). Une seule instance pour l'onglet Tâches : [open] la
  * remplit pour une tâche, [close] enregistre la note modifiée puis la vide.
  */
 class TodoDetailViewModel(
@@ -85,6 +88,7 @@ class TodoDetailViewModel(
     private val deleteAttachment: DeleteTodoAttachmentUseCase,
     private val shareTodo: ShareTodoUseCase,
     private val setDueDate: SetTodoDueDateUseCase,
+    private val setPriority: SetTodoPriorityUseCase,
     private val exportToCalendar: ExportTodoToCalendarUseCase,
     private val setLocationReminderHere: SetLocationReminderHereUseCase,
     private val removeLocationReminder: RemoveLocationReminderUseCase,
@@ -228,6 +232,13 @@ class TodoDetailViewModel(
     fun onSetDueDate(dueDate: Int?) = viewModelScope.launch {
         val todoId = openedId ?: return@launch
         setDueDate(TodoDueDate(todoId, dueDate))
+            .onSuccess { _state.update { it.copy(error = null) } }
+            .onFailure(::showError)
+    }
+
+    fun onSetPriority(priority: TodoPriority) = viewModelScope.launch {
+        val todoId = openedId ?: return@launch
+        setPriority(TodoPriorityChange(todoId, priority))
             .onSuccess { _state.update { it.copy(error = null) } }
             .onFailure(::showError)
     }

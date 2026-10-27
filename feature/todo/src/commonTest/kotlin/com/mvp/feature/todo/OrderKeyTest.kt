@@ -104,14 +104,36 @@ class OrderKeyTest {
     }
 
     @Test
-    fun missingOrInvalidKeysRenumberTheWholeGroup() {
-        // Tâches reçues sans clé, ou d'avant l'ordre manuel.
-        val section = todos("a" to "", "b" to "", "c" to "a0")
+    fun todosWithoutKeyGetOneAndTheOthersKeepTheirs() {
+        // Tâches reçues sans clé, triées en tête : seules elles et la tâche déplacée sont réécrites.
+        val section = todos("a" to "", "b" to "", "c" to "a0", "d" to "a1", "e" to "a2")
 
-        val positions = TodoOrder.planMove(section, "c", 1)
+        val positions = TodoOrder.planMove(section, "e", 1)
+
+        assertEquals(setOf("a", "b", "e"), positions.keys)
+        assertTrue(positions.values.all(OrderKey::isValid))
+        assertEquals(listOf("a", "e", "b", "c", "d"), reorder(section, positions))
+    }
+
+    @Test
+    fun aMovedTodoWithoutKeyIsPlacedToo() {
+        val section = todos("a" to "", "b" to "a0", "c" to "a1")
+
+        val positions = TodoOrder.planMove(section, "a", 2)
+
+        assertEquals(setOf("a"), positions.keys)
+        assertEquals(listOf("b", "c", "a"), reorder(section, positions))
+    }
+
+    @Test
+    fun anInvalidKeyAfterTheFirstOnesRenumbersTheGroup() {
+        // Clé écrite à la main dans la base : ni en tête, ni valide.
+        val section = todos("a" to "a0", "b" to "pas une clé", "c" to "a1")
+
+        val positions = TodoOrder.planMove(section, "c", 0)
 
         assertEquals(setOf("a", "b", "c"), positions.keys)
-        assertEquals(listOf("a", "c", "b"), reorder(section, positions))
+        assertEquals(listOf("c", "a", "b"), reorder(section, positions))
     }
 
     @Test
@@ -131,10 +153,25 @@ class OrderKeyTest {
     }
 
     @Test
+    fun aKeyTheAppWouldRejectRenumbersTheGroup() {
+        // Rien avant la plus petite clé valide sinon la plus petite partie entière, que l'app refuse à la réception.
+        val section = todos("a" to "A" + "0".repeat(25) + "1", "b" to "a0")
+
+        val positions = TodoOrder.planMove(section, "b", 0)
+
+        assertEquals(setOf("a", "b"), positions.keys)
+        assertTrue(positions.values.all(OrderKey::isValid))
+        assertEquals(listOf("b", "a"), reorder(section, positions))
+    }
+
+    @Test
     fun nextPositionGoesAfterTheLastKey() {
         assertEquals("a0", TodoOrder.nextPosition(null))
         assertEquals("a0", TodoOrder.nextPosition(""))
         assertEquals("h00000003", TodoOrder.nextPosition("h00000002"))
+        // Après la plus grande partie entière (reçue d'un serveur), la clé s'allonge, puis il n'y en a plus de valide.
+        assertTrue(TodoOrder.nextPosition("z".repeat(27))!!.let { it.length == 28 && OrderKey.isValid(it) })
+        assertEquals(null, TodoOrder.nextPosition("z".repeat(OrderKey.MAX_LENGTH)))
     }
 
     private fun todos(vararg idAndPosition: Pair<String, String>) =

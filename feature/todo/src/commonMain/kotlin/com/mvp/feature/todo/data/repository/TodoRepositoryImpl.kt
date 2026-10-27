@@ -12,6 +12,7 @@ import com.mvp.feature.todo.domain.model.TodoPriority
 import com.mvp.feature.todo.domain.order.TodoOrder
 import com.mvp.feature.todo.domain.repository.TodoRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -26,7 +27,17 @@ internal class TodoRepositoryImpl(
     override suspend fun addTodo(title: String): AppResult<Todo> = safeCall {
         // Clé lue juste avant l'insertion : deux ajouts simultanés peuvent avoir la même, départagée par l'ordre d'ajout.
         val position = TodoOrder.nextPosition(local.lastPosition())
-        Todo(id = idGenerator(), title = title, isDone = false, position = position).also(local::upsert)
+        if (position != null) {
+            Todo(id = idGenerator(), title = title, isDone = false, position = position).also(local::upsert)
+        } else {
+            // Plus de clé valide après la dernière : toutes les tâches repartent de clés courtes, la nouvelle en bas.
+            val existing = local.observe().first()
+            val todo = Todo(id = idGenerator(), title = title, isDone = false)
+            local.upsert(todo)
+            val positions = TodoOrder.renumber(existing + todo)
+            local.setPositions(positions)
+            todo.copy(position = positions.getValue(todo.id))
+        }
     }
 
     override suspend fun toggleTodo(id: String): AppResult<Todo> =

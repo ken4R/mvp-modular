@@ -185,10 +185,11 @@ private fun TodoContent(
     filterActions: TodoFilterActions,
 ) {
     // Ordre pendant un glisser-déposer, montré à la place de la liste du ViewModel ; oublié dès qu'elle change
-    // (le ViewModel affiche l'ordre lâché, puis celui de la base).
+    // après le lâcher (le ViewModel affiche l'ordre lâché, puis celui de la base). Pendant le glissement, une liste
+    // reçue (synchronisation) ne fait pas revenir la ligne sous le doigt.
     var dragOrder by remember { mutableStateOf<List<Todo>?>(null) }
     var draggedId by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(state.todos) { dragOrder = null }
+    LaunchedEffect(state.todos) { if (draggedId == null) dragOrder = null }
     val shown = dragOrder ?: state.todos
     val haptics = LocalHapticFeedback.current
     val reorderState = rememberReorderableLazyListState(listState) { from, to ->

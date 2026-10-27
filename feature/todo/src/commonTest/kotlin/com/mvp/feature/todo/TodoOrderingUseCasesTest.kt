@@ -11,6 +11,7 @@ import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoMove
 import com.mvp.feature.todo.domain.model.TodoPriority
 import com.mvp.feature.todo.domain.model.TodoPriorityChange
+import com.mvp.feature.todo.domain.order.OrderKey
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.MoveTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
@@ -22,6 +23,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class TodoOrderingUseCasesTest {
 
@@ -51,6 +53,18 @@ class TodoOrderingUseCasesTest {
         add("Troisième")
 
         assertEquals(listOf("1", "0", "2"), ids())
+    }
+
+    @Test
+    fun withoutAValidKeyAfterTheLastOneEveryTodoIsRenumbered() = scope.runTest {
+        // Dernière clé reçue d'un serveur, déjà au plus long : la suivante serait refusée par les autres appareils.
+        local.upsert(Todo("reçue", "Reçue", isDone = false, position = "z".repeat(OrderKey.MAX_LENGTH)))
+        local.upsert(Todo("faite", "Faite", isDone = true, position = "a5"))
+
+        add("Nouvelle")
+
+        assertEquals(listOf("reçue", "0", "faite"), ids())
+        assertTrue(listOf("reçue", "0", "faite").all { OrderKey.isValid(todo(it).position) && todo(it).position.length <= 2 })
     }
 
     @Test

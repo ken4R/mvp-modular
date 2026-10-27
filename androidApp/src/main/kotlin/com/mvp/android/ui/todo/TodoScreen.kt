@@ -111,6 +111,10 @@ fun TodoScreen(
             viewModel.onTrashedNoticeDismissed(notice)
         }
     }
+    // Le message n'a d'hôte que sur la liste : il disparaît (la tâche reste dans la corbeille) quand on la quitte.
+    LaunchedEffect(openedTodoId, showStats, showCalendar, showTrash) {
+        if (openedTodoId != null || showStats || showCalendar || showTrash) snackbar.currentSnackbarData?.dismiss()
+    }
     LaunchedEffect(focusRequest) {
         focusRequest?.let {
             // Un lien vers une tâche revient à la liste, où elle est mise en évidence.

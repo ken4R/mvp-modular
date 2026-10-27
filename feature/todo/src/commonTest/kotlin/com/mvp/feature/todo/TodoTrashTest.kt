@@ -1,6 +1,9 @@
 package com.mvp.feature.todo
 
+import app.cash.sqldelight.db.AfterVersion
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
+import app.cash.sqldelight.db.SqlSchema
 import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.result.getOrNull
@@ -40,6 +43,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** Corbeille avec annulation (ADR 0025), sur la vraie base SQLite et sa file d'envoi. */
 class TodoTrashTest {
@@ -235,6 +239,18 @@ class TodoTrashTest {
     }
 
     @Test
+    fun aFileThatCannotBeDeletedDoesNotFailThePermanentDeletion() = scope.runTest {
+        val phone = Device()
+        val todo = phone.addTodo("Tâche")
+        phone.local.addAttachment("p1", todo.id, "Photo.jpg", AttachmentType.Photo, byteArrayOf(1))
+        phone.delete(todo.id)
+        phone.files.deleteFailure = IllegalStateException("disque")
+
+        assertEquals(AppResult.Success(Unit), phone.deletePermanently(todo.id))
+        assertEquals(emptyList(), phone.trash())
+    }
+
+    @Test
     fun emptyingTheTrashKeepsTheListedTodos() = scope.runTest {
         val phone = Device()
         val a = phone.addTodo("A")
@@ -351,13 +367,18 @@ class TodoTrashTest {
 
     @Test
     fun migrationToVersion9PutsNoTodoInTheTrash() = scope.runTest {
-        val driver = createInMemoryDriver(TodoDatabase.Schema).also { drivers += it }
+        val driver = createInMemoryDriver(TrashSchemaV1).also { drivers += it }
+        TodoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 8)
+        driver.execute(null, "INSERT INTO TodoEntity(id, title, is_done) VALUES ('a', 'Ancienne', 0)", 0)
+
+        TodoDatabase.Schema.migrate(driver, oldVersion = 8, newVersion = TodoDatabase.Schema.version)
         val source = SqlDelightTodoLocalDataSource(TodoDatabase(driver), dispatcher, FakeFileStore(), now = { clock })
-        source.upsert(Todo("a", "Tâche", isDone = false))
 
         assertEquals(9L, TodoDatabase.Schema.version)
         assertEquals(listOf("a"), source.observe().first().map { it.id })
         assertEquals(emptyList(), source.observeTrash().first())
+        assertTrue(source.trash("a"))
+        assertEquals(listOf("a"), source.observeTrash().first().map { it.todo.id })
     }
 
     @Test
@@ -390,4 +411,25 @@ class TodoTrashTest {
         assertEquals(listOf("id-0"), scheduler.scheduled.map { it.id })
         job.cancel()
     }
+}
+
+/** Schéma de `todo.db` avant les rappels (version 1), pour tester la migration jusqu'à la corbeille. */
+private object TrashSchemaV1 : SqlSchema<QueryResult.Value<Unit>> {
+    override val version: Long = 1
+
+    override fun create(driver: SqlDriver): QueryResult.Value<Unit> {
+        driver.execute(
+            null,
+            "CREATE TABLE TodoEntity (id TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, is_done INTEGER NOT NULL DEFAULT 0)",
+            0,
+        )
+        return QueryResult.Unit
+    }
+
+    override fun migrate(
+        driver: SqlDriver,
+        oldVersion: Long,
+        newVersion: Long,
+        vararg callbacks: AfterVersion,
+    ): QueryResult.Value<Unit> = QueryResult.Unit
 }

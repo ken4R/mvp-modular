@@ -30,4 +30,6 @@ Supprimer une tâche était immédiat et définitif : la ligne, ses pièces join
 - Comme tout conflit (ADR 0012), il se règle par tâche entière : une modification faite ailleurs après la mise à la corbeille fait revenir la tâche, et une mise à la corbeille plus récente qu'une modification faite ailleurs la jette sur tous les appareils.
 - La purge n'a lieu que quand l'app tourne. Un appareil jamais relancé garde ses tâches expirées ; un autre appareil les purge et envoie la suppression. Le serveur réel devra purger lui aussi (et borner `trashedAt` à son horloge, comme `updatedAt`).
 - L'écran Compose Multiplatform (ADR 0010) met aussi à la corbeille, sans « Annuler » ni écran Corbeille : la tâche se restaure depuis l'écran natif.
+- L'heure de mise à la corbeille est ramenée à l'horloge de l'appareil (reçue ou locale) : une heure en avance ne retarde pas la purge.
+- Compatibilité : un client qui n'envoie pas `trashedAt` (version antérieure) ferait revenir une tâche jetée à sa prochaine modification. Le vrai serveur devra garder `trashedAt` quand une version ne le porte pas.
 - La corbeille n'est pas dans le widget, l'analytics ni le partage.

@@ -127,7 +127,7 @@ internal class SqlDelightTodoLocalDataSource(
 
     /**
      * Supprime définitivement, dans une transaction, les tâches que [select] y lit : lignes, pièces jointes, et une
-     * suppression dans la file d'envoi pour chacune. Les fichiers des pièces jointes sont effacés après. Renvoie le
+     * suppression dans la file d'envoi pour chacune. Les fichiers des pièces jointes sont effacés après, au mieux. Renvoie le
      * nombre de tâches supprimées.
      */
     private fun deletePermanently(select: () -> List<TodoEntity>): Int {
@@ -141,7 +141,9 @@ internal class SqlDelightTodoLocalDataSource(
             }
             selected.size to attachmentIds
         }
-        removedFiles.forEach(files::delete)
+        // Les tâches sont déjà supprimées : un fichier qui ne s'efface pas reste orphelin (effacé à la déconnexion), sans
+        // faire échouer la suppression ni empêcher celle des autres fichiers.
+        removedFiles.forEach { runCatching { files.delete(it) } }
         return count
     }
 

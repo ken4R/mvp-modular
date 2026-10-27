@@ -32,6 +32,7 @@ import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ExportTodoToCalendarUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
+import com.mvp.feature.todo.domain.usecase.MoveTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveCompletionStatsUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveFilteredTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveLocationRemindersAvailableUseCase
@@ -45,6 +46,7 @@ import com.mvp.feature.todo.domain.usecase.RefreshLocationRemindersAvailabilityU
 import com.mvp.feature.todo.domain.usecase.RemoveLocationReminderUseCase
 import com.mvp.feature.todo.domain.usecase.SetLocationReminderHereUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoDueDateUseCase
+import com.mvp.feature.todo.domain.usecase.SetTodoPriorityUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
 import com.mvp.feature.todo.domain.usecase.ShareTodoUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoDraftUseCase
@@ -135,6 +137,9 @@ val todoModule = module {
     factory { SyncTodoLocationRemindersUseCase(get(), get(), get(), get(), get<AppDispatchers>().io) }
     factory { ObserveLocationRemindersAvailableUseCase(get(), get<AppDispatchers>().io) }
     factory { RefreshLocationRemindersAvailabilityUseCase(get(), get<AppDispatchers>().default) }
+    // Priorité et ordre manuel (glisser-déposer), synchronisés avec la tâche (ADR 0024).
+    factory { SetTodoPriorityUseCase(get(), get<AppDispatchers>().io) }
+    factory { MoveTodoUseCase(get(), get<AppDispatchers>().io) }
 }
 
 /** Dossier des fichiers des pièces jointes, effacé à la déconnexion. */

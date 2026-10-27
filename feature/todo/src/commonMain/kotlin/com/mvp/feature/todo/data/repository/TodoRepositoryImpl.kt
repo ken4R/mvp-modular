@@ -8,8 +8,11 @@ import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
+import com.mvp.feature.todo.domain.model.TodoPriority
+import com.mvp.feature.todo.domain.order.TodoOrder
 import com.mvp.feature.todo.domain.repository.TodoRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -22,7 +25,19 @@ internal class TodoRepositoryImpl(
     override fun observeTodos(): Flow<List<Todo>> = local.observe()
 
     override suspend fun addTodo(title: String): AppResult<Todo> = safeCall {
-        Todo(id = idGenerator(), title = title, isDone = false).also(local::upsert)
+        // Clé lue juste avant l'insertion : deux ajouts simultanés peuvent avoir la même, départagée par l'ordre d'ajout.
+        val position = TodoOrder.nextPosition(local.lastPosition())
+        if (position != null) {
+            Todo(id = idGenerator(), title = title, isDone = false, position = position).also(local::upsert)
+        } else {
+            // Plus de clé valide après la dernière : toutes les tâches repartent de clés courtes, la nouvelle en bas.
+            val existing = local.observe().first()
+            val todo = Todo(id = idGenerator(), title = title, isDone = false)
+            local.upsert(todo)
+            val positions = TodoOrder.renumber(existing + todo)
+            local.setPositions(positions)
+            todo.copy(position = positions.getValue(todo.id))
+        }
     }
 
     override suspend fun toggleTodo(id: String): AppResult<Todo> =
@@ -42,6 +57,13 @@ internal class TodoRepositoryImpl(
 
     override suspend fun setLocationReminder(id: String, reminder: LocationReminder?): AppResult<Todo> =
         local.setLocationReminder(id, reminder)?.let { AppResult.Success(it) } ?: AppResult.Failure(AppError.NotFound)
+
+    override suspend fun setPriority(id: String, priority: TodoPriority): AppResult<Todo> =
+        local.setPriority(id, priority)?.let { AppResult.Success(it) } ?: AppResult.Failure(AppError.NotFound)
+
+    override suspend fun setPositions(positions: Map<String, String>): AppResult<Unit> = safeCall {
+        local.setPositions(positions)
+    }
 
     override fun observeAttachments(todoId: String): Flow<List<TodoAttachment>> = local.observeAttachments(todoId)
 

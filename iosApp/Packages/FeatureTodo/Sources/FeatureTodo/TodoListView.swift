@@ -151,7 +151,16 @@ public struct TodoListView: View {
                             Button("Supprimer", role: .destructive) { Task { await viewModel.delete(todo) } }
                         }
                         .listRowBackground(todo.id == viewModel.focusedTodoId ? Color(argb: colors.highlight) : nil)
+                        // VoiceOver : monter ou descendre d'un cran, à la place du glisser-déposer.
+                        .accessibilityActions {
+                            if viewModel.allowsReordering {
+                                Button("Monter") { viewModel.moveByOne(todo, up: true) }
+                                Button("Descendre") { viewModel.moveByOne(todo, up: false) }
+                            }
+                        }
                     }
+                    // Appui long puis glisser (ADR 0024) ; absent quand la liste est triée par priorité.
+                    .onMove(perform: viewModel.allowsReordering ? move : nil)
                 }
                 .listStyle(.plain)
                 .scrollDismissesKeyboard(.immediately)
@@ -207,6 +216,8 @@ public struct TodoListView: View {
             HStack(spacing: DS.Spacing.sm) {
                 Toggle(isOn: $viewModel.withReminder) { Label("Avec rappel", systemImage: "bell") }
                 Toggle(isOn: $viewModel.withAttachments) { Label("Avec pièce jointe", systemImage: "paperclip") }
+                // Tri, pas filtre : il désactive le glisser-déposer tant qu'il est choisi.
+                Toggle(isOn: $viewModel.byPriority) { Label("Par priorité", systemImage: "arrow.up.arrow.down") }
             }
             .toggleStyle(.button)
             .font(DS.Typography.label)
@@ -236,6 +247,10 @@ public struct TodoListView: View {
         if !title.isEmpty { viewModel.input = title }
     }
 
+    private func move(_ source: IndexSet, _ destination: Int) {
+        viewModel.move(from: source, to: destination)
+    }
+
     /// Ferme le clavier après l'ajout : sinon la barre d'autocorrection peut
     /// encore intercepter le tap suivant sur une ligne de la liste.
     private func add() {
@@ -258,6 +273,15 @@ private struct TodoRow: View {
     let onReminder: () -> Void
     let onOpen: () -> Void
 
+    /// Couleur des erreurs pour la priorité haute, l'accent pour la moyenne.
+    private var priorityColor: Int64 {
+        switch todo.priorityOption {
+        case .high: return colors.error
+        case .medium: return colors.primary
+        case .low, .noPriority: return colors.onSurface
+        }
+    }
+
     var body: some View {
         HStack(spacing: DS.Spacing.sm) {
             Button(action: onToggle) {
@@ -269,6 +293,11 @@ private struct TodoRow: View {
                             .font(DS.Typography.body)
                             .strikethrough(todo.isDone)
                             .foregroundColor(Color(argb: colors.onSurface))
+                        if let badge = todo.priorityOption.badge {
+                            Text(badge)
+                                .font(DS.Typography.caption)
+                                .foregroundColor(Color(argb: priorityColor))
+                        }
                         if let date = todo.reminderDate {
                             Text("Rappel le \(date.formatted(date: .abbreviated, time: .shortened))")
                                 .font(DS.Typography.caption)

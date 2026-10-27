@@ -9,12 +9,14 @@ import com.mvp.core.common.domain.result.onSuccess
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoFilter
+import com.mvp.feature.todo.domain.model.TodoMove
 import com.mvp.feature.todo.domain.model.TodoReminder
 import com.mvp.feature.todo.domain.model.TodoStatusFilter
 import com.mvp.feature.todo.domain.model.TodoSyncStatus
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
+import com.mvp.feature.todo.domain.usecase.MoveTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveFilteredTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
@@ -90,10 +92,14 @@ class TodoViewModel(
     private val deleteTodo: DeleteTodoUseCase,
     private val findTodo: FindTodoUseCase,
     private val setTodoReminder: SetTodoReminderUseCase,
+    private val moveTodo: MoveTodoUseCase,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(TodoUiState())
     private var queryJob: Job? = null
+
+    /** Dernière liste lue, remise si un déplacement échoue (la liste affichée l'a déjà anticipé). */
+    private var shownTodos: List<Todo> = emptyList()
     val state: StateFlow<TodoUiState> = _state.asStateFlow()
 
     init {
@@ -103,7 +109,10 @@ class TodoViewModel(
             .flatMapLatest { filter -> observeFilteredTodos(filter) }
             .onEach { result ->
                 when (result) {
-                    is AppResult.Success -> _state.update { it.copy(todos = result.data.todos, allTodos = result.data.all) }
+                    is AppResult.Success -> {
+                        shownTodos = result.data.todos
+                        _state.update { it.copy(todos = result.data.todos, allTodos = result.data.all) }
+                    }
                     is AppResult.Failure -> showError(result.error)
                 }
             }
@@ -149,9 +158,27 @@ class TodoViewModel(
 
     fun onToggleAttachmentFilter() = updateFilter { it.copy(withAttachments = !it.withAttachments) }
 
+    /** Tri par priorité, ou ordre manuel (glisser-déposer) ; ce n'est pas un filtre (ADR 0024). */
+    fun onTogglePrioritySort() = updateFilter { it.copy(byPriority = !it.byPriority) }
+
+    /**
+     * Tâche [movedId] lâchée : [reordered] est la liste affichée après le déplacement, montrée tout de suite ; la
+     * tâche est posée après sa voisine du dessus. L'écran ne laisse pas une tâche changer de groupe (à faire, terminées).
+     */
+    fun onDrop(reordered: List<Todo>, movedId: String) = viewModelScope.launch {
+        val index = reordered.indexOfFirst { it.id == movedId }
+        if (index < 0) return@launch
+        _state.update { it.copy(todos = reordered) }
+        moveTodo(TodoMove(movedId, afterTodoId = reordered.getOrNull(index - 1)?.id)).onFailure { error ->
+            _state.update { it.copy(todos = shownTodos) }
+            showError(error)
+        }
+    }
+
+    /** Le tri choisi est gardé : ce n'est pas un filtre. */
     fun onClearFilter() {
         queryJob?.cancel()
-        _state.update { it.copy(query = "", filter = TodoFilter()) }
+        _state.update { it.copy(query = "", filter = TodoFilter(byPriority = it.filter.byPriority)) }
     }
 
     private fun updateFilter(transform: (TodoFilter) -> TodoFilter) = _state.update { it.copy(filter = transform(it.filter)) }

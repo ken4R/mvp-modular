@@ -1,6 +1,7 @@
 -- File d'envoi de la synchronisation (ADR 0012) : une ligne par tâche modifiée depuis son dernier envoi réussi.
--- Plusieurs modifications d'une même tâche n'en font qu'une (la dernière) ; le titre, l'état, la note et l'échéance sont lus dans
--- TodoEntity au moment de l'envoi. is_deleted : tâche supprimée (elle n'a plus de ligne dans TodoEntity).
+-- Plusieurs modifications d'une même tâche n'en font qu'une (la dernière) ; le titre, l'état, la note, l'échéance, la
+-- priorité et la clé d'ordre (ADR 0024) sont lus dans TodoEntity au moment de l'envoi.
+-- is_deleted : tâche supprimée (elle n'a plus de ligne dans TodoEntity).
 -- changed_at : heure de la modification (epoch ms), envoyée au serveur pour départager les conflits.
 CREATE TABLE TodoPendingChange (
     todo_id TEXT NOT NULL PRIMARY KEY,
@@ -12,7 +13,8 @@ upsert:
 INSERT OR REPLACE INTO TodoPendingChange(todo_id, is_deleted, changed_at) VALUES (?, ?, ?);
 
 selectPending:
-SELECT pending.todo_id, pending.is_deleted, pending.changed_at, entity.title, entity.is_done, entity.note, entity.due_date
+SELECT pending.todo_id, pending.is_deleted, pending.changed_at, entity.title, entity.is_done, entity.note, entity.due_date,
+    entity.priority, entity.position
 FROM TodoPendingChange pending
 LEFT JOIN TodoEntity entity ON entity.id = pending.todo_id
 ORDER BY pending.changed_at;

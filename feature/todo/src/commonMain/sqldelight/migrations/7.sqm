@@ -1,0 +1,6 @@
+-- Version 7 -> 8 : priorité et ordre manuel des tâches (ADR 0024). Les tâches existantes n'ont pas de priorité et
+-- gardent leur ordre de création : clé « h » + rowid sur 8 chiffres, une partie entière valide d'OrderKey (les
+-- chiffres 0 à 9 sont des chiffres base 62), croissante avec le rowid.
+ALTER TABLE TodoEntity ADD COLUMN priority INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE TodoEntity ADD COLUMN position TEXT NOT NULL DEFAULT '';
+UPDATE TodoEntity SET position = 'h' || printf('%08d', rowid);

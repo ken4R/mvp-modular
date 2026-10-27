@@ -16,6 +16,8 @@ import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
+import com.mvp.feature.todo.domain.model.TodoPriority
+import com.mvp.feature.todo.domain.order.OrderKey
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
 import kotlinx.coroutines.CoroutineDispatcher
@@ -27,7 +29,7 @@ import kotlin.time.ExperimentalTime
 
 /**
  * Tâches stockées dans SQLite : elles survivent au redémarrage de l'app. Chaque modification du titre, de
- * l'état, de la note ou de l'échéance (ADR 0022) entre dans la file d'envoi de la synchronisation dans la même transaction (ADR 0012) ;
+ * l'état, de la note, de l'échéance (ADR 0022), de la priorité ou de la clé d'ordre (ADR 0024) entre dans la file d'envoi de la synchronisation dans la même transaction (ADR 0012) ;
  * les rappels (à l'heure et par lieu, ADR 0023) et les pièces jointes, propres à l'appareil, n'y entrent pas. Le contenu des pièces jointes est dans
  * [files], un fichier par pièce jointe nommé par son id (ADR 0014) : écrit avant sa ligne, supprimé après elle,
  * donc une ligne a toujours son fichier. L'heure à laquelle une tâche est terminée est gardée sur l'appareil pour
@@ -58,6 +60,7 @@ internal class SqlDelightTodoLocalDataSource(
             queries.insert(
                 todo.id, todo.title, todo.isDone.toLong(), todo.reminderAt, changedAt, todo.note, completedAt,
                 todo.dueDate?.toLong(), place?.latitude, place?.longitude, place?.radiusMeters?.toLong(), place?.label,
+                todo.priority.level.toLong(), todo.position,
             )
             enqueue(todo.id, changedAt)
         } else {
@@ -77,6 +80,14 @@ internal class SqlDelightTodoLocalDataSource(
 
     override fun setLocationReminder(id: String, reminder: LocationReminder?): Todo? =
         modify(id) { it.copy(locationReminder = reminder) }
+
+    override fun setPriority(id: String, priority: TodoPriority): Todo? = modify(id) { it.copy(priority = priority) }
+
+    override fun setPositions(positions: Map<String, String>) = queries.transaction {
+        positions.forEach { (id, position) -> modify(id) { it.copy(position = position) } }
+    }
+
+    override fun lastPosition(): String? = queries.selectLastPosition().executeAsOne().ifEmpty { null }
 
     override fun delete(id: String): Boolean {
         val removedFiles = queries.transactionWithResult<List<String>?> {
@@ -154,7 +165,7 @@ internal class SqlDelightTodoLocalDataSource(
         pending.count().asFlow().mapToOne(dispatcher).map { it.toInt() }
 
     override fun pendingChanges(): List<TodoRecord> =
-        pending.selectPending { todoId, isDeleted, changedAt, title, isDone, note, dueDate ->
+        pending.selectPending { todoId, isDeleted, changedAt, title, isDone, note, dueDate, priority, position ->
             // Sans ligne dans TodoEntity, la tâche n'existe plus : c'est une suppression.
             if (isDeleted != 0L || title == null || isDone == null) {
                 TodoRecord(id = todoId, title = "", isDone = false, updatedAt = changedAt, isDeleted = true)
@@ -166,6 +177,8 @@ internal class SqlDelightTodoLocalDataSource(
                     updatedAt = changedAt,
                     note = note.orEmpty(),
                     dueDate = dueDate?.toInt(),
+                    priority = priority?.let { TodoPriority.fromLevel(it.toInt()) } ?: TodoPriority.None,
+                    position = position.orEmpty(),
                 )
             }
         }.executeAsList()
@@ -185,7 +198,9 @@ internal class SqlDelightTodoLocalDataSource(
         // Le serveur n'est pas cru sur parole : une version que l'app n'aurait pas pu écrire est ignorée.
         // Un id qui n'est pas un UUID de l'app finirait dans un lien (partage, calendrier) : ignoré, suppression comprise.
         if (!DeepLinks.isValidTodoId(record.id)) return emptyList()
-        val valid = record.title.isValidTitle() && record.note.isValidNote() && record.dueDate.isValidDueDate()
+        // Clé d'ordre : vide (inconnue, la tâche garde la sienne) ou une clé que l'app aurait pu écrire.
+        val valid = record.title.isValidTitle() && record.note.isValidNote() && record.dueDate.isValidDueDate() &&
+            (record.position.isEmpty() || OrderKey.isValid(record.position))
         if (!record.isDeleted && !valid) return emptyList()
         val local = queries.selectById(record.id).executeAsOneOrNull()
         when {
@@ -203,11 +218,13 @@ internal class SqlDelightTodoLocalDataSource(
             local == null -> queries.insert(
                 record.id, record.title, record.isDone.toLong(), null, record.updatedAt, record.note,
                 record.updatedAt.takeIf { record.isDone }, record.dueDate?.toLong(), null, null, null, null,
+                record.priority.level.toLong(), record.position,
             )
             else -> queries.update(
                 record.title, record.isDone.toLong(), local.reminder_at, record.updatedAt, record.note,
                 completedAt(local, record.isDone, record.updatedAt), record.dueDate?.toLong(),
-                local.location_latitude, local.location_longitude, local.location_radius, local.location_label, record.id,
+                local.location_latitude, local.location_longitude, local.location_radius, local.location_label,
+                record.priority.level.toLong(), record.position.ifEmpty { local.position }, record.id,
             )
         }
         return emptyList()
@@ -219,16 +236,21 @@ internal class SqlDelightTodoLocalDataSource(
         transform(toTodo(existing, attachmentCount)).also { write(existing, it) }
     }
 
-    /** Met à jour la ligne ; seul un changement du titre, de l'état, de la note ou de l'échéance est daté et part au serveur. */
+    /**
+     * Met à jour la ligne ; seul un changement du titre, de l'état, de la note, de l'échéance, de la priorité ou de
+     * la clé d'ordre est daté et part au serveur.
+     */
     private fun write(existing: TodoEntity, todo: Todo) {
         val synced = existing.title != todo.title || (existing.is_done != 0L) != todo.isDone ||
-            existing.note != todo.note || existing.due_date != todo.dueDate?.toLong()
+            existing.note != todo.note || existing.due_date != todo.dueDate?.toLong() ||
+            existing.priority != todo.priority.level.toLong() || existing.position != todo.position
         val updatedAt = if (synced) changedAfter(existing) else existing.updated_at
         val place = todo.locationReminder
         queries.update(
             todo.title, todo.isDone.toLong(), todo.reminderAt, updatedAt, todo.note,
             completedAt(existing, todo.isDone, updatedAt), todo.dueDate?.toLong(),
-            place?.latitude, place?.longitude, place?.radiusMeters?.toLong(), place?.label, todo.id,
+            place?.latitude, place?.longitude, place?.radiusMeters?.toLong(), place?.label,
+            todo.priority.level.toLong(), todo.position, todo.id,
         )
         if (synced) enqueue(todo.id, updatedAt)
     }
@@ -277,7 +299,7 @@ internal class SqlDelightTodoLocalDataSource(
 private fun toTodo(entity: TodoEntity, attachmentCount: Long) = rowToTodo(
     entity.id, entity.title, entity.is_done, entity.reminder_at, entity.updated_at, entity.note, entity.completed_at,
     entity.due_date, entity.location_latitude, entity.location_longitude, entity.location_radius, entity.location_label,
-    attachmentCount,
+    entity.priority, entity.position, attachmentCount,
 )
 
 /** Une ligne de `selectAll` ou `selectWithAttachmentCountById` (colonnes de TodoEntity + nombre de pièces jointes). */
@@ -295,6 +317,8 @@ private fun rowToTodo(
     locationLongitude: Double?,
     locationRadius: Long?,
     locationLabel: String?,
+    priority: Long,
+    position: String,
     attachmentCount: Long,
 ) = Todo(
     id = id,
@@ -305,6 +329,9 @@ private fun rowToTodo(
     attachmentCount = attachmentCount.toInt(),
     dueDate = dueDate?.toInt(),
     locationReminder = locationReminder(locationLatitude, locationLongitude, locationRadius, locationLabel),
+    // Un niveau inconnu (écrit à la main) vaut « aucune ».
+    priority = TodoPriority.fromLevel(priority.toInt()) ?: TodoPriority.None,
+    position = position,
 )
 
 /** Les quatre colonnes ou aucune : une ligne incomplète (écrite à la main) n'a pas de rappel par lieu. */

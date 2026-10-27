@@ -1,5 +1,6 @@
 import Foundation
 import Shared
+import SwiftUI
 
 /// État filtré ; la valeur brute est le nom Kotlin de l'entrée de `TodoStatusFilter`, que l'export Swift renomme.
 enum TodoStatusOption: String, CaseIterable {
@@ -25,6 +26,8 @@ final class TodoViewModel: ObservableObject {
     @Published var status: TodoStatusOption = .all { didSet { if status != oldValue { observeFiltered() } } }
     @Published var withReminder = false { didSet { if withReminder != oldValue { observeFiltered() } } }
     @Published var withAttachments = false { didSet { if withAttachments != oldValue { observeFiltered() } } }
+    /// Tri par priorité au lieu de l'ordre manuel (ADR 0024) ; ce n'est pas un filtre, il bloque le glisser-déposer.
+    @Published var byPriority = false { didSet { if byPriority != oldValue { observeFiltered() } } }
     @Published var input: String = ""
     @Published private(set) var error: String?
     @Published private(set) var remindersEnabled = true
@@ -34,6 +37,8 @@ final class TodoViewModel: ObservableObject {
     @Published private(set) var syncBanner: SyncBanner?
 
     private var subscription: Subscription?
+    /// Dernière liste lue, remise si un déplacement échoue (la liste affichée l'a déjà anticipé).
+    private var shownTodos: [Todo] = []
     private var debounceTask: Task<Void, Never>?
     /// Entre `start()` et `stop()` ; `false` aussi pendant `clearFilter()`, qui ne réobserve qu'une fois.
     private var isObserving = false
@@ -77,10 +82,21 @@ final class TodoViewModel: ObservableObject {
 
     /// Filtre courant ; `isActive` (logique KMP) dit s'il retire des tâches.
     private var filter: TodoFilter {
-        KoinIosKt.todoFilter(query: query, status: status.rawValue, withReminder: withReminder, withAttachments: withAttachments)
+        KoinIosKt.todoFilter(
+            query: query,
+            status: status.rawValue,
+            withReminder: withReminder,
+            withAttachments: withAttachments,
+            byPriority: byPriority
+        )
     }
 
-    /// Retire la recherche et les filtres : toute la liste est affichée.
+    /// Glisser-déposer possible : la liste suit l'ordre manuel (logique KMP) et a de quoi être réordonnée.
+    var allowsReordering: Bool {
+        filter.allowsReordering && todos.count > 1
+    }
+
+    /// Retire la recherche et les filtres : toute la liste est affichée. Le tri choisi est gardé.
     func clearFilter() {
         let wasObserving = isObserving
         isObserving = false
@@ -112,6 +128,7 @@ final class TodoViewModel: ObservableObject {
         subscription = UseCases.shared.observeFilteredTodos(
             filter: filter,
             onTodos: { [weak self] result in
+                self?.shownTodos = result.todos
                 self?.todos = result.todos
                 self?.allTodos = result.all
             },
@@ -178,6 +195,37 @@ final class TodoViewModel: ObservableObject {
     func delete(_ todo: Todo) async {
         let result = try? await UseCases.shared.deleteTodo().invoke(params: todo.id as NSString)
         if let failure = result as? AppResultFailure { error = failure.error.userMessage }
+    }
+
+    /// Ligne lâchée par le glisser-déposer de `List` : montrée tout de suite à sa nouvelle place, puis posée après
+    /// sa voisine du dessus par la logique KMP. Refusé si la tâche quitte son groupe (à faire, terminées).
+    func move(from source: IndexSet, to destination: Int) {
+        guard source.count == 1, let from = source.first, todos.indices.contains(from),
+              (0...todos.count).contains(destination) else { return }
+        let movedId = todos[from].id
+        var reordered = todos
+        reordered.move(fromOffsets: source, toOffset: destination)
+        guard let index = reordered.firstIndex(where: { $0.id == movedId }) else { return }
+        let moved = reordered[index]
+        let above = index > 0 ? reordered[index - 1] : nil
+        let below = index + 1 < reordered.count ? reordered[index + 1] : nil
+        // À faire : jamais sous une terminée. Terminée : jamais au-dessus d'une tâche à faire.
+        let staysInGroup = moved.isDone ? (below.map { $0.isDone } ?? true) : (above.map { !$0.isDone } ?? true)
+        guard staysInGroup, reordered.map(\.id) != todos.map(\.id) else { return }
+        todos = reordered
+        Task {
+            let result = try? await UseCases.shared.moveTodo().invoke(params: TodoMove(todoId: movedId, afterTodoId: above?.id))
+            if let failure = result as? AppResultFailure {
+                todos = shownTodos
+                error = failure.error.userMessage
+            }
+        }
+    }
+
+    /// « Monter » / « Descendre » d'un cran pour VoiceOver, comme un glisser-déposer.
+    func moveByOne(_ todo: Todo, up: Bool) {
+        guard let index = todos.firstIndex(where: { $0.id == todo.id }) else { return }
+        move(from: IndexSet(integer: index), to: up ? index - 1 : index + 2)
     }
 
     func clearError() {

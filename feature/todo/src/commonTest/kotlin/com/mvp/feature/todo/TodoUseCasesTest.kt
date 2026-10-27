@@ -41,7 +41,7 @@ class TodoUseCasesTest {
     fun addTrimsTitleAndExposesIt() = scope.runTest {
         add("  Acheter du pain  ")
 
-        assertEquals(listOf(Todo("id-0", "Acheter du pain", isDone = false)), currentTodos())
+        assertEquals(listOf(Todo("id-0", "Acheter du pain", isDone = false, position = "a0")), currentTodos())
     }
 
     @Test
@@ -86,7 +86,7 @@ class TodoUseCasesTest {
     fun findReturnsTheTodoOrNotFound() = scope.runTest {
         add("Acheter du pain")
 
-        assertEquals(AppResult.Success(Todo("id-0", "Acheter du pain", isDone = false)), find("id-0"))
+        assertEquals(AppResult.Success(Todo("id-0", "Acheter du pain", isDone = false, position = "a0")), find("id-0"))
         assertEquals(AppResult.Failure(AppError.NotFound), find("inconnue"))
 
         delete("id-0")

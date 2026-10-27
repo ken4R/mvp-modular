@@ -32,12 +32,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -50,6 +57,8 @@ import com.mvp.feature.todo.domain.model.TodoFilter
 import com.mvp.feature.todo.domain.model.TodoStatusFilter
 import org.koin.androidx.compose.koinViewModel
 import kotlinx.coroutines.delay
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -135,11 +144,13 @@ fun TodoScreen(
         onPickReminder = { todo -> pickReminder(context, todo.reminderAt) { at -> viewModel.onSetReminder(todo.id, at) } },
         onRemoveReminder = { viewModel.onSetReminder(it, null) },
         onRetrySync = { viewModel.onRetrySync() },
+        onDrop = { reordered, movedId -> viewModel.onDrop(reordered, movedId) },
         filterActions = TodoFilterActions(
             onQueryChange = viewModel::onQueryChange,
             onStatusChange = viewModel::onStatusFilterChange,
             onToggleReminder = viewModel::onToggleReminderFilter,
             onToggleAttachments = viewModel::onToggleAttachmentFilter,
+            onTogglePrioritySort = viewModel::onTogglePrioritySort,
             onClear = viewModel::onClearFilter,
         ),
     )
@@ -151,6 +162,7 @@ private class TodoFilterActions(
     val onStatusChange: (TodoStatusFilter) -> Unit,
     val onToggleReminder: () -> Unit,
     val onToggleAttachments: () -> Unit,
+    val onTogglePrioritySort: () -> Unit,
     val onClear: () -> Unit,
 )
 
@@ -169,8 +181,32 @@ private fun TodoContent(
     onPickReminder: (Todo) -> Unit,
     onRemoveReminder: (String) -> Unit,
     onRetrySync: () -> Unit,
+    onDrop: (reordered: List<Todo>, movedId: String) -> Unit,
     filterActions: TodoFilterActions,
 ) {
+    // Ordre pendant un glisser-déposer, montré à la place de la liste du ViewModel ; oublié dès qu'elle change
+    // après le lâcher (le ViewModel affiche l'ordre lâché, puis celui de la base). Pendant le glissement, une liste
+    // reçue (synchronisation) ne fait pas revenir la ligne sous le doigt.
+    var dragOrder by remember { mutableStateOf<List<Todo>?>(null) }
+    var draggedId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.todos) { if (draggedId == null) dragOrder = null }
+    val shown = dragOrder ?: state.todos
+    val haptics = LocalHapticFeedback.current
+    val reorderState = rememberReorderableLazyListState(listState) { from, to ->
+        val current = dragOrder ?: state.todos
+        // Une tâche reste dans son groupe : à faire ou terminées.
+        if (current.getOrNull(from.index)?.isDone == current.getOrNull(to.index)?.isDone) {
+            dragOrder = current.toMutableList().apply { add(to.index, removeAt(from.index)) }
+        }
+    }
+    val canReorder = state.filter.allowsReordering && shown.size > 1
+    fun drop() {
+        val movedId = draggedId ?: return
+        draggedId = null
+        val reordered = dragOrder ?: return
+        // Lâchée à sa place : rien à enregistrer.
+        if (reordered == state.todos) dragOrder = null else onDrop(reordered, movedId)
+    }
     Scaffold { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(Spacing.md),
@@ -221,16 +257,31 @@ private fun TodoContent(
                 }
             }
             LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                items(state.todos, key = { it.id }) { todo ->
-                    TodoRow(
-                        todo = todo,
-                        highlighted = todo.id == state.focusedTodoId,
-                        onToggle = { onToggle(todo.id) },
-                        onDelete = { onDelete(todo.id) },
-                        onOpen = { onOpen(todo.id) },
-                        onPickReminder = { onPickReminder(todo) },
-                        onRemoveReminder = { onRemoveReminder(todo.id) },
-                    )
+                items(shown, key = { it.id }) { todo ->
+                    ReorderableItem(reorderState, key = todo.id, enabled = canReorder) { isDragging ->
+                        TodoRow(
+                            todo = todo,
+                            highlighted = todo.id == state.focusedTodoId || isDragging,
+                            onToggle = { onToggle(todo.id) },
+                            onDelete = { onDelete(todo.id) },
+                            onOpen = { onOpen(todo.id) },
+                            onPickReminder = { onPickReminder(todo) },
+                            onRemoveReminder = { onRemoveReminder(todo.id) },
+                            // Lecteur d'écran : monter ou descendre d'un cran, dans le groupe de la tâche.
+                            moveActions = if (canReorder) moveActions(shown, todo, onDrop) else emptyList(),
+                            dragHandle = if (canReorder) {
+                                Modifier.draggableHandle(
+                                    onDragStarted = {
+                                        draggedId = todo.id
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    },
+                                    onDragStopped = { drop() },
+                                )
+                            } else {
+                                null
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -272,6 +323,8 @@ private fun TodoFilterBar(query: String, filter: TodoFilter, actions: TodoFilter
                 onClick = actions.onToggleAttachments,
                 label = { Text("Avec pièce jointe") },
             )
+            // Tri, pas filtre : il désactive le glisser-déposer tant qu'il est choisi.
+            FilterChip(selected = filter.byPriority, onClick = actions.onTogglePrioritySort, label = { Text("Par priorité") })
         }
     }
 }
@@ -291,12 +344,26 @@ private fun TodoRow(
     onOpen: () -> Unit,
     onPickReminder: () -> Unit,
     onRemoveReminder: () -> Unit,
+    moveActions: List<CustomAccessibilityAction>,
+    dragHandle: Modifier?,
 ) {
     val background = if (highlighted) MvpColors.highlight else Color.Transparent
     Row(
-        modifier = Modifier.fillMaxWidth().background(background, RoundedCornerShape(Radius.md)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(background, RoundedCornerShape(Radius.md))
+            .semantics { if (moveActions.isNotEmpty()) customActions = moveActions },
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Poignée du glisser-déposer, absente quand la liste est triée par priorité. Masquée aux lecteurs d'écran,
+        // qui ont « Monter » et « Descendre ».
+        dragHandle?.let {
+            Text(
+                "≡",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = it.padding(horizontal = Spacing.sm).clearAndSetSemantics {},
+            )
+        }
         Checkbox(checked = todo.isDone, onCheckedChange = { onToggle() })
         Column(modifier = Modifier.weight(1f).clickable(onClickLabel = "Ouvrir la fiche", onClick = onOpen)) {
             Text(
@@ -304,6 +371,9 @@ private fun TodoRow(
                 style = MaterialTheme.typography.bodyLarge,
                 textDecoration = if (todo.isDone) TextDecoration.LineThrough else null,
             )
+            priorityBadge(todo.priority)?.let {
+                Text(it, color = priorityColor(todo.priority), style = MaterialTheme.typography.bodySmall)
+            }
             todo.dueDate?.let { dueDate ->
                 val overdue = todo.isOverdueToday()
                 Text(
@@ -328,6 +398,37 @@ private fun TodoRow(
         }
         TextButton(onClick = onPickReminder, enabled = !todo.isDone) { Text("Rappel") }
         TextButton(onClick = onDelete) { Text("Supprimer") }
+    }
+}
+
+/**
+ * Actions « Monter » et « Descendre » d'une tâche pour les lecteurs d'écran : échange avec sa voisine si elle est du
+ * même groupe (à faire, terminées), comme un glisser-déposer d'un cran.
+ */
+private fun moveActions(
+    shown: List<Todo>,
+    todo: Todo,
+    onDrop: (List<Todo>, String) -> Unit,
+): List<CustomAccessibilityAction> {
+    val index = shown.indexOf(todo)
+    return listOfNotNull(
+        moveAction("Monter", shown, index, index - 1, onDrop),
+        moveAction("Descendre", shown, index, index + 1, onDrop),
+    )
+}
+
+private fun moveAction(
+    label: String,
+    shown: List<Todo>,
+    from: Int,
+    to: Int,
+    onDrop: (List<Todo>, String) -> Unit,
+): CustomAccessibilityAction? {
+    val moved = shown.getOrNull(from) ?: return null
+    if (shown.getOrNull(to)?.isDone != moved.isDone) return null
+    return CustomAccessibilityAction(label) {
+        onDrop(shown.toMutableList().apply { add(to, removeAt(from)) }, moved.id)
+        true
     }
 }
 

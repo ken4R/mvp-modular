@@ -8,6 +8,7 @@ import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.model.TodoFilter
+import com.mvp.feature.todo.domain.model.TodoPriority
 import com.mvp.feature.todo.domain.model.TodoStatusFilter
 import com.mvp.feature.todo.domain.repository.TodoRepository
 import com.mvp.feature.todo.domain.usecase.ObserveFilteredTodosUseCase
@@ -81,6 +82,27 @@ class TodoFilterUseCaseTest {
     }
 
     @Test
+    fun priorityOrderPutsHighestFirstInEachGroupAndKeepsManualOrderOtherwise() = scope.runTest {
+        val prioritized = listOf(
+            Todo("low", "Basse", isDone = false, priority = TodoPriority.Low),
+            Todo("none", "Sans priorité", isDone = false),
+            Todo("high", "Haute", isDone = false, priority = TodoPriority.High),
+            Todo("done-high", "Faite, haute", isDone = true, priority = TodoPriority.High),
+            Todo("high-2", "Haute aussi", isDone = false, priority = TodoPriority.High),
+        )
+        val observeAll = ObserveFilteredTodosUseCase(FixedTodoRepository(prioritized), dispatcher)
+
+        val result = observeAll(TodoFilter(byPriority = true)).first().getOrNull()!!
+
+        assertEquals(listOf("high", "high-2", "low", "none", "done-high"), result.todos.map { it.id })
+        // Sans tri par priorité : l'ordre manuel ; le tri n'est pas un filtre et bloque le glisser-déposer.
+        assertEquals(listOf("low", "none", "high", "high-2", "done-high"), result.all.map { it.id })
+        assertFalse(TodoFilter(byPriority = true).isActive)
+        assertFalse(TodoFilter(byPriority = true).allowsReordering)
+        assertTrue(TodoFilter().allowsReordering)
+    }
+
+    @Test
     fun allTodosStayAvailableWhenNothingMatches() = scope.runTest {
         val result = filtered(TodoFilter(query = "introuvable"))
 
@@ -99,6 +121,8 @@ private class FixedTodoRepository(private val todos: List<Todo>) : TodoRepositor
     override suspend fun setNote(id: String, note: String): AppResult<Todo> = error("non utilisé")
     override suspend fun setDueDate(id: String, dueDate: Int?): AppResult<Todo> = error("non utilisé")
     override suspend fun setLocationReminder(id: String, reminder: LocationReminder?): AppResult<Todo> = error("non utilisé")
+    override suspend fun setPriority(id: String, priority: TodoPriority): AppResult<Todo> = error("non utilisé")
+    override suspend fun setPositions(positions: Map<String, String>): AppResult<Unit> = error("non utilisé")
     override fun observeAttachments(todoId: String): Flow<List<TodoAttachment>> = error("non utilisé")
     override suspend fun addAttachment(
         todoId: String,

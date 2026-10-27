@@ -9,6 +9,7 @@ import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
+import com.mvp.feature.todo.domain.model.TodoPriority
 import com.mvp.feature.todo.domain.repository.TodoRepository
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
@@ -171,6 +172,14 @@ private class InMemoryTodoRepository : TodoRepository {
     override suspend fun setDueDate(id: String, dueDate: Int?): AppResult<Todo> = update(id) { it.copy(dueDate = dueDate) }
     override suspend fun setLocationReminder(id: String, reminder: LocationReminder?): AppResult<Todo> =
         update(id) { it.copy(locationReminder = reminder) }
+
+    override suspend fun setPriority(id: String, priority: TodoPriority): AppResult<Todo> =
+        update(id) { it.copy(priority = priority) }
+
+    override suspend fun setPositions(positions: Map<String, String>): AppResult<Unit> {
+        todos.update { list -> list.map { todo -> positions[todo.id]?.let { todo.copy(position = it) } ?: todo } }
+        return AppResult.Success(Unit)
+    }
 
     // Pièces jointes : absentes de l'écran Compose.
     override fun observeAttachments(todoId: String): Flow<List<TodoAttachment>> = flowOf(emptyList())

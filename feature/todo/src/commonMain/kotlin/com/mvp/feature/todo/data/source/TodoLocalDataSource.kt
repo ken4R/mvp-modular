@@ -4,6 +4,7 @@ import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
+import com.mvp.feature.todo.domain.model.TodoPriority
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.update
  * (SQLite et fichiers privés, persistant) ; l'implémentation en mémoire sert aux tests des use cases.
  */
 interface TodoLocalDataSource {
+    /** Dans l'ordre des clés [Todo.position] ; à clé égale, dans l'ordre d'ajout (ADR 0024). */
     fun observe(): Flow<List<Todo>>
     fun get(id: String): Todo?
     fun upsert(todo: Todo)
@@ -33,6 +35,15 @@ interface TodoLocalDataSource {
 
     /** Pose ou retire le rappel par lieu en une seule opération ; `null` si la tâche n'existe pas (ou plus). */
     fun setLocationReminder(id: String, reminder: LocationReminder?): Todo?
+
+    /** Change la priorité en une seule opération ; `null` si la tâche n'existe pas (ou plus). */
+    fun setPriority(id: String, priority: TodoPriority): Todo?
+
+    /** Écrit les clés d'ordre (id → clé) en une seule opération ; les tâches qui n'existent plus sont ignorées. */
+    fun setPositions(positions: Map<String, String>)
+
+    /** Plus grande clé d'ordre, `null` sans tâche. */
+    fun lastPosition(): String?
 
     /** Supprime la tâche et ses pièces jointes. */
     fun delete(id: String): Boolean
@@ -54,7 +65,10 @@ internal class InMemoryTodoLocalDataSource(initial: List<Todo> = emptyList()) : 
     private val attachments = MutableStateFlow<List<TodoAttachment>>(emptyList())
 
     override fun observe(): Flow<List<Todo>> =
-        combine(todos, attachments) { todos, attachments -> todos.values.map { it.withCount(attachments) } }
+        combine(todos, attachments) { todos, attachments ->
+            // sortedBy est stable : à clé égale, l'ordre d'ajout, comme le rowid de SQLite.
+            todos.values.sortedBy { it.position }.map { it.withCount(attachments) }
+        }
 
     override fun get(id: String): Todo? = todos.value[id]?.withCount(attachments.value)
 
@@ -70,6 +84,14 @@ internal class InMemoryTodoLocalDataSource(initial: List<Todo> = emptyList()) : 
 
     override fun setLocationReminder(id: String, reminder: LocationReminder?): Todo? =
         modify(id) { it.copy(locationReminder = reminder) }
+
+    override fun setPriority(id: String, priority: TodoPriority): Todo? = modify(id) { it.copy(priority = priority) }
+
+    override fun setPositions(positions: Map<String, String>) = todos.update { current ->
+        current.mapValues { (id, todo) -> positions[id]?.let { todo.copy(position = it) } ?: todo }
+    }
+
+    override fun lastPosition(): String? = todos.value.values.maxOfOrNull { it.position }
 
     private fun modify(id: String, transform: (Todo) -> Todo): Todo? {
         var modified: Todo? = null

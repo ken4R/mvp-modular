@@ -3,7 +3,7 @@ import PhotosUI
 import Shared
 import SwiftUI
 
-/// Fiche d'une tâche : échéance (ADR 0022), note et pièces jointes (ADR 0014). La logique (formats, tailles, stockage) est dans KMP ;
+/// Fiche d'une tâche : priorité (ADR 0024), échéance (ADR 0022), note et pièces jointes (ADR 0014). La logique (formats, tailles, stockage) est dans KMP ;
 /// ici, la lecture des fichiers choisis et l'état de l'écran.
 @MainActor
 final class TodoDetailViewModel: ObservableObject {
@@ -167,6 +167,13 @@ final class TodoDetailViewModel: ObservableObject {
         } else {
             dueDateError = nil
         }
+    }
+
+    /// Priorité (ADR 0024), synchronisée comme le titre.
+    func setPriority(_ option: TodoPriorityOption) async {
+        let change = KoinIosKt.todoPriorityChange(todoId: todoId, priority: option.rawValue)
+        let result = try? await UseCases.shared.setTodoPriority().invoke(params: change)
+        if let failure = result as? AppResultFailure { error = failure.error.detailMessage }
     }
 
     /// « Ajouter au calendrier » : l'écran d'ajout du système, prérempli par KMP (titre, date, lien ; jamais la note).

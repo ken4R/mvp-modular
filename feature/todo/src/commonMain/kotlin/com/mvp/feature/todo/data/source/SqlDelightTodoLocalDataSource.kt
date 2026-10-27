@@ -17,6 +17,7 @@ import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.model.TodoPriority
+import com.mvp.feature.todo.domain.model.TrashedTodo
 import com.mvp.feature.todo.domain.order.OrderKey
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
@@ -29,7 +30,8 @@ import kotlin.time.ExperimentalTime
 
 /**
  * Tâches stockées dans SQLite : elles survivent au redémarrage de l'app. Chaque modification du titre, de
- * l'état, de la note, de l'échéance (ADR 0022), de la priorité ou de la clé d'ordre (ADR 0024) entre dans la file d'envoi de la synchronisation dans la même transaction (ADR 0012) ;
+ * l'état, de la note, de l'échéance (ADR 0022), de la priorité, de la clé d'ordre (ADR 0024) ou de la mise à la
+ * corbeille (ADR 0025) entre dans la file d'envoi de la synchronisation dans la même transaction (ADR 0012) ;
  * les rappels (à l'heure et par lieu, ADR 0023) et les pièces jointes, propres à l'appareil, n'y entrent pas. Le contenu des pièces jointes est dans
  * [files], un fichier par pièce jointe nommé par son id (ADR 0014) : écrit avant sa ligne, supprimé après elle,
  * donc une ligne a toujours son fichier. L'heure à laquelle une tâche est terminée est gardée sur l'appareil pour
@@ -60,7 +62,7 @@ internal class SqlDelightTodoLocalDataSource(
             queries.insert(
                 todo.id, todo.title, todo.isDone.toLong(), todo.reminderAt, changedAt, todo.note, completedAt,
                 todo.dueDate?.toLong(), place?.latitude, place?.longitude, place?.radiusMeters?.toLong(), place?.label,
-                todo.priority.level.toLong(), todo.position,
+                todo.priority.level.toLong(), todo.position, null,
             )
             enqueue(todo.id, changedAt)
         } else {
@@ -89,16 +91,57 @@ internal class SqlDelightTodoLocalDataSource(
 
     override fun lastPosition(): String? = queries.selectLastPosition().executeAsOne().ifEmpty { null }
 
-    override fun delete(id: String): Boolean {
-        val removedFiles = queries.transactionWithResult<List<String>?> {
-            val existing = queries.selectById(id).executeAsOneOrNull() ?: return@transactionWithResult null
-            val attachmentIds = removeAttachmentsOf(id)
-            queries.deleteById(id)
-            enqueue(id, changedAfter(existing), isDeleted = true)
-            attachmentIds
-        } ?: return false
+    override fun delete(id: String): Boolean =
+        deletePermanently { listOfNotNull(queries.selectById(id).executeAsOneOrNull()) } > 0
+
+    override fun trash(id: String): Boolean = queries.transactionWithResult {
+        val existing = queries.selectById(id).executeAsOneOrNull()
+        if (existing == null || existing.trashed_at != null) return@transactionWithResult false
+        // Datée comme toute modification synchronisée : l'heure de mise à la corbeille est celle de la modification.
+        val changedAt = changedAfter(existing)
+        writeRow(existing, toTodo(existing, 0), updatedAt = changedAt, trashedAt = changedAt)
+        enqueue(id, changedAt)
+        true
+    }
+
+    override fun restore(id: String): Todo? = queries.transactionWithResult {
+        val existing = queries.selectById(id).executeAsOneOrNull()
+        if (existing?.trashed_at == null) return@transactionWithResult null
+        val changedAt = changedAfter(existing)
+        val todo = toTodo(existing, attachments.countByTodo(id).executeAsOne())
+        writeRow(existing, todo, updatedAt = changedAt, trashedAt = null)
+        enqueue(id, changedAt)
+        todo
+    }
+
+    override fun observeTrash(): Flow<List<TrashedTodo>> =
+        queries.selectTrash(::rowToTrashed).asFlow().mapToList(dispatcher).distinctUntilChanged()
+
+    override fun deleteTrashed(id: String): Boolean =
+        deletePermanently { listOfNotNull(queries.selectById(id).executeAsOneOrNull()?.takeIf { it.trashed_at != null }) } > 0
+
+    override fun deleteTrashedBefore(trashedBefore: Long): Int = deletePermanently {
+        queries.selectTrashedIdsBefore(trashedBefore).executeAsList().mapNotNull { queries.selectById(it).executeAsOneOrNull() }
+    }
+
+    /**
+     * Supprime définitivement, dans une transaction, les tâches que [select] y lit : lignes, pièces jointes, et une
+     * suppression dans la file d'envoi pour chacune. Les fichiers des pièces jointes sont effacés après. Renvoie le
+     * nombre de tâches supprimées.
+     */
+    private fun deletePermanently(select: () -> List<TodoEntity>): Int {
+        val (count, removedFiles) = queries.transactionWithResult<Pair<Int, List<String>>> {
+            val selected = select()
+            val attachmentIds = selected.flatMap { existing ->
+                val ids = removeAttachmentsOf(existing.id)
+                queries.deleteById(existing.id)
+                enqueue(existing.id, changedAfter(existing), isDeleted = true)
+                ids
+            }
+            selected.size to attachmentIds
+        }
         removedFiles.forEach(files::delete)
-        return true
+        return count
     }
 
     override fun observeAttachments(todoId: String): Flow<List<TodoAttachment>> =
@@ -113,14 +156,16 @@ internal class SqlDelightTodoLocalDataSource(
         type: AttachmentType,
         bytes: ByteArray,
     ): TodoAttachment? {
-        if (queries.selectById(todoId).executeAsOneOrNull() == null) return null
+        if (queries.selectById(todoId).executeAsOneOrNull()?.takeIf { it.trashed_at == null } == null) return null
         // Le fichier d'abord : une ligne n'existe jamais sans son fichier.
         files.write(id, bytes)
         val addedAt = now()
         val added = try {
             queries.transactionWithResult<Boolean> {
-                // La tâche a pu être supprimée pendant l'écriture du fichier.
-                if (queries.selectById(todoId).executeAsOneOrNull() == null) return@transactionWithResult false
+                // La tâche a pu être supprimée (ou mise à la corbeille) pendant l'écriture du fichier.
+                if (queries.selectById(todoId).executeAsOneOrNull()?.takeIf { it.trashed_at == null } == null) {
+                    return@transactionWithResult false
+                }
                 attachments.insert(id, todoId, fileName, type.mimeType, bytes.size.toLong(), addedAt)
                 true
             }
@@ -165,7 +210,7 @@ internal class SqlDelightTodoLocalDataSource(
         pending.count().asFlow().mapToOne(dispatcher).map { it.toInt() }
 
     override fun pendingChanges(): List<TodoRecord> =
-        pending.selectPending { todoId, isDeleted, changedAt, title, isDone, note, dueDate, priority, position ->
+        pending.selectPending { todoId, isDeleted, changedAt, title, isDone, note, dueDate, priority, position, trashedAt ->
             // Sans ligne dans TodoEntity, la tâche n'existe plus : c'est une suppression.
             if (isDeleted != 0L || title == null || isDone == null) {
                 TodoRecord(id = todoId, title = "", isDone = false, updatedAt = changedAt, isDeleted = true)
@@ -179,6 +224,7 @@ internal class SqlDelightTodoLocalDataSource(
                     dueDate = dueDate?.toInt(),
                     priority = priority?.let { TodoPriority.fromLevel(it.toInt()) } ?: TodoPriority.None,
                     position = position.orEmpty(),
+                    trashedAt = trashedAt,
                 )
             }
         }.executeAsList()
@@ -199,8 +245,10 @@ internal class SqlDelightTodoLocalDataSource(
         // Un id qui n'est pas un UUID de l'app finirait dans un lien (partage, calendrier) : ignoré, suppression comprise.
         if (!DeepLinks.isValidTodoId(record.id)) return emptyList()
         // Clé d'ordre : vide (inconnue, la tâche garde la sienne) ou une clé que l'app aurait pu écrire.
+        // Heure de mise à la corbeille : jamais après la modification qui l'a faite (ADR 0025).
         val valid = record.title.isValidTitle() && record.note.isValidNote() && record.dueDate.isValidDueDate() &&
-            (record.position.isEmpty() || OrderKey.isValid(record.position))
+            (record.position.isEmpty() || OrderKey.isValid(record.position)) &&
+            record.trashedAt.let { it == null || it in 0..record.updatedAt }
         if (!record.isDeleted && !valid) return emptyList()
         val local = queries.selectById(record.id).executeAsOneOrNull()
         when {
@@ -218,20 +266,22 @@ internal class SqlDelightTodoLocalDataSource(
             local == null -> queries.insert(
                 record.id, record.title, record.isDone.toLong(), null, record.updatedAt, record.note,
                 record.updatedAt.takeIf { record.isDone }, record.dueDate?.toLong(), null, null, null, null,
-                record.priority.level.toLong(), record.position,
+                record.priority.level.toLong(), record.position, record.trashedAt,
             )
             else -> queries.update(
                 record.title, record.isDone.toLong(), local.reminder_at, record.updatedAt, record.note,
                 completedAt(local, record.isDone, record.updatedAt), record.dueDate?.toLong(),
                 local.location_latitude, local.location_longitude, local.location_radius, local.location_label,
-                record.priority.level.toLong(), record.position.ifEmpty { local.position }, record.id,
+                record.priority.level.toLong(), record.position.ifEmpty { local.position }, record.trashedAt, record.id,
             )
         }
         return emptyList()
     }
 
+    /** Une tâche de la corbeille ne se modifie pas : `null`, comme une tâche qui n'existe pas. */
     private fun modify(id: String, transform: (Todo) -> Todo): Todo? = queries.transactionWithResult {
-        val existing = queries.selectById(id).executeAsOneOrNull() ?: return@transactionWithResult null
+        val existing = queries.selectById(id).executeAsOneOrNull()?.takeIf { it.trashed_at == null }
+            ?: return@transactionWithResult null
         val attachmentCount = attachments.countByTodo(id).executeAsOne()
         transform(toTodo(existing, attachmentCount)).also { write(existing, it) }
     }
@@ -245,14 +295,18 @@ internal class SqlDelightTodoLocalDataSource(
             existing.note != todo.note || existing.due_date != todo.dueDate?.toLong() ||
             existing.priority != todo.priority.level.toLong() || existing.position != todo.position
         val updatedAt = if (synced) changedAfter(existing) else existing.updated_at
+        writeRow(existing, todo, updatedAt, existing.trashed_at)
+        if (synced) enqueue(todo.id, updatedAt)
+    }
+
+    private fun writeRow(existing: TodoEntity, todo: Todo, updatedAt: Long, trashedAt: Long?) {
         val place = todo.locationReminder
         queries.update(
             todo.title, todo.isDone.toLong(), todo.reminderAt, updatedAt, todo.note,
             completedAt(existing, todo.isDone, updatedAt), todo.dueDate?.toLong(),
             place?.latitude, place?.longitude, place?.radiusMeters?.toLong(), place?.label,
-            todo.priority.level.toLong(), todo.position, todo.id,
+            todo.priority.level.toLong(), todo.position, trashedAt, todo.id,
         )
-        if (synced) enqueue(todo.id, updatedAt)
     }
 
     /**
@@ -299,7 +353,35 @@ internal class SqlDelightTodoLocalDataSource(
 private fun toTodo(entity: TodoEntity, attachmentCount: Long) = rowToTodo(
     entity.id, entity.title, entity.is_done, entity.reminder_at, entity.updated_at, entity.note, entity.completed_at,
     entity.due_date, entity.location_latitude, entity.location_longitude, entity.location_radius, entity.location_label,
-    entity.priority, entity.position, attachmentCount,
+    entity.priority, entity.position, entity.trashed_at, attachmentCount,
+)
+
+/**
+ * Une ligne de la corbeille (`selectTrash`). La requête ne lit que des tâches dont `trashed_at` n'est pas NULL.
+ */
+private fun rowToTrashed(
+    id: String,
+    title: String,
+    isDone: Long,
+    reminderAt: Long?,
+    updatedAt: Long,
+    note: String,
+    completedAt: Long?,
+    dueDate: Long?,
+    locationLatitude: Double?,
+    locationLongitude: Double?,
+    locationRadius: Long?,
+    locationLabel: String?,
+    priority: Long,
+    position: String,
+    trashedAt: Long?,
+    attachmentCount: Long,
+) = TrashedTodo(
+    rowToTodo(
+        id, title, isDone, reminderAt, updatedAt, note, completedAt, dueDate, locationLatitude, locationLongitude,
+        locationRadius, locationLabel, priority, position, trashedAt, attachmentCount,
+    ),
+    trashedAt ?: 0L,
 )
 
 /** Une ligne de `selectAll` ou `selectWithAttachmentCountById` (colonnes de TodoEntity + nombre de pièces jointes). */
@@ -319,6 +401,7 @@ private fun rowToTodo(
     locationLabel: String?,
     priority: Long,
     position: String,
+    trashedAt: Long?,
     attachmentCount: Long,
 ) = Todo(
     id = id,

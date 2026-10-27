@@ -14,6 +14,7 @@ import com.mvp.android.ui.todo.AttachmentReader
 import com.mvp.android.ui.todo.TodoCalendarViewModel
 import com.mvp.android.ui.todo.TodoDetailViewModel
 import com.mvp.android.ui.todo.TodoStatsViewModel
+import com.mvp.android.ui.todo.TodoTrashViewModel
 import com.mvp.android.ui.todo.TodoViewModel
 import com.mvp.android.ui.weather.WeatherViewModel
 import org.koin.android.ext.koin.androidContext
@@ -30,6 +31,8 @@ val androidAppModule = module {
     viewModelOf(::TodoStatsViewModel)
     // Calendrier des tâches par échéance (ADR 0022).
     viewModelOf(::TodoCalendarViewModel)
+    // Corbeille, 30 jours avant la suppression définitive (ADR 0025).
+    viewModelOf(::TodoTrashViewModel)
     viewModelOf(::WeatherViewModel)
     viewModelOf(::CatalogViewModel)
     viewModelOf(::SettingsViewModel)

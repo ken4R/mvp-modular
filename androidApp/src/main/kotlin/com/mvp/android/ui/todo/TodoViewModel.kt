@@ -20,6 +20,7 @@ import com.mvp.feature.todo.domain.usecase.MoveTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveFilteredTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveRemindersEnabledUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
+import com.mvp.feature.todo.domain.usecase.RestoreTodoUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
@@ -52,6 +53,8 @@ data class TodoUiState(
     val focusedTodoId: String? = null,
     /** Mode hors ligne (ADR 0012) : `null` tant que l'état n'est pas connu. */
     val sync: TodoSyncStatus? = null,
+    /** Dernière tâche mise à la corbeille (ADR 0025) : l'écran propose « Annuler » tant qu'elle est là. */
+    val trashed: TrashedNotice? = null,
 ) {
     /** Bandeau au-dessus de la liste : hors ligne, ou synchronisation en échec. `null` : rien à signaler. */
     val syncBanner: SyncBanner?
@@ -75,6 +78,9 @@ data class TodoUiState(
         }
 }
 
+/** Tâche [id] tout juste mise à la corbeille ; [title] pour le message « Tâche supprimée ». */
+data class TrashedNotice(val id: String, val title: String)
+
 /** [canRetry] : bouton « Réessayer » (en ligne, aucune tentative en cours). */
 data class SyncBanner(val message: String, val canRetry: Boolean)
 
@@ -90,6 +96,7 @@ class TodoViewModel(
     private val addTodo: AddTodoUseCase,
     private val toggleTodo: ToggleTodoUseCase,
     private val deleteTodo: DeleteTodoUseCase,
+    private val restoreTodo: RestoreTodoUseCase,
     private val findTodo: FindTodoUseCase,
     private val setTodoReminder: SetTodoReminderUseCase,
     private val moveTodo: MoveTodoUseCase,
@@ -193,10 +200,24 @@ class TodoViewModel(
 
     fun onToggle(id: String) = viewModelScope.launch { toggleTodo(id).onFailure(::showError) }
 
+    /** La tâche part dans la corbeille (ADR 0025) ; l'écran propose aussitôt « Annuler ». */
     fun onDelete(id: String) = viewModelScope.launch {
         if (_state.value.focusedTodoId == id) clearFocus()
-        deleteTodo(id).onFailure(::showError)
+        val title = _state.value.allTodos.firstOrNull { it.id == id }?.title.orEmpty()
+        deleteTodo(id)
+            .onSuccess { _state.update { it.copy(trashed = TrashedNotice(id, title)) } }
+            .onFailure(::showError)
     }
+
+    /** « Annuler » : la tâche revient à sa place. */
+    fun onUndoDelete(notice: TrashedNotice) = viewModelScope.launch {
+        _state.update { if (it.trashed == notice) it.copy(trashed = null) else it }
+        restoreTodo(notice.id).onFailure(::showError)
+    }
+
+    /** Le message a disparu sans « Annuler » : la tâche reste dans la corbeille. */
+    fun onTrashedNoticeDismissed(notice: TrashedNotice) =
+        _state.update { if (it.trashed == notice) it.copy(trashed = null) else it }
 
     /** [at] : heure choisie (epoch ms), `null` pour retirer le rappel. */
     fun onSetReminder(id: String, at: Long?) = viewModelScope.launch {

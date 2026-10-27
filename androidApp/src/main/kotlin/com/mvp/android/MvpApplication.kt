@@ -5,6 +5,7 @@ import com.mvp.android.di.androidAppModule
 import com.mvp.android.widget.TodoWidgetUpdater
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.core.crashreporting.domain.usecase.StartCrashReportingUseCase
+import com.mvp.feature.todo.domain.usecase.PurgeExpiredTrashUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoSyncUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoLocationRemindersUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
@@ -33,6 +34,8 @@ class MvpApplication : Application() {
         get<SyncTodoLocationRemindersUseCase>()(NoParams).launchIn(MainScope())
         // Mode hors ligne : les modifications des tâches partent dès que le réseau revient (ADR 0012).
         get<StartTodoSyncUseCase>()(NoParams).launchIn(MainScope())
+        // Corbeille (ADR 0025) : les tâches jetées depuis plus de 30 jours sont supprimées définitivement.
+        MainScope().launch { get<PurgeExpiredTrashUseCase>()(NoParams) }
         // Widget Tâches : redessiné à chaque changement, effacé à la déconnexion ou quand le verrou est activé.
         TodoWidgetUpdater(this, get()).start(MainScope())
     }

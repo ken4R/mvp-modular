@@ -1,12 +1,23 @@
 import Foundation
 import Shared
 import SwiftUI
+import UIKit
 
 /// État filtré ; la valeur brute est le nom Kotlin de l'entrée de `TodoStatusFilter`, que l'export Swift renomme.
 enum TodoStatusOption: String, CaseIterable {
     case all = "All"
     case pending = "Pending"
     case done = "Done"
+}
+
+/// Tâche tout juste mise à la corbeille (ADR 0025) : la liste propose « Annuler » quelques secondes. `token` distingue
+/// deux suppressions de la même tâche.
+struct TrashedNotice: Equatable {
+    let id: String
+    let title: String
+    let token = UUID()
+
+    var message: String { "« \(title.isEmpty ? "Tâche" : title) » placée dans la corbeille" }
 }
 
 /// Bandeau au-dessus de la liste (mode hors ligne, ADR 0012). `canRetry` : bouton « Réessayer ».
@@ -35,6 +46,8 @@ final class TodoViewModel: ObservableObject {
     @Published private(set) var focusedTodoId: String?
     /// Hors ligne, ou synchronisation en échec ; `nil` : rien à signaler.
     @Published private(set) var syncBanner: SyncBanner?
+    /// Dernière tâche mise à la corbeille, tant que « Annuler » est proposé.
+    @Published private(set) var trashedNotice: TrashedNotice?
 
     private var subscription: Subscription?
     /// Dernière liste lue, remise si un déplacement échoue (la liste affichée l'a déjà anticipé).
@@ -45,6 +58,7 @@ final class TodoViewModel: ObservableObject {
     private var remindersSubscription: Subscription?
     private var syncSubscription: Subscription?
     private var focusTask: Task<Void, Never>?
+    private var noticeTask: Task<Void, Never>?
 
     /// Des rappels à venir sont posés mais ne partiront pas : la vue invite à activer les notifications.
     var showRemindersDisabledHint: Bool {
@@ -176,6 +190,9 @@ final class TodoViewModel: ObservableObject {
 
     /// Durée de la mise en évidence, en nanosecondes (3 s).
     private static let focusDuration: UInt64 = 3_000_000_000
+    /// Durée du message « Annuler » après une suppression.
+    private static let noticeDuration: UInt64 = 6_000_000_000
+    private static let longNoticeDuration: UInt64 = 15_000_000_000
 
     func add() async {
         let result = try? await UseCases.shared.addTodo().invoke(params: input as NSString)
@@ -192,8 +209,33 @@ final class TodoViewModel: ObservableObject {
         if let failure = result as? AppResultFailure { error = failure.error.userMessage }
     }
 
+    /// La tâche part dans la corbeille (ADR 0025) ; « Annuler » est proposé quelques secondes (plus longtemps avec
+    /// VoiceOver, qui lit le message).
     func delete(_ todo: Todo) async {
         let result = try? await UseCases.shared.deleteTodo().invoke(params: todo.id as NSString)
+        if let failure = result as? AppResultFailure {
+            error = failure.error.userMessage
+            return
+        }
+        guard result != nil else { return }
+        let notice = TrashedNotice(id: todo.id, title: todo.title)
+        trashedNotice = notice
+        UIAccessibility.post(notification: .announcement, argument: notice.message)
+        noticeTask?.cancel()
+        let duration = UIAccessibility.isVoiceOverRunning ? Self.longNoticeDuration : Self.noticeDuration
+        noticeTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: duration)
+            guard !Task.isCancelled, let self, self.trashedNotice == notice else { return }
+            self.trashedNotice = nil
+        }
+    }
+
+    /// « Annuler » : la tâche revient à sa place.
+    func undoDelete() async {
+        guard let notice = trashedNotice else { return }
+        trashedNotice = nil
+        noticeTask?.cancel()
+        let result = try? await UseCases.shared.restoreTodo().invoke(params: notice.id as NSString)
         if let failure = result as? AppResultFailure { error = failure.error.userMessage }
     }
 

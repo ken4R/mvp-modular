@@ -66,10 +66,13 @@ import com.mvp.feature.todo.domain.model.TodoPriorityChange
 import com.mvp.feature.todo.domain.model.TodoStatusFilter
 import com.mvp.feature.todo.domain.model.TodoSyncStatus
 import com.mvp.feature.todo.domain.model.TodoWidgetState
+import com.mvp.feature.todo.domain.model.TrashItem
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
+import com.mvp.feature.todo.domain.usecase.DeleteTodoPermanentlyUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
+import com.mvp.feature.todo.domain.usecase.EmptyTrashUseCase
 import com.mvp.feature.todo.domain.usecase.ExportTodoToCalendarUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.MoveTodoUseCase
@@ -82,8 +85,11 @@ import com.mvp.feature.todo.domain.usecase.ObserveTodoCalendarUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveTrashUseCase
+import com.mvp.feature.todo.domain.usecase.PurgeExpiredTrashUseCase
 import com.mvp.feature.todo.domain.usecase.RefreshLocationRemindersAvailabilityUseCase
 import com.mvp.feature.todo.domain.usecase.RemoveLocationReminderUseCase
+import com.mvp.feature.todo.domain.usecase.RestoreTodoUseCase
 import com.mvp.feature.todo.domain.usecase.SetLocationReminderHereUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoDueDateUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoPriorityUseCase
@@ -194,6 +200,10 @@ object UseCases : KoinComponent {
     fun addTodo(): AddTodoUseCase = get()
     fun toggleTodo(): ToggleTodoUseCase = get()
     fun deleteTodo(): DeleteTodoUseCase = get()
+    fun restoreTodo(): RestoreTodoUseCase = get()
+    fun deleteTodoPermanently(): DeleteTodoPermanentlyUseCase = get()
+    fun emptyTrash(): EmptyTrashUseCase = get()
+    fun purgeExpiredTrash(): PurgeExpiredTrashUseCase = get()
     fun findTodo(): FindTodoUseCase = get()
     fun setTodoReminder(): SetTodoReminderUseCase = get()
     fun setTodoDueDate(): SetTodoDueDateUseCase = get()
@@ -356,6 +366,22 @@ object UseCases : KoinComponent {
             .onEach { result ->
                 when (result) {
                     is AppResult.Success -> onTodos(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /**
+     * Corbeille (ADR 0025) : tâches jetées et jours restants avant leur suppression définitive. Les callbacks sont
+     * appelés sur le main thread.
+     */
+    fun observeTrash(onItems: (List<TrashItem>) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveTrashUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onItems(result.data)
                     is AppResult.Failure -> onError(result.error)
                 }
             }

@@ -97,9 +97,10 @@ internal class SqlDelightTodoLocalDataSource(
     override fun trash(id: String): Boolean = queries.transactionWithResult {
         val existing = queries.selectById(id).executeAsOneOrNull()
         if (existing == null || existing.trashed_at != null) return@transactionWithResult false
-        // Datée comme toute modification synchronisée : l'heure de mise à la corbeille est celle de la modification.
+        // La modification est datée comme les autres ; l'heure de mise à la corbeille, elle, n'est jamais dans le futur
+        // (une tâche reçue avec une heure en avance ne doit pas échapper à la purge des 30 jours).
         val changedAt = changedAfter(existing)
-        writeRow(existing, toTodo(existing, 0), updatedAt = changedAt, trashedAt = changedAt)
+        writeRow(existing, toTodo(existing, 0), updatedAt = changedAt, trashedAt = minOf(changedAt, now()))
         enqueue(id, changedAt)
         true
     }
@@ -251,6 +252,9 @@ internal class SqlDelightTodoLocalDataSource(
             record.trashedAt.let { it == null || it in 0..record.updatedAt }
         if (!record.isDeleted && !valid) return emptyList()
         val local = queries.selectById(record.id).executeAsOneOrNull()
+        // Heure de mise à la corbeille ramenée à l'horloge de l'appareil : une heure dans le futur retarderait la purge
+        // indéfiniment. Gardée sur l'appareil seulement, rien ne repart au serveur.
+        val trashedAt = record.trashedAt?.let { minOf(it, now()) }
         when {
             // Déjà supprimée ici, ou modifiée ici plus récemment (déjà envoyée) : rien à faire. À égalité
             // d'heure, la version du serveur l'emporte, comme sur le serveur : tous les appareils convergent.
@@ -266,13 +270,13 @@ internal class SqlDelightTodoLocalDataSource(
             local == null -> queries.insert(
                 record.id, record.title, record.isDone.toLong(), null, record.updatedAt, record.note,
                 record.updatedAt.takeIf { record.isDone }, record.dueDate?.toLong(), null, null, null, null,
-                record.priority.level.toLong(), record.position, record.trashedAt,
+                record.priority.level.toLong(), record.position, trashedAt,
             )
             else -> queries.update(
                 record.title, record.isDone.toLong(), local.reminder_at, record.updatedAt, record.note,
                 completedAt(local, record.isDone, record.updatedAt), record.dueDate?.toLong(),
                 local.location_latitude, local.location_longitude, local.location_radius, local.location_label,
-                record.priority.level.toLong(), record.position.ifEmpty { local.position }, record.trashedAt, record.id,
+                record.priority.level.toLong(), record.position.ifEmpty { local.position }, trashedAt, record.id,
             )
         }
         return emptyList()

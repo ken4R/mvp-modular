@@ -18,10 +18,13 @@ object TodoTrash {
 
     /** Jours restants à [now] pour une tâche jetée à [trashedAt] ; 0 si elle doit être supprimée définitivement. */
     fun daysLeft(trashedAt: Long, now: Long): Int {
-        val left = trashedAt + RETENTION_MILLIS - now
-        if (left <= 0) return 0
-        // Horloge reculée (ou heure reçue d'un autre appareil en avance) : jamais plus que le délai complet.
-        return ((left + DAY_MILLIS - 1) / DAY_MILLIS).toInt().coerceAtMost(RETENTION_DAYS)
+        // Par l'écart, sans jamais calculer trashedAt + délai (débordement avec une heure reçue démesurée).
+        val elapsed = now - trashedAt
+        if (elapsed >= RETENTION_MILLIS) return 0
+        // Jetée « dans le futur » (horloge reculée, heure reçue en avance) : jamais plus que le délai complet.
+        if (elapsed <= 0) return RETENTION_DAYS
+        val left = RETENTION_MILLIS - elapsed
+        return ((left + DAY_MILLIS - 1) / DAY_MILLIS).toInt()
     }
 
     /** Une tâche jetée au plus tard à cette heure a fait son temps à [now]. */

@@ -176,6 +176,24 @@ class TodoTrashTest {
         assertEquals(0, TodoTrash.daysLeft(trashedAt = 0, now = 30 * day))
         // Mise à la corbeille datée dans le futur (horloge reculée) : jamais plus de 30 jours.
         assertEquals(30, TodoTrash.daysLeft(trashedAt = 100 * day, now = 0))
+        assertEquals(30, TodoTrash.daysLeft(trashedAt = Long.MAX_VALUE, now = 0))
+    }
+
+    @Test
+    fun aTrashTimeInTheFutureCannotDelayThePurge() = scope.runTest {
+        val phone = Device()
+        val future = clock + 1_000 * TodoTrash.DAY_MILLIS
+        val received = "00000000-0000-4000-8000-0000000000cc"
+        // Reçue d'un serveur (ou d'un appareil à l'horloge en avance) : mise à la corbeille dans le futur.
+        phone.local.applyRemote(listOf(TodoRecord(received, "Reçue", isDone = false, updatedAt = future, trashedAt = future)))
+        // Reçue hors corbeille avec une heure en avance, puis jetée ici.
+        val local = "00000000-0000-4000-8000-0000000000dd"
+        phone.local.applyRemote(listOf(TodoRecord(local, "Jetée ici", isDone = false, updatedAt = future)))
+        phone.delete(local)
+
+        clock += 30 * TodoTrash.DAY_MILLIS
+        assertEquals(AppResult.Success(2), phone.purge(NoParams))
+        assertEquals(emptyList(), phone.trash())
     }
 
     @Test

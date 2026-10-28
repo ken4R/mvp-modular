@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="todo_widget_description">Vos tâches à faire, le rappel le plus proche en premier. Cochez-les sans ouvrir l'app.</string>
-    <string name="weather_widget_description">La météo à votre position, telle que l'app l'a obtenue en dernier.</string>
+    <string name="todo_widget_description">Vos tâches à faire, le rappel le plus proche en premier. Cochez-les sans ouvrir l\'app.</string>
+    <string name="weather_widget_description">La météo à votre position, telle que l\'app l\'a obtenue en dernier.</string>
     <!-- Raccourci de l'icône de l'app (res/xml/shortcuts.xml, ADR 0018) -->
     <string name="shortcut_new_task_short">Nouvelle tâche</string>
     <string name="shortcut_new_task_long">Ajouter une tâche</string>

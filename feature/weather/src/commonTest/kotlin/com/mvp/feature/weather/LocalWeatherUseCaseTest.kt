@@ -27,6 +27,7 @@ class LocalWeatherUseCaseTest {
     private var position: AppResult<GeoPosition> = AppResult.Success(GeoPosition(45.764043, 4.835659))
     private val location = object : LocationProvider {
         override suspend fun currentPosition(accuracy: LocationAccuracy) = position
+        override suspend fun isAuthorized() = position is AppResult.Success
     }
     private val repository = FakeWeatherRepository()
     private val cache = InMemoryLocalWeatherCache()
@@ -65,6 +66,17 @@ class LocalWeatherUseCaseTest {
         getLocalWeather(NoParams)
 
         assertEquals(kept, cache.value.value)
+    }
+
+    @Test
+    fun refusedPermissionForgetsTheKeptWeather() = scope.runTest {
+        repository.weather = AppResult.Success(sunny)
+        getLocalWeather(NoParams)
+
+        position = AppResult.Failure(AppError.PermissionDenied)
+        getLocalWeather(NoParams)
+
+        assertEquals(null, cache.value.value)
     }
 
     @Test

@@ -108,7 +108,9 @@ struct TodoWidgetView: View {
             HStack(alignment: .firstTextBaseline) {
                 Button(intent: CompleteTodoIntent(todoId: item.id)) {
                     Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
                         .foregroundStyle(accent)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(done ? "Remettre « \(item.title) » à faire" : "Terminer « \(item.title) »")

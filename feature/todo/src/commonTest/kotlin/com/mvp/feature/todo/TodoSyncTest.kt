@@ -8,12 +8,12 @@ import com.mvp.core.common.domain.session.UserAccount
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.core.database.testing.createInMemoryDriver
 import com.mvp.feature.todo.data.db.TodoDatabase
+import com.mvp.feature.todo.data.repository.TodoRepositoryImpl
 import com.mvp.feature.todo.data.session.TodoUserSessionObserver
 import com.mvp.feature.todo.data.source.SqlDelightTodoLocalDataSource
 import com.mvp.feature.todo.data.sync.FakeTodoRemoteDataSource
 import com.mvp.feature.todo.data.sync.TodoRecord
 import com.mvp.feature.todo.data.sync.TodoRemoteDataSource
-import com.mvp.feature.todo.data.repository.TodoRepositoryImpl
 import com.mvp.feature.todo.data.sync.TodoSyncRepositoryImpl
 import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.Todo

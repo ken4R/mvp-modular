@@ -66,7 +66,6 @@ import com.mvp.feature.todo.domain.model.TodoPriorityChange
 import com.mvp.feature.todo.domain.model.TodoStatusFilter
 import com.mvp.feature.todo.domain.model.TodoSyncStatus
 import com.mvp.feature.todo.domain.model.TodoWidgetState
-import com.mvp.feature.weather.domain.model.WeatherWidgetState
 import com.mvp.feature.todo.domain.model.TrashItem
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
@@ -104,6 +103,7 @@ import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
 import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
+import com.mvp.feature.weather.domain.model.WeatherWidgetState
 import com.mvp.feature.weather.domain.usecase.GetCurrentWeatherUseCase
 import com.mvp.feature.weather.domain.usecase.GetLocalWeatherUseCase
 import com.mvp.feature.weather.domain.usecase.ObserveWeatherWidgetUseCase
@@ -115,9 +115,9 @@ import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import platform.Foundation.NSData

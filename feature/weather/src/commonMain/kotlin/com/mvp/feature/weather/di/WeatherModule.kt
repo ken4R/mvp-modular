@@ -4,8 +4,8 @@ import com.mvp.core.common.dispatcher.AppDispatchers
 import com.mvp.core.common.domain.session.UserSessionObserver
 import com.mvp.feature.weather.data.cache.SecureLocalWeatherCache
 import com.mvp.feature.weather.data.repository.WeatherRepositoryImpl
-import com.mvp.feature.weather.data.source.OpenMeteoRemoteDataSource
 import com.mvp.feature.weather.data.session.WeatherUserSessionObserver
+import com.mvp.feature.weather.data.source.OpenMeteoRemoteDataSource
 import com.mvp.feature.weather.data.source.WeatherRemoteDataSource
 import com.mvp.feature.weather.domain.repository.LocalWeatherCache
 import com.mvp.feature.weather.domain.repository.WeatherRepository
@@ -40,5 +40,5 @@ val weatherModule = module {
     factory { GetCurrentWeatherUseCase(get(), get<AppDispatchers>().io) }
     factory { GetLocalWeatherUseCase(get(), get(), get(), systemNow, get<AppDispatchers>().io) }
     factory { ObserveWeatherWidgetUseCase(get(), get(), systemNow, get<AppDispatchers>().io) }
-    factory { RefreshWeatherWidgetUseCase(get(), get(), get(), systemNow, get<AppDispatchers>().io) }
+    factory { RefreshWeatherWidgetUseCase(get(), get(), get(), get(), systemNow, get<AppDispatchers>().io) }
 }

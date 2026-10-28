@@ -10,6 +10,8 @@ import com.mvp.core.common.domain.usecase.UseCase
 import com.mvp.feature.todo.domain.repository.TodoRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Case cochée dans le widget Tâches (ADR 0026). Paramètre : id de la tâche.
@@ -30,7 +32,10 @@ class CompleteTodoFromWidgetUseCase(
     dispatcher: CoroutineDispatcher,
 ) : UseCase<String, Unit>(dispatcher) {
 
-    override suspend fun execute(params: String): AppResult<Unit> {
+    // La lecture de l'état et l'inversion se suivent sans transaction : deux taps rapides ne doivent pas les entrelacer.
+    override suspend fun execute(params: String): AppResult<Unit> = mutex.withLock { complete(params) }
+
+    private suspend fun complete(params: String): AppResult<Unit> {
         val expiresAt = session.observeExpiresAt().first()
         if (expiresAt == null || expiresAt <= now()) return AppResult.Failure(AppError.Unauthorized)
         if (appLock.observeAppLockEnabled().first()) return AppResult.Failure(AppError.PermissionDenied)
@@ -44,5 +49,10 @@ class CompleteTodoFromWidgetUseCase(
                 AppResult.Success(Unit)
             }
         }
+    }
+
+    private companion object {
+        /** Partagé par toutes les instances (le use case est une factory Koin). */
+        val mutex = Mutex()
     }
 }

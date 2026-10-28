@@ -58,6 +58,8 @@ class WeatherWidget : GlanceAppWidget(), KoinComponent {
         val initial = states.first()
         provideContent {
             // Après le premier affichage : hors ligne ou serveur lent, l'ancienne météo reste visible en attendant.
+            // Relancé à chaque redessin (updateAll compris) : KMP n'appelle le serveur qu'une fois par quart d'heure,
+            // donc pas de boucle écriture → redessin → actualisation.
             LaunchedEffect(Unit) { refresh(NoParams) }
             val state by remember { states }.collectAsState(initial)
             WeatherWidgetContent(state)

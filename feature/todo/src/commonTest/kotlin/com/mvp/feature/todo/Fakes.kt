@@ -70,6 +70,8 @@ class FakeLocationReminderScheduler(available: Boolean = true) : LocationReminde
 /** Position de l'appareil pilotée par le test ; garde la précision demandée. */
 class FakeLocationProvider(var result: AppResult<GeoPosition>) : LocationProvider {
     val requested = mutableListOf<LocationAccuracy>()
+    override suspend fun isAuthorized(): Boolean = result is AppResult.Success
+
     override suspend fun currentPosition(accuracy: LocationAccuracy): AppResult<GeoPosition> {
         requested += accuracy
         return result

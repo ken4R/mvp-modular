@@ -8,6 +8,8 @@ import com.mvp.feature.todo.data.source.InMemoryTodoLocalDataSource
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.CompleteTodoFromWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -49,6 +51,17 @@ class CompleteTodoFromWidgetUseCaseTest {
         complete("id-0")
 
         assertEquals(AppResult.Success(Unit), complete("id-0"))
+
+        assertTrue(isDone("id-0"))
+        assertEquals(1, analytics.events.size)
+    }
+
+    @Test
+    fun twoTapsAtTheSameTimeDoNotReopenTheTodo() = scope.runTest {
+        add("Appeler Paul")
+        val other = CompleteTodoFromWidgetUseCase(repository, session, appLock, analytics, { now }, dispatcher)
+
+        listOf(async { complete("id-0") }, async { other("id-0") }).awaitAll()
 
         assertTrue(isDone("id-0"))
         assertEquals(1, analytics.events.size)

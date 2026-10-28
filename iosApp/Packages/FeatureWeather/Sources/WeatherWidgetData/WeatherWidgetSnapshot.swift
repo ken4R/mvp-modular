@@ -88,7 +88,8 @@ public struct WeatherWidgetSnapshot: Codable, Equatable {
     }
 }
 
-/// Fichier partagé entre l'app et l'extension, dans le conteneur de l'App Group.
+/// Fichier partagé entre l'app et l'extension, dans le conteneur de l'App Group. App Group, dossier et protection du
+/// fichier : garder alignés avec `TodoWidgetData` (une feature ne dépend pas d'une autre, d'où la recopie).
 public enum WeatherWidgetStore {
     /// Déclaré dans les entitlements de l'app et de l'extension (iosApp/project.yml).
     public static let appGroup = "group.com.mvp.ios"

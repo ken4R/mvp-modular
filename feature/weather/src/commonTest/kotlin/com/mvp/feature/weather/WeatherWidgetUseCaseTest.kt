@@ -32,9 +32,10 @@ class WeatherWidgetUseCaseTest {
     private val cache = InMemoryLocalWeatherCache()
     private val session = FakeSessionExpiry(expiresAt = now + DAY)
     private val repository = FakeWeatherRepository()
+    private val location = FakeLocationProvider()
 
     private val widget = ObserveWeatherWidgetUseCase(cache, session, { now }, dispatcher)
-    private val refresh = RefreshWeatherWidgetUseCase(repository, cache, session, { now }, dispatcher)
+    private val refresh = RefreshWeatherWidgetUseCase(repository, cache, session, location, { now }, dispatcher)
 
     private val lyon = GeoPosition(45.76, 4.84)
     private val sunny = CurrentWeather(18.4, 17.5, 40, 6.0, WeatherCondition.Clear, isDay = true)
@@ -132,6 +133,43 @@ class WeatherWidgetUseCaseTest {
         refresh(NoParams)
 
         assertTrue(repository.requests.isEmpty())
+    }
+
+    @Test
+    fun withdrawnLocationPermissionForgetsTheWeatherWithoutSendingThePosition() = scope.runTest {
+        cache.save(CachedLocalWeather(LocalWeather(lyon, sunny), fetchedAt = now))
+        now += HOUR
+        location.authorized = false
+
+        assertEquals(AppResult.Success(Unit), refresh(NoParams))
+
+        assertTrue(repository.requests.isEmpty())
+        assertNull(cache.value.value)
+    }
+
+    @Test
+    fun aNewerWeatherWrittenDuringTheRefreshIsKept() = scope.runTest {
+        cache.save(CachedLocalWeather(LocalWeather(lyon, sunny), fetchedAt = now))
+        now += HOUR
+        val paris = CachedLocalWeather(LocalWeather(GeoPosition(48.86, 2.35), sunny), fetchedAt = now)
+        repository.weather = AppResult.Success(rainy)
+        repository.duringRequest = { cache.save(paris) }
+
+        refresh(NoParams)
+
+        assertEquals(paris, cache.value.value)
+    }
+
+    @Test
+    fun aLogoutDuringTheRefreshIsNotUndone() = scope.runTest {
+        cache.save(CachedLocalWeather(LocalWeather(lyon, sunny), fetchedAt = now))
+        now += HOUR
+        repository.weather = AppResult.Success(rainy)
+        repository.duringRequest = { cache.clear() }
+
+        refresh(NoParams)
+
+        assertNull(cache.value.value)
     }
 
     @Test

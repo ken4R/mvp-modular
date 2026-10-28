@@ -23,7 +23,7 @@ sealed interface WeatherWidgetState {
     data object NoData : WeatherWidgetState
 
     /**
-     * [updatedAt] : heure de la mesure (epoch ms). [visibleUntil] (epoch ms) : au-delà, la météo est trop ancienne
+     * [updatedAt] : heure à laquelle l'app a obtenu cette météo (epoch ms). [visibleUntil] (epoch ms) : au-delà, la météo est trop ancienne
      * ou la session finie, et le widget ne doit plus la montrer même si l'app n'a pas tourné.
      */
     data class Weather(

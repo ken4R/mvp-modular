@@ -51,6 +51,12 @@ internal class CoreLocationProvider : LocationProvider {
         }
     }
 
+    // Lecture seule du statut : aucune demande d'autorisation n'est affichée.
+    override suspend fun isAuthorized(): Boolean = withContext(Dispatchers.Main) {
+        val status = CLLocationManager().authorizationStatus
+        status == kCLAuthorizationStatusAuthorizedWhenInUse || status == kCLAuthorizationStatusAuthorizedAlways
+    }
+
     private suspend fun locate(
         manager: CLLocationManager,
         delegate: LocationDelegate,

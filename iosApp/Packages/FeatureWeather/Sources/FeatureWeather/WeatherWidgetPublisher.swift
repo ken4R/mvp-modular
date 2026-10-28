@@ -22,10 +22,15 @@ public enum WeatherWidgetPublisher {
     }
 
     /// Actualise la météo de la position déjà gardée, sans demander la localisation (au plus tous les quarts d'heure,
-    /// décidé par KMP). À appeler au lancement (fait par `start()`) et à chaque retour au premier plan.
+    /// décidé par KMP, et rien si la localisation a été retirée). Seulement si un widget Météo est posé : sans lui, la
+    /// position ne repart pas. À appeler au lancement (fait par `start()`) et à chaque retour au premier plan.
     public static func refresh() {
-        Task { @MainActor in
-            _ = try? await UseCases.shared.refreshWeatherWidget().invoke(params: NoParams.shared)
+        WidgetCenter.shared.getCurrentConfigurations { result in
+            guard case .success(let widgets) = result,
+                  widgets.contains(where: { $0.kind == WeatherWidgetStore.widgetKind }) else { return }
+            Task { @MainActor in
+                _ = try? await UseCases.shared.refreshWeatherWidget().invoke(params: NoParams.shared)
+            }
         }
     }
 

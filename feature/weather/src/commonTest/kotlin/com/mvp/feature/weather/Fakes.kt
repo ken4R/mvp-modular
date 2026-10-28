@@ -2,6 +2,8 @@ package com.mvp.feature.weather
 
 import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.location.GeoPosition
+import com.mvp.core.common.domain.location.LocationAccuracy
+import com.mvp.core.common.domain.location.LocationProvider
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.session.SessionExpiry
 import com.mvp.core.securestorage.SecureStorage
@@ -17,11 +19,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 class FakeWeatherRepository : WeatherRepository {
     var weather: AppResult<CurrentWeather> = AppResult.Failure(AppError.Unknown())
     val requests = mutableListOf<GeoPosition>()
+    /** Appelé pendant la requête météo, avant la réponse. */
+    var duringRequest: () -> Unit = {}
 
     override suspend fun searchCities(query: String): AppResult<List<City>> = AppResult.Success(emptyList())
 
     override suspend fun getCurrentWeather(latitude: Double, longitude: Double): AppResult<CurrentWeather> {
         requests += GeoPosition(latitude, longitude)
+        duringRequest()
         return weather
     }
 }
@@ -38,6 +43,13 @@ class InMemoryLocalWeatherCache : LocalWeatherCache {
     override fun clear() {
         value.value = null
     }
+}
+
+/** Autorisation de localisation pilotée par le test ; la position elle-même n'est jamais demandée ici. */
+class FakeLocationProvider(var authorized: Boolean = true) : LocationProvider {
+    override suspend fun currentPosition(accuracy: LocationAccuracy): AppResult<GeoPosition> =
+        error("le widget ne doit jamais demander la position")
+    override suspend fun isAuthorized(): Boolean = authorized
 }
 
 class FakeSessionExpiry(expiresAt: Long?) : SessionExpiry {

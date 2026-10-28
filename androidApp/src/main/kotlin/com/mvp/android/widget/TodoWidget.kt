@@ -146,7 +146,12 @@ class CompleteTodoAction : ActionCallback, KoinComponent {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val id = parameters[todoId] ?: return
         val result = complete(id)
-        if (result is AppResult.Failure) Log.w("TodoWidget", "Tâche non terminée depuis le widget : ${result.error}")
+        if (result is AppResult.Failure) {
+            // Le type d'erreur seulement : le message d'une erreur inconnue peut venir de la base.
+            Log.w("TodoWidget", "Tâche non terminée depuis le widget : ${result.error::class.simpleName}")
+            // Le système a déjà coché la case ; rien n'a changé en base, donc rien ne la redessinerait.
+            TodoWidget().update(context, glanceId)
+        }
     }
 
     companion object {

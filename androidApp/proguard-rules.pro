@@ -10,3 +10,7 @@
 -dontwarn org.slf4j.**
 -dontwarn java.lang.management.**
 -dontwarn reactor.blockhound.**
+
+# Case à cocher du widget Tâches (ADR 0026) : Glance recrée l'ActionCallback par son nom de classe (réflexion), qui
+# figure dans le PendingIntent posé sur l'écran d'accueil. Le nom et le constructeur vide doivent survivre à R8.
+-keep class com.mvp.android.widget.CompleteTodoAction { <init>(); }

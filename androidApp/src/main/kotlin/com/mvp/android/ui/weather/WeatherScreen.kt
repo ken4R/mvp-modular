@@ -202,10 +202,10 @@ private fun Detail(title: String, value: String) {
     }
 }
 
-private fun celsius(value: Double) = "${value.roundToInt()} °C"
+internal fun celsius(value: Double) = "${value.roundToInt()} °C"
 
-/** Symbole et libellé d'une condition météo KMP (mêmes libellés que sur iOS). */
-private fun WeatherCondition.appearance(isDay: Boolean): Pair<String, String> = when (this) {
+/** Symbole et libellé d'une condition météo KMP (mêmes libellés que sur iOS), aussi utilisés par le widget Météo. */
+internal fun WeatherCondition.appearance(isDay: Boolean): Pair<String, String> = when (this) {
     WeatherCondition.Clear -> (if (isDay) "☀️" else "🌙") to "Ciel dégagé"
     WeatherCondition.PartlyCloudy -> (if (isDay) "⛅" else "☁️") to "Partiellement nuageux"
     WeatherCondition.Cloudy -> "☁️" to "Couvert"

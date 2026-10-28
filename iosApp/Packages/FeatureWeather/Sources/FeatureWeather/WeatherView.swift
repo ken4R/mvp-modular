@@ -208,8 +208,8 @@ private struct WeatherCard: View {
     }
 }
 
-/// Icône SF Symbols et libellé d'une condition météo KMP.
-private struct ConditionAppearance {
+/// Icône SF Symbols et libellé d'une condition météo KMP (écran Météo et widget).
+struct ConditionAppearance {
     let symbol: String
     let label: String
 

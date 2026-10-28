@@ -1,23 +1,18 @@
+import AppIntents
 import SwiftUI
 import WidgetKit
 import TodoWidgetData
 
-/// Extension WidgetKit : lit le fichier écrit par l'app (TodoWidgetPublisher) et n'a accès à rien d'autre
-/// (ni base de tâches, ni Keychain, ni framework Kotlin). Voir docs/adr/0011.
-@main
-struct TodoWidgetBundle: WidgetBundle {
-    var body: some Widget {
-        TodoWidget()
-    }
-}
-
+/// Widget Tâches : lit le fichier écrit par l'app (TodoWidgetPublisher) et n'a accès à rien d'autre (ni base de
+/// tâches, ni Keychain, ni framework Kotlin). Voir docs/adr/0011. Depuis iOS 17, chaque ligne a une case qui note
+/// la tâche à terminer ; l'app la termine à sa prochaine ouverture (ADR 0026).
 struct TodoWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: TodoWidgetStore.widgetKind, provider: TodoWidgetProvider()) { entry in
             TodoWidgetView(entry: entry)
         }
         .configurationDisplayName("Tâches")
-        .description("Vos tâches à faire, le rappel le plus proche en premier.")
+        .description("Vos tâches à faire, le rappel le plus proche en premier. Cochez-les sans ouvrir l'app.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -26,6 +21,8 @@ struct TodoWidgetEntry: TimelineEntry {
     let date: Date
     /// `nil` : l'app n'a encore rien écrit (jamais lancée, ou App Group indisponible).
     let snapshot: TodoWidgetSnapshot?
+    /// Tâches cochées dans le widget, pas encore terminées par l'app.
+    var completed: Set<String> = []
 }
 
 struct TodoWidgetProvider: TimelineProvider {
@@ -47,7 +44,8 @@ struct TodoWidgetProvider: TimelineProvider {
     /// L'entrée de maintenant, et à la fin de la session une entrée sans tâche.
     private func currentEntry(at now: Date) -> [TodoWidgetEntry] {
         let snapshot = TodoWidgetStore.read()
-        var entries = [TodoWidgetEntry(date: now, snapshot: snapshot?.displayed(at: now))]
+        let completed = Set(TodoWidgetCompletions.pending())
+        var entries = [TodoWidgetEntry(date: now, snapshot: snapshot?.displayed(at: now), completed: completed)]
         if let snapshot, snapshot.content == .tasks, let end = snapshot.visibleUntil, end > now {
             entries.append(TodoWidgetEntry(date: end, snapshot: snapshot.displayed(at: end)))
         }
@@ -89,8 +87,10 @@ struct TodoWidgetView: View {
     private var maxRows: Int { family == .systemSmall ? 3 : 4 }
 
     private func tasks(_ snapshot: TodoWidgetSnapshot) -> some View {
-        VStack(alignment: .leading) {
-            Text(snapshot.remainingCount == 0 ? "Tout est fait" : "À faire · \(snapshot.remainingCount)")
+        // Les cases cochées comptent déjà comme faites, même avant que l'app ne les ait terminées.
+        let remaining = max(0, snapshot.remainingCount - snapshot.items.filter { entry.completed.contains($0.id) }.count)
+        return VStack(alignment: .leading) {
+            Text(remaining == 0 ? "Tout est fait" : "À faire · \(remaining)")
                 .font(.headline)
                 .foregroundStyle(accent)
             ForEach(snapshot.items.prefix(maxRows)) { item in
@@ -103,9 +103,29 @@ struct TodoWidgetView: View {
 
     @ViewBuilder
     private func row(_ item: TodoWidgetSnapshot.Item) -> some View {
+        let done = entry.completed.contains(item.id)
+        if #available(iOSApplicationExtension 17.0, *) {
+            HStack(alignment: .firstTextBaseline) {
+                Button(intent: CompleteTodoIntent(todoId: item.id)) {
+                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(accent)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(done ? "Remettre « \(item.title) » à faire" : "Terminer « \(item.title) »")
+                rowLabel(item, done: done)
+            }
+        } else {
+            rowLabel(item, done: done)
+        }
+    }
+
+    @ViewBuilder
+    private func rowLabel(_ item: TodoWidgetSnapshot.Item, done: Bool) -> some View {
         let label = VStack(alignment: .leading) {
             Text(item.title)
                 .font(.subheadline)
+                .strikethrough(done)
+                .foregroundStyle(done ? HierarchicalShapeStyle.secondary : HierarchicalShapeStyle.primary)
                 .lineLimit(1)
             if family != .systemSmall, let at = item.reminderAt {
                 Text(at, format: .dateTime.day().month().hour().minute())
@@ -145,6 +165,36 @@ private extension TodoWidgetSnapshot {
         ],
         visibleUntil: .distantFuture
     )
+}
+
+/// Case d'une ligne du widget (iOS 17+). Tourne dans l'extension, sans accès à la base : elle note seulement l'id de
+/// la tâche dans le conteneur partagé (re-toucher la case annule la note), et l'app termine la tâche par le use case
+/// partagé à sa prochaine ouverture (ADR 0026). iPhone verrouillé (mode En veille), elle demande de le déverrouiller.
+@available(iOS 17.0, *)
+struct CompleteTodoIntent: AppIntent {
+    static var title: LocalizedStringResource = "Terminer la tâche"
+    /// Réservée au widget : absente de Raccourcis et de Spotlight.
+    static var isDiscoverable = false
+    static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+
+    @Parameter(title: "Tâche")
+    var todoId: String
+
+    init() {}
+
+    init(todoId: String) {
+        self.todoId = todoId
+    }
+
+    func perform() async throws -> some IntentResult {
+        // Seulement une tâche que le widget peut montrer maintenant : rien après la fin de session, ni verrou activé.
+        let visible = TodoWidgetStore.read()?.displayed(at: Date())
+        guard visible?.content == .tasks, visible?.items.contains(where: { $0.id == todoId }) == true else {
+            return .result()
+        }
+        try TodoWidgetCompletions.toggle(todoId)
+        return .result()
+    }
 }
 
 private extension View {

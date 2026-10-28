@@ -2,13 +2,17 @@ package com.mvp.android
 
 import android.app.Application
 import com.mvp.android.di.androidAppModule
-import com.mvp.android.widget.TodoWidgetUpdater
+import com.mvp.android.widget.TodoWidget
+import com.mvp.android.widget.WeatherWidget
+import com.mvp.android.widget.WidgetUpdater
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.core.crashreporting.domain.usecase.StartCrashReportingUseCase
 import com.mvp.feature.todo.domain.usecase.PurgeExpiredTrashUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoSyncUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoLocationRemindersUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
+import com.mvp.feature.weather.domain.usecase.ObserveWeatherWidgetUseCase
 import com.mvp.shared.di.initKoin
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.launchIn
@@ -37,6 +41,8 @@ class MvpApplication : Application() {
         // Corbeille (ADR 0025) : les tâches jetées depuis plus de 30 jours sont supprimées définitivement.
         MainScope().launch { get<PurgeExpiredTrashUseCase>()(NoParams) }
         // Widget Tâches : redessiné à chaque changement, effacé à la déconnexion ou quand le verrou est activé.
-        TodoWidgetUpdater(this, get()).start(MainScope())
+        WidgetUpdater(this, get<ObserveTodoWidgetUseCase>()(NoParams)) { TodoWidget() }.start(MainScope())
+        // Widget Météo (ADR 0026) : redessiné à chaque nouvelle météo, vidé à la déconnexion ou quand elle est trop vieille.
+        WidgetUpdater(this, get<ObserveWeatherWidgetUseCase>()(NoParams)) { WeatherWidget() }.start(MainScope())
     }
 }

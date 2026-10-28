@@ -55,8 +55,9 @@
         </activity>
 
         <!-- Widget Tâches de l'écran d'accueil (Jetpack Glance, ADR 0011). Exporté : c'est le lanceur qui
-             l'installe et le système qui lui envoie APPWIDGET_UPDATE (diffusion protégée). Le widget ne fait
-             qu'ouvrir MainActivity par un intent explicite ; il ne coche ni ne supprime rien. -->
+             l'installe et le système qui lui envoie APPWIDGET_UPDATE (diffusion protégée). Ce receiver ne fait
+             qu'ouvrir MainActivity par un intent explicite. La case à cocher (ADR 0026) passe par le récepteur
+             propre à Glance, non exporté, et le use case revérifie session et verrou. -->
         <receiver
             android:name=".widget.TodoWidgetReceiver"
             android:exported="true"
@@ -67,6 +68,19 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/todo_widget_info" />
+        </receiver>
+
+        <!-- Widget Météo (ADR 0026). Exporté comme tout widget (exigé par le lanceur) ; il n'ouvre que l'app. -->
+        <receiver
+            android:name=".widget.WeatherWidgetReceiver"
+            android:exported="true"
+            android:label="Météo">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/weather_widget_info" />
         </receiver>
 
         <!-- Rappels par lieu (ADR 0023) : alertes de proximité du système (core:notifications). Non exporté : seul le

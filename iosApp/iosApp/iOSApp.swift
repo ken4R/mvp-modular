@@ -3,6 +3,7 @@ import Shared
 import FeatureAuth
 import FeatureTodo
 import FeatureTodoWidget
+import FeatureWeather
 import FeatureSettings
 import FeatureOnboarding
 
@@ -22,7 +23,10 @@ struct iOSApp: App {
         // Mode hors ligne : les modifications des tâches partent dès que le réseau revient (ADR 0012).
         TodoSync.start()
         // Widget Tâches de l'écran d'accueil : recopié à chaque changement, vidé à la déconnexion ou avec le verrou.
+        // Les cases cochées dans le widget depuis la dernière ouverture sont appliquées (ADR 0026).
         TodoWidgetPublisher.start()
+        // Widget Météo : dernière météo « Ma position », actualisée au lancement et au retour au premier plan.
+        WeatherWidgetPublisher.start()
     }
 
     var body: some Scene {
@@ -50,7 +54,11 @@ struct iOSApp: App {
         }
         // Mesure d'audience : ce qui attend part quand l'app passe en arrière-plan (rien sans consentement).
         .onChange(of: scenePhase) { phase in
-            if phase == .active { Self.refreshFeatureFlags() }
+            if phase == .active {
+                Self.refreshFeatureFlags()
+                TodoWidgetPublisher.applyWidgetCompletions()
+                WeatherWidgetPublisher.refresh()
+            }
             guard phase == .background else { return }
             Task { @MainActor in _ = try? await UseCases.shared.flushAnalytics().invoke(params: NoParams.shared) }
         }

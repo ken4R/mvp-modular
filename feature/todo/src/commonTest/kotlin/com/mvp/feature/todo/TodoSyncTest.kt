@@ -8,6 +8,7 @@ import com.mvp.core.common.domain.session.UserAccount
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.core.database.testing.createInMemoryDriver
 import com.mvp.feature.todo.data.db.TodoDatabase
+import com.mvp.feature.todo.data.repository.TodoRepositoryImpl
 import com.mvp.feature.todo.data.session.TodoUserSessionObserver
 import com.mvp.feature.todo.data.source.SqlDelightTodoLocalDataSource
 import com.mvp.feature.todo.data.sync.FakeTodoRemoteDataSource
@@ -18,6 +19,7 @@ import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoPriority
 import com.mvp.feature.todo.domain.model.TodoSyncStatus
+import com.mvp.feature.todo.domain.usecase.CompleteTodoFromWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoSyncUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodosUseCase
@@ -78,6 +80,33 @@ class TodoSyncTest {
 
         assertEquals(phone.todos(), tablet.todos())
         assertEquals(emptyList(), phone.local.pendingChanges())
+    }
+
+    @Test
+    fun aTodoTickedInTheWidgetReachesAnotherDeviceThroughTheOutbox() = scope.runTest {
+        val phone = Device()
+        val tablet = Device()
+        phone.local.upsert(Todo("a", "Acheter du pain", isDone = false))
+        phone.sync.sync()
+        tablet.sync.sync()
+        connectivity.online.value = false
+        clock = 2_000L
+        val complete = CompleteTodoFromWidgetUseCase(
+            TodoRepositoryImpl(phone.local),
+            session,
+            FakeAppLockPreference(enabled = false),
+            FakeAnalyticsTracker(),
+            now = { clock },
+            dispatcher = dispatcher,
+        )
+
+        assertEquals(AppResult.Success(Unit), complete("a"))
+        assertEquals(1, phone.local.pendingChanges().size)
+
+        connectivity.online.value = true
+        phone.sync.sync()
+        tablet.sync.sync()
+        assertEquals(listOf(Todo("a", "Acheter du pain", isDone = true)), tablet.todos())
     }
 
     @Test

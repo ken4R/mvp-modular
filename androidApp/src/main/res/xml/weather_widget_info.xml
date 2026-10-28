@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget Météo (ADR 0026). La mise à jour périodique (30 min, le minimum d'Android) actualise la météo de la
+     position déjà gardée, sans demander la localisation, et la retire quand elle a plus de 3 h ou que la session est
+     finie ; l'app redessine aussi le widget à chaque nouvelle météo (WidgetUpdater). -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/weather_widget_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="80dp"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen" />

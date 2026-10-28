@@ -107,40 +107,101 @@ public enum TodoWidgetStore {
 
     private static let fileName = "todo-widget.json"
 
-    /// `Library/Caches` du conteneur partagé : jamais sauvegardé (iCloud, Finder). `nil` sans App Group
-    /// (build non signé de la CI, compte Apple sans App Groups) : le widget invite alors à ouvrir l'app.
-    private static var fileURL: URL? {
-        FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: appGroup)?
-            .appendingPathComponent("Library/Caches", isDirectory: true)
-            .appendingPathComponent(fileName)
-    }
-
     public static func read() -> TodoWidgetSnapshot? {
-        guard let url = fileURL, let data = try? Data(contentsOf: url) else { return nil }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .millisecondsSince1970
-        guard let snapshot = try? decoder.decode(TodoWidgetSnapshot.self, from: data),
+        guard let snapshot = SharedFile.read(TodoWidgetSnapshot.self, named: fileName),
               snapshot.version == TodoWidgetSnapshot.currentVersion else { return nil }
         return snapshot
     }
 
     public static func write(_ snapshot: TodoWidgetSnapshot) throws {
-        guard var url = fileURL else { throw CocoaError(.fileNoSuchFile) }
+        try SharedFile.write(snapshot, named: fileName)
+    }
+
+    /// Efface le fichier (il ne reste alors rien des tâches hors de l'app).
+    public static func remove() {
+        SharedFile.remove(named: fileName)
+    }
+}
+
+/// Cases cochées dans le widget (iOS 17+, ADR 0026), pas encore appliquées par l'app. L'extension n'a pas accès à la
+/// base des tâches : elle note ici l'id de la tâche, et l'app la termine par le use case partagé à sa prochaine
+/// ouverture (puis efface la note). Seulement des ids, jamais de titre.
+public enum TodoWidgetCompletions {
+    private static let fileName = "todo-widget-completions.json"
+
+    private struct Pending: Codable {
+        var ids: [String]
+    }
+
+    /// Ids cochés dans le widget, dans l'ordre où ils l'ont été.
+    public static func pending() -> [String] {
+        SharedFile.read(Pending.self, named: fileName)?.ids ?? []
+    }
+
+    /// Coche la tâche `id`, ou la décoche si elle l'était déjà (l'app ne l'a pas encore terminée).
+    public static func toggle(_ id: String) throws {
+        var ids = pending()
+        if let index = ids.firstIndex(of: id) {
+            ids.remove(at: index)
+        } else {
+            ids.append(id)
+        }
+        try save(ids)
+    }
+
+    /// Oublie les demandes `ids`, une fois traitées par l'app ; celles cochées entre-temps restent.
+    public static func remove(_ ids: [String]) {
+        let remaining = pending().filter { !ids.contains($0) }
+        if (try? save(remaining)) == nil { clear() }
+    }
+
+    /// Oublie toutes les demandes (déconnexion, verrou activé).
+    public static func clear() {
+        SharedFile.remove(named: fileName)
+    }
+
+    private static func save(_ ids: [String]) throws {
+        if ids.isEmpty {
+            clear()
+        } else {
+            try SharedFile.write(Pending(ids: ids), named: fileName)
+        }
+    }
+}
+
+/// Fichiers JSON du conteneur de l'App Group, partagés entre l'app et l'extension.
+enum SharedFile {
+    /// `Library/Caches` du conteneur partagé : jamais sauvegardé (iCloud, Finder). `nil` sans App Group
+    /// (build non signé de la CI, compte Apple sans App Groups) : le widget invite alors à ouvrir l'app.
+    private static func url(named name: String) -> URL? {
+        FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: TodoWidgetStore.appGroup)?
+            .appendingPathComponent("Library/Caches", isDirectory: true)
+            .appendingPathComponent(name)
+    }
+
+    static func read<T: Decodable>(_ type: T.Type, named name: String) -> T? {
+        guard let url = url(named: name), let data = try? Data(contentsOf: url) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .millisecondsSince1970
+        return try? decoder.decode(type, from: data)
+    }
+
+    static func write<T: Encodable>(_ value: T, named name: String) throws {
+        guard var url = url(named: name) else { throw CocoaError(.fileNoSuchFile) }
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .millisecondsSince1970
-        // Lisible par le widget après le premier déverrouillage de l'appareil (pas avant), comme le Keychain
-        // de la session. Écriture atomique : le widget ne lit jamais un fichier à moitié écrit.
-        try encoder.encode(snapshot).write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        // Lisible après le premier déverrouillage de l'appareil (pas avant), comme le Keychain de la session.
+        // Écriture atomique : l'autre processus ne lit jamais un fichier à moitié écrit.
+        try encoder.encode(value).write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
         try url.setResourceValues(values)
     }
 
-    /// Efface le fichier (il ne reste alors rien des tâches hors de l'app).
-    public static func remove() {
-        guard let url = fileURL else { return }
+    static func remove(named name: String) {
+        guard let url = url(named: name) else { return }
         try? FileManager.default.removeItem(at: url)
     }
 }

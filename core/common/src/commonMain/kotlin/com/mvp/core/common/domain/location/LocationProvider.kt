@@ -29,4 +29,11 @@ interface LocationProvider {
      * (Android : localisation coupée ; délai dépassé).
      */
     suspend fun currentPosition(accuracy: LocationAccuracy = LocationAccuracy.Approximate): AppResult<GeoPosition>
+
+    /**
+     * `true` si la localisation, au moins approximative, est autorisée pour l'app en ce moment. Ne demande jamais
+     * l'autorisation : sert à arrêter un usage de la position déjà obtenue quand l'utilisateur la retire (widget Météo,
+     * ADR 0026).
+     */
+    suspend fun isAuthorized(): Boolean
 }

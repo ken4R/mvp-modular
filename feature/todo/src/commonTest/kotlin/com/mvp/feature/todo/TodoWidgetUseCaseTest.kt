@@ -5,11 +5,15 @@ import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.feature.todo.data.repository.TodoRepositoryImpl
 import com.mvp.feature.todo.data.source.InMemoryTodoLocalDataSource
+import com.mvp.feature.todo.domain.model.TodoPriority
+import com.mvp.feature.todo.domain.model.TodoPriorityChange
 import com.mvp.feature.todo.domain.model.TodoReminder
 import com.mvp.feature.todo.domain.model.TodoWidgetItem
 import com.mvp.feature.todo.domain.model.TodoWidgetState
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
+import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
+import com.mvp.feature.todo.domain.usecase.SetTodoPriorityUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoReminderUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
 import kotlinx.coroutines.flow.Flow
@@ -36,6 +40,8 @@ class TodoWidgetUseCaseTest {
     private val add = AddTodoUseCase(repository, FakeAnalyticsTracker(), dispatcher)
     private val toggle = ToggleTodoUseCase(repository, FakeAnalyticsTracker(), dispatcher)
     private val setReminder = SetTodoReminderUseCase(repository, { now }, dispatcher)
+    private val setPriority = SetTodoPriorityUseCase(repository, dispatcher)
+    private val delete = DeleteTodoUseCase(repository, dispatcher)
     private val widget = ObserveTodoWidgetUseCase(repository, session, appLock, { now }, dispatcher)
 
     private suspend fun current(): TodoWidgetState =
@@ -64,6 +70,33 @@ class TodoWidgetUseCaseTest {
         )
         assertEquals(now + DAY, state.visibleUntil)
         assertEquals("mvpmodular://tasks", state.link)
+    }
+
+    @Test
+    fun withoutReminderHigherPriorityComesFirstThenTheManualOrder() = scope.runTest {
+        add("Basse")
+        add("Aucune")
+        add("Haute")
+        add("Avec rappel")
+        setPriority(TodoPriorityChange("id-0", TodoPriority.Low))
+        setPriority(TodoPriorityChange("id-2", TodoPriority.High))
+        setReminder(TodoReminder("id-3", at = now + MINUTE))
+
+        val state = assertIs<TodoWidgetState.Tasks>(current())
+
+        assertEquals(listOf("id-3", "id-2", "id-0", "id-1"), state.items.map { it.id })
+    }
+
+    @Test
+    fun todosInTheTrashAreNeitherShownNorCounted() = scope.runTest {
+        add("Appeler Paul")
+        add("Supprimée")
+        delete("id-1")
+
+        val state = assertIs<TodoWidgetState.Tasks>(current())
+
+        assertEquals(1, state.remainingCount)
+        assertEquals(listOf("id-0"), state.items.map { it.id })
     }
 
     @Test

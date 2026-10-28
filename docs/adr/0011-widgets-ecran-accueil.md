@@ -23,7 +23,7 @@ Partage des données avec l'extension iOS :
 
 ## Décision
 
-**Option 1 (tâches) et option b sur iOS.** La météo pourra suivre en second widget.
+**Option 1 (tâches) et option b sur iOS.** La météo pourra suivre en second widget (fait : [ADR 0026](0026-widgets-meteo-interactifs.md)).
 
 - **La logique est dans KMP** : `ObserveTodoWidgetUseCase` (`feature:todo`) donne un `TodoWidgetState` :
   - `SignedOut` sans session valide (absente **ou expirée**, `SessionExpiry`) ;
@@ -41,7 +41,7 @@ Partage des données avec l'extension iOS :
   - l'extension ne charge pas `DesignSystemUI` (qui dépend du framework Kotlin) : la couleur principale est recopiée depuis les tokens dans le fichier, le reste utilise les styles système (`.headline`, `.secondary`, marges par défaut du widget), sans valeur en dur.
 - **Pendant la déconnexion**, la session est encore valide et les features sont effacées dans un ordre non garanti (et l'une peut échouer) : `feature:settings` garde donc le réglage Sécurité jusqu'à la fin de la déconnexion (`onLogout`), sinon le widget aurait pu montrer les tâches un instant, verrou coupé. Un autre compte qui se connecte repart sans verrou (`onLogin`).
 - **Fin de session** : le use case émet lui-même `SignedOut` à `visibleUntil` (rien d'autre ne réémet quand la session expire).
-- Le widget ne fait que **lire** : pas de case à cocher interactive (elle demanderait d'écrire dans la base depuis l'extension iOS).
+- Le widget ne fait que **lire** : pas de case à cocher interactive (elle demanderait d'écrire dans la base depuis l'extension iOS). Ajoutée depuis : [ADR 0026](0026-widgets-meteo-interactifs.md).
 
 ## Conséquences
 

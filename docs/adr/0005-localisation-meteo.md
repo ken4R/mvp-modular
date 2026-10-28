@@ -22,7 +22,7 @@ La météo doit pouvoir s'afficher pour la position de l'appareil, sur Android e
   - iOS : CoreLocation depuis Kotlin/Native, sur le main thread. Demande « Lorsque l'app est active » la première fois, puis `requestLocation()` avec une précision du kilomètre. Refus, restriction ou service coupé → `PermissionDenied`.
   - Délai maximal de 15 s, puis `Unavailable`.
 - **`GetLocalWeatherUseCase`** (`feature:weather`) : position → arrondie à 2 décimales (environ 1 km) → météo Open-Meteo. Seule la position arrondie quitte l'appareil.
-- Rien n'est enregistré : pas de `UserSessionObserver` à ajouter.
+- Rien n'est enregistré : pas de `UserSessionObserver` à ajouter. (Remplacé par l'[ADR 0026](0026-widgets-meteo-interactifs.md) : la dernière météo et sa position arrondie sont gardées, chiffrées, pour le widget Météo.)
 - Android obtient enfin l'écran Météo (onglet entre Tâches et Réglages) et la permission `INTERNET`, qui manquait jusqu'ici car aucun écran Android n'appelait le réseau.
 
 ## Conséquences

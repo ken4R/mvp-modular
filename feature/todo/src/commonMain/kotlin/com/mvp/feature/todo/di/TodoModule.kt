@@ -30,6 +30,7 @@ import com.mvp.feature.todo.domain.repository.TodoSyncRepository
 import com.mvp.feature.todo.domain.repository.TodoTrashRepository
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
+import com.mvp.feature.todo.domain.usecase.CompleteTodoFromWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoPermanentlyUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
@@ -121,6 +122,8 @@ val todoModule = module {
     factory { SyncTodoRemindersUseCase(get(), get(), get(), get(), systemNow, get<AppDispatchers>().io) }
     // Widget de l'écran d'accueil : AppLockPreference vient de feature:settings (ADR 0011).
     factory { ObserveTodoWidgetUseCase(get(), get(), get(), systemNow, get<AppDispatchers>().io) }
+    // Case à cocher du widget (ADR 0026) : mêmes règles de session et de verrou que son contenu.
+    factory { CompleteTodoFromWidgetUseCase(get(), get(), get(), get(), systemNow, get<AppDispatchers>().io) }
     // Mode hors ligne (ADR 0012) : StartTodoSyncUseCase est lancé une fois par chaque app.
     factory { StartTodoSyncUseCase(get(), get(), get(), get<AppDispatchers>().io) }
     factory { SyncTodosUseCase(get(), get(), get<AppDispatchers>().io) }

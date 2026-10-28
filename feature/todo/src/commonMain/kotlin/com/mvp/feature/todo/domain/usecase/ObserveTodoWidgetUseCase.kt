@@ -23,8 +23,8 @@ import kotlinx.coroutines.flow.transformLatest
 /**
  * Contenu du widget Tâches, recalculé à chaque changement des tâches, de la session ou du réglage Sécurité.
  * Session absente ou expirée : [TodoWidgetState.SignedOut] ; verrou activé : [TodoWidgetState.Locked].
- * Sinon les tâches non terminées, celles qui ont un rappel d'abord (le plus proche en premier), puis les
- * autres dans l'ordre de la liste. En cas d'erreur, l'app ne doit rien montrer (voir les widgets).
+ * Sinon les tâches non terminées (hors corbeille), celles qui ont un rappel d'abord (le plus proche en premier),
+ * puis par priorité décroissante, puis dans l'ordre manuel de la liste (ADR 0024). En cas d'erreur, l'app ne doit rien montrer (voir les widgets).
  */
 class ObserveTodoWidgetUseCase(
     private val repository: TodoRepository,
@@ -57,9 +57,9 @@ class ObserveTodoWidgetUseCase(
 
     private fun tasks(todos: List<Todo>, expiresAt: Long): TodoWidgetState.Tasks {
         val remaining = todos.filterNot { it.isDone }
-        // sortedWith est stable : sans rappel, les tâches gardent l'ordre de la liste.
+        // sortedWith est stable : à rappel et priorité égaux, les tâches gardent l'ordre de la liste.
         val items = remaining
-            .sortedWith(compareBy(nullsLast()) { it.reminderAt })
+            .sortedWith(compareBy<Todo, Long?>(nullsLast()) { it.reminderAt }.thenByDescending { it.priority.level })
             .take(MAX_ITEMS)
             .map { todo ->
                 TodoWidgetItem(

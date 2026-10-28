@@ -36,7 +36,9 @@ object OnboardingTexts {
         OnboardingStep.Location -> OnboardingText(
             title = "Météo à votre position",
             body = "Votre position approximative (environ 1 km) est envoyée au service météo Open-Meteo, seulement " +
-                "quand vous demandez la météo à votre position. Elle n'est pas enregistrée. Sans elle, vous pouvez " +
+                "quand vous demandez la météo à votre position. La dernière est gardée sur l'appareil pour le widget " +
+                "Météo : s'il est posé, elle repart régulièrement pour l'actualiser. Elle est effacée à la " +
+                "déconnexion ou si vous retirez l'accès à la position. Sans elle, vous pouvez " +
                 "toujours chercher une ville.",
             acceptLabel = "Autoriser la position",
             declineLabel = "Plus tard",

@@ -69,6 +69,7 @@ import com.mvp.feature.todo.domain.model.TodoWidgetState
 import com.mvp.feature.todo.domain.model.TrashItem
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
+import com.mvp.feature.todo.domain.usecase.CompleteTodoFromWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoPermanentlyUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
@@ -102,8 +103,11 @@ import com.mvp.feature.todo.domain.usecase.SyncTodoRemindersUseCase
 import com.mvp.feature.todo.domain.usecase.SyncTodosUseCase
 import com.mvp.feature.todo.domain.usecase.ToggleTodoUseCase
 import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
+import com.mvp.feature.weather.domain.model.WeatherWidgetState
 import com.mvp.feature.weather.domain.usecase.GetCurrentWeatherUseCase
 import com.mvp.feature.weather.domain.usecase.GetLocalWeatherUseCase
+import com.mvp.feature.weather.domain.usecase.ObserveWeatherWidgetUseCase
+import com.mvp.feature.weather.domain.usecase.RefreshWeatherWidgetUseCase
 import com.mvp.feature.weather.domain.usecase.SearchCitiesUseCase
 import com.mvp.shared.di.initKoin
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -113,6 +117,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import platform.Foundation.NSData
@@ -222,6 +227,7 @@ object UseCases : KoinComponent {
     fun searchCities(): SearchCitiesUseCase = get()
     fun getCurrentWeather(): GetCurrentWeatherUseCase = get()
     fun getLocalWeather(): GetLocalWeatherUseCase = get()
+    fun refreshWeatherWidget(): RefreshWeatherWidgetUseCase = get()
 
     fun updateProfile(): UpdateProfileUseCase = get()
     fun setNotificationsEnabled(): SetNotificationsEnabledUseCase = get()
@@ -448,6 +454,36 @@ object UseCases : KoinComponent {
      */
     fun observeTodoWidget(onState: (TodoWidgetState) -> Unit, onError: (AppError) -> Unit): Subscription {
         val job = get<ObserveTodoWidgetUseCase>()(NoParams)
+            .onEach { result ->
+                when (result) {
+                    is AppResult.Success -> onState(result.data)
+                    is AppResult.Failure -> onError(result.error)
+                }
+            }
+            .launchIn(scope)
+        return Subscription(job)
+    }
+
+    /**
+     * Cases cochées dans le widget Tâches depuis la dernière ouverture de l'app (ADR 0026), appliquées une à une par
+     * le use case partagé (session, verrou, corbeille vérifiés ; la modification part par la file d'envoi).
+     * [onDone] est appelé sur le main thread une fois toutes traitées : les demandes refusées (déconnecté, verrou
+     * activé, tâche supprimée) sont abandonnées, comme celles qui ont réussi.
+     */
+    fun completeTodosFromWidget(todoIds: List<String>, onDone: () -> Unit) {
+        scope.launch {
+            val complete = get<CompleteTodoFromWidgetUseCase>()
+            todoIds.distinct().forEach { complete(it) }
+            onDone()
+        }
+    }
+
+    /**
+     * Contenu du widget Météo (ADR 0026), à recopier dans le fichier partagé avec l'extension WidgetKit. En cas
+     * d'erreur, n'y écrire aucune météo. Les callbacks sont appelés sur le main thread.
+     */
+    fun observeWeatherWidget(onState: (WeatherWidgetState) -> Unit, onError: (AppError) -> Unit): Subscription {
+        val job = get<ObserveWeatherWidgetUseCase>()(NoParams)
             .onEach { result ->
                 when (result) {
                     is AppResult.Success -> onState(result.data)

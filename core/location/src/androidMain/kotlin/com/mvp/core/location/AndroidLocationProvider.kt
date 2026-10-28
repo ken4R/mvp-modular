@@ -62,6 +62,9 @@ internal class AndroidLocationProvider(private val context: Context) : LocationP
         }
     }
 
+    override suspend fun isAuthorized(): Boolean =
+        isGranted(Manifest.permission.ACCESS_FINE_LOCATION) || isGranted(Manifest.permission.ACCESS_COARSE_LOCATION)
+
     private fun isGranted(permission: String) = context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 
     /**

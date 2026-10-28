@@ -22,6 +22,7 @@ object WidgetTheme {
     val primary: ColorProvider = ColorProvider(day = Color(light.primary), night = Color(dark.primary))
 
     val title: TextStyle = DesignSystem.typography.titleMedium.toGlance(primary)
+    val headline: TextStyle = DesignSystem.typography.titleLarge.toGlance(onSurface)
     val body: TextStyle = DesignSystem.typography.body.toGlance(onSurface)
     val caption: TextStyle = DesignSystem.typography.caption.toGlance(onSurface)
 }

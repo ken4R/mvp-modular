@@ -6,17 +6,17 @@ import com.mvp.core.common.domain.location.LocationAccuracy
 import com.mvp.core.common.domain.location.LocationProvider
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.usecase.NoParams
-import com.mvp.feature.weather.domain.model.City
+import com.mvp.feature.weather.domain.model.CachedLocalWeather
 import com.mvp.feature.weather.domain.model.CurrentWeather
 import com.mvp.feature.weather.domain.model.LocalWeather
 import com.mvp.feature.weather.domain.model.WeatherCondition
-import com.mvp.feature.weather.domain.repository.WeatherRepository
 import com.mvp.feature.weather.domain.usecase.GetLocalWeatherUseCase
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class LocalWeatherUseCaseTest {
@@ -27,9 +27,12 @@ class LocalWeatherUseCaseTest {
     private var position: AppResult<GeoPosition> = AppResult.Success(GeoPosition(45.764043, 4.835659))
     private val location = object : LocationProvider {
         override suspend fun currentPosition(accuracy: LocationAccuracy) = position
+        override suspend fun isAuthorized() = position is AppResult.Success
     }
     private val repository = FakeWeatherRepository()
-    private val getLocalWeather = GetLocalWeatherUseCase(location, repository, dispatcher)
+    private val cache = InMemoryLocalWeatherCache()
+    private val now = 1_000_000L
+    private val getLocalWeather = GetLocalWeatherUseCase(location, repository, cache, { now }, dispatcher)
 
     private val sunny = CurrentWeather(18.0, 17.5, 40, 6.0, WeatherCondition.Clear, isDay = true)
 
@@ -42,6 +45,46 @@ class LocalWeatherUseCaseTest {
         val rounded = GeoPosition(45.76, 4.84)
         assertEquals(AppResult.Success(LocalWeather(rounded, sunny)), result)
         assertEquals(listOf(rounded), repository.requests)
+    }
+
+    @Test
+    fun lastWeatherIsKeptForTheWidgetWithTheRoundedPositionOnly() = scope.runTest {
+        repository.weather = AppResult.Success(sunny)
+
+        getLocalWeather(NoParams)
+
+        assertEquals(CachedLocalWeather(LocalWeather(GeoPosition(45.76, 4.84), sunny), now), cache.value.value)
+    }
+
+    @Test
+    fun aFailureKeepsThePreviousWeather() = scope.runTest {
+        repository.weather = AppResult.Success(sunny)
+        getLocalWeather(NoParams)
+        val kept = cache.value.value
+
+        repository.weather = AppResult.Failure(AppError.Network)
+        getLocalWeather(NoParams)
+
+        assertEquals(kept, cache.value.value)
+    }
+
+    @Test
+    fun refusedPermissionForgetsTheKeptWeather() = scope.runTest {
+        repository.weather = AppResult.Success(sunny)
+        getLocalWeather(NoParams)
+
+        position = AppResult.Failure(AppError.PermissionDenied)
+        getLocalWeather(NoParams)
+
+        assertEquals(null, cache.value.value)
+    }
+
+    @Test
+    fun aCacheFailureDoesNotHideTheWeather() = scope.runTest {
+        repository.weather = AppResult.Success(sunny)
+        cache.failOnSave = true
+
+        assertIs<AppResult.Success<LocalWeather>>(getLocalWeather(NoParams))
     }
 
     @Test
@@ -74,17 +117,5 @@ class LocalWeatherUseCaseTest {
         repository.weather = AppResult.Failure(AppError.Network)
 
         assertEquals(AppResult.Failure(AppError.Network), getLocalWeather(NoParams))
-    }
-
-    private class FakeWeatherRepository : WeatherRepository {
-        var weather: AppResult<CurrentWeather> = AppResult.Failure(AppError.Unknown())
-        val requests = mutableListOf<GeoPosition>()
-
-        override suspend fun searchCities(query: String): AppResult<List<City>> = AppResult.Success(emptyList())
-
-        override suspend fun getCurrentWeather(latitude: Double, longitude: Double): AppResult<CurrentWeather> {
-            requests += GeoPosition(latitude, longitude)
-            return weather
-        }
     }
 }

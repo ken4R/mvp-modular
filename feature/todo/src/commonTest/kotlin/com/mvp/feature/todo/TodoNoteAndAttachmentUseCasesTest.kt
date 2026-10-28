@@ -4,6 +4,7 @@ import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.core.common.domain.result.getOrNull
 import com.mvp.feature.todo.data.repository.TodoRepositoryImpl
+import com.mvp.feature.todo.data.repository.TodoTrashRepositoryImpl
 import com.mvp.feature.todo.data.source.InMemoryTodoLocalDataSource
 import com.mvp.feature.todo.domain.model.AttachmentType
 import com.mvp.feature.todo.domain.model.NewTodoAttachment
@@ -11,6 +12,7 @@ import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoNote
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
+import com.mvp.feature.todo.domain.usecase.DeleteTodoPermanentlyUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoAttachmentsUseCase
 import com.mvp.feature.todo.domain.usecase.UpdateTodoNoteUseCase
@@ -35,6 +37,7 @@ class TodoNoteAndAttachmentUseCasesTest {
     private val addAttachment = AddTodoAttachmentUseCase(repository, dispatcher)
     private val deleteAttachment = DeleteTodoAttachmentUseCase(repository, dispatcher)
     private val deleteTodo = DeleteTodoUseCase(repository, dispatcher)
+    private val deletePermanently = DeleteTodoPermanentlyUseCase(TodoTrashRepositoryImpl(local), dispatcher)
 
     private suspend fun attachments() = observeAttachments("t").first().getOrNull()!!
 
@@ -133,7 +136,7 @@ class TodoNoteAndAttachmentUseCasesTest {
     }
 
     @Test
-    fun attachmentIsDeletedAloneOrWithItsTask() = scope.runTest {
+    fun attachmentIsDeletedAloneOrWithItsTaskOnceRemovedFromTheTrash() = scope.runTest {
         val first = addAttachment(photo()).getOrNull()!!
         addAttachment(photo())
 
@@ -141,7 +144,10 @@ class TodoNoteAndAttachmentUseCasesTest {
         assertEquals(AppResult.Failure(AppError.NotFound), deleteAttachment(first.id))
         assertEquals(1, attachments().size)
 
+        // Dans la corbeille (ADR 0025), la tâche garde ses pièces jointes ; supprimée définitivement, elle les perd.
         deleteTodo("t")
+        assertEquals(1, attachments().size)
+        deletePermanently("t")
         assertEquals(emptyList(), attachments())
     }
 

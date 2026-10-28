@@ -9,6 +9,7 @@ import com.mvp.feature.todo.data.db.TodoDatabase
 import com.mvp.feature.todo.data.reminder.NotificationLocationReminderScheduler
 import com.mvp.feature.todo.data.reminder.NotificationReminderScheduler
 import com.mvp.feature.todo.data.repository.TodoRepositoryImpl
+import com.mvp.feature.todo.data.repository.TodoTrashRepositoryImpl
 import com.mvp.feature.todo.data.session.TodoUserSessionObserver
 import com.mvp.feature.todo.data.source.SqlDelightTodoLocalDataSource
 import com.mvp.feature.todo.data.stats.SystemWeekCalendar
@@ -26,10 +27,13 @@ import com.mvp.feature.todo.domain.reminder.ReminderScheduler
 import com.mvp.feature.todo.domain.repository.TodoRepository
 import com.mvp.feature.todo.domain.repository.TodoStatsRepository
 import com.mvp.feature.todo.domain.repository.TodoSyncRepository
+import com.mvp.feature.todo.domain.repository.TodoTrashRepository
 import com.mvp.feature.todo.domain.usecase.AddTodoAttachmentUseCase
 import com.mvp.feature.todo.domain.usecase.AddTodoUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoAttachmentUseCase
+import com.mvp.feature.todo.domain.usecase.DeleteTodoPermanentlyUseCase
 import com.mvp.feature.todo.domain.usecase.DeleteTodoUseCase
+import com.mvp.feature.todo.domain.usecase.EmptyTrashUseCase
 import com.mvp.feature.todo.domain.usecase.ExportTodoToCalendarUseCase
 import com.mvp.feature.todo.domain.usecase.FindTodoUseCase
 import com.mvp.feature.todo.domain.usecase.MoveTodoUseCase
@@ -42,8 +46,11 @@ import com.mvp.feature.todo.domain.usecase.ObserveTodoCalendarUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoSyncStatusUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodosUseCase
+import com.mvp.feature.todo.domain.usecase.ObserveTrashUseCase
+import com.mvp.feature.todo.domain.usecase.PurgeExpiredTrashUseCase
 import com.mvp.feature.todo.domain.usecase.RefreshLocationRemindersAvailabilityUseCase
 import com.mvp.feature.todo.domain.usecase.RemoveLocationReminderUseCase
+import com.mvp.feature.todo.domain.usecase.RestoreTodoUseCase
 import com.mvp.feature.todo.domain.usecase.SetLocationReminderHereUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoDueDateUseCase
 import com.mvp.feature.todo.domain.usecase.SetTodoPriorityUseCase
@@ -80,6 +87,8 @@ val todoModule = module {
     single<TodoLocalDataSource> { get<SqlDelightTodoLocalDataSource>() }
     single<TodoSyncLocalDataSource> { get<SqlDelightTodoLocalDataSource>() }
     single<TodoRepository> { TodoRepositoryImpl(get()) }
+    // Corbeille (ADR 0025) : même base, effacée avec les tâches à la déconnexion.
+    single<TodoTrashRepository> { TodoTrashRepositoryImpl(get()) }
     // Statistiques (ADR 0019) : heures de fin gardées dans la même base, effacées avec les tâches à la déconnexion.
     single<TodoStatsLocalDataSource> { get<SqlDelightTodoLocalDataSource>() }
     single<TodoStatsRepository> { TodoStatsRepositoryImpl(get()) }
@@ -140,6 +149,13 @@ val todoModule = module {
     // Priorité et ordre manuel (glisser-déposer), synchronisés avec la tâche (ADR 0024).
     factory { SetTodoPriorityUseCase(get(), get<AppDispatchers>().io) }
     factory { MoveTodoUseCase(get(), get<AppDispatchers>().io) }
+    // Corbeille avec annulation, 30 jours avant la suppression définitive (ADR 0025). PurgeExpiredTrashUseCase est
+    // lancé par chaque app au démarrage.
+    factory { RestoreTodoUseCase(get(), get<AppDispatchers>().io) }
+    factory { ObserveTrashUseCase(get(), systemNow, get<AppDispatchers>().io) }
+    factory { DeleteTodoPermanentlyUseCase(get(), get<AppDispatchers>().io) }
+    factory { EmptyTrashUseCase(get(), get<AppDispatchers>().io) }
+    factory { PurgeExpiredTrashUseCase(get(), systemNow, get<AppDispatchers>().io) }
 }
 
 /** Dossier des fichiers des pièces jointes, effacé à la déconnexion. */

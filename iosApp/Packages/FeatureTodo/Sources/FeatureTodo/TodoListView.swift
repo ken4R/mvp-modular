@@ -17,6 +17,8 @@ public struct TodoListView: View {
     /// Calendrier des tâches par échéance (ADR 0022), affiché à la place de la liste ; une fiche ouverte depuis le
     /// calendrier y revient.
     @State private var showCalendar = false
+    /// Corbeille (ADR 0025), affichée à la place de la liste.
+    @State private var showTrash = false
     /// Gardé par la liste : le mois parcouru survit à l'ouverture d'une fiche depuis le calendrier.
     @StateObject private var calendarViewModel = TodoCalendarViewModel()
     /// Tâche demandée par un lien profond : prise en compte puis remise à `nil`.
@@ -46,6 +48,8 @@ public struct TodoListView: View {
                 TodoStatsView { showStats = false }
             } else if showCalendar {
                 TodoCalendarView(viewModel: calendarViewModel, onClose: { showCalendar = false }, onOpenTodo: { openedTodoId = $0 })
+            } else if showTrash {
+                TodoTrashView { showTrash = false }
             } else {
                 list
             }
@@ -78,6 +82,13 @@ public struct TodoListView: View {
                     inputFocused = false
                     searchFocused = false
                     showStats = true
+                }
+                .font(DS.Typography.label)
+                .tint(Color(argb: colors.primary))
+                Button("Corbeille") {
+                    inputFocused = false
+                    searchFocused = false
+                    showTrash = true
                 }
                 .font(DS.Typography.label)
                 .tint(Color(argb: colors.primary))
@@ -175,6 +186,17 @@ public struct TodoListView: View {
         }
         .padding(DS.Spacing.md)
         .background(Color(argb: colors.background))
+        // « Annuler » après une suppression (ADR 0025), par-dessus le bas de la liste.
+        .overlay(alignment: .bottom) {
+            if let notice = viewModel.trashedNotice {
+                StatusBanner(notice.message, actionTitle: "Annuler") {
+                    Task { await viewModel.undoDelete() }
+                }
+                .padding(DS.Spacing.md)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut, value: viewModel.trashedNotice)
         .sheet(item: Binding(
             get: { reminderTodo.map(ReminderTarget.init) },
             set: { reminderTodo = $0?.todo }
@@ -233,6 +255,7 @@ public struct TodoListView: View {
         openedTodoId = nil
         showStats = false
         showCalendar = false
+        showTrash = false
         Task { await viewModel.focus(id) }
     }
 
@@ -244,6 +267,7 @@ public struct TodoListView: View {
         openedTodoId = nil
         showStats = false
         showCalendar = false
+        showTrash = false
         if !title.isEmpty { viewModel.input = title }
     }
 

@@ -27,7 +27,7 @@ internal interface TodoSyncLocalDataSource {
      * sa version part au prochain envoi et le serveur départage. Les rappels et les pièces jointes de l'appareil
      * sont gardés (une tâche supprimée perd ses pièces jointes). Une version au titre vide ou trop long (règles
      * d'AddTodoUseCase), à la note trop longue (UpdateTodoNoteUseCase) ou à l'échéance hors limites (SetTodoDueDateUseCase)
-     * est ignorée, comme une version dont l'id n'est pas un id de tâche de l'app (`DeepLinks.isValidTodoId`).
+     * est ignorée, comme une version mise à la corbeille après sa propre modification (ADR 0025) ou dont l'id n'est pas un id de tâche de l'app (`DeepLinks.isValidTodoId`).
      */
     fun applyRemote(records: List<TodoRecord>)
 }

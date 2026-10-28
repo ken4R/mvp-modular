@@ -12,6 +12,9 @@
 -- comme le rappel à l'heure, jamais synchronisé ni partagé (migration 6.sqm, ADR 0023).
 -- priority : niveau de TodoPriority (0 aucune à 3 haute) ; position : clé d'ordre manuel (OrderKey), comparée octet par
 -- octet, '' sans clé ; les deux synchronisées comme le titre (migration 7.sqm, ADR 0024).
+-- trashed_at : heure de la mise à la corbeille (epoch ms), NULL hors corbeille ; synchronisée comme le titre. Une tâche
+-- de la corbeille n'est dans aucune liste ni statistique, et ne se modifie plus qu'en la restaurant (migration 8.sqm,
+-- ADR 0025).
 CREATE TABLE TodoEntity (
     id TEXT NOT NULL PRIMARY KEY,
     title TEXT NOT NULL,
@@ -26,7 +29,8 @@ CREATE TABLE TodoEntity (
     location_radius INTEGER,
     location_label TEXT,
     priority INTEGER NOT NULL DEFAULT 0,
-    position TEXT NOT NULL DEFAULT ''
+    position TEXT NOT NULL DEFAULT '',
+    trashed_at INTEGER
 );
 
 -- Avec le nombre de pièces jointes (TodoAttachmentEntity.sq) : la jointure fait réémettre la liste quand on en
@@ -35,14 +39,28 @@ selectAll:
 SELECT TodoEntity.*, COUNT(TodoAttachmentEntity.id) AS attachment_count
 FROM TodoEntity
 LEFT JOIN TodoAttachmentEntity ON TodoAttachmentEntity.todo_id = TodoEntity.id
+WHERE TodoEntity.trashed_at IS NULL
 GROUP BY TodoEntity.id
 ORDER BY TodoEntity.position, TodoEntity.rowid;
+
+-- Corbeille (ADR 0025), la dernière jetée en premier.
+selectTrash:
+SELECT TodoEntity.*, COUNT(TodoAttachmentEntity.id) AS attachment_count
+FROM TodoEntity
+LEFT JOIN TodoAttachmentEntity ON TodoAttachmentEntity.todo_id = TodoEntity.id
+WHERE TodoEntity.trashed_at IS NOT NULL
+GROUP BY TodoEntity.id
+ORDER BY TodoEntity.trashed_at DESC, TodoEntity.rowid DESC;
+
+-- Tâches de la corbeille jetées au plus tard à l'heure donnée (epoch ms).
+selectTrashedIdsBefore:
+SELECT id FROM TodoEntity WHERE trashed_at IS NOT NULL AND trashed_at <= ?;
 
 selectWithAttachmentCountById:
 SELECT TodoEntity.*, COUNT(TodoAttachmentEntity.id) AS attachment_count
 FROM TodoEntity
 LEFT JOIN TodoAttachmentEntity ON TodoAttachmentEntity.todo_id = TodoEntity.id
-WHERE TodoEntity.id = ?
+WHERE TodoEntity.id = ? AND TodoEntity.trashed_at IS NULL
 GROUP BY TodoEntity.id;
 
 selectById:
@@ -51,23 +69,25 @@ SELECT * FROM TodoEntity WHERE id = ?;
 insert:
 INSERT INTO TodoEntity(
     id, title, is_done, reminder_at, updated_at, note, completed_at, due_date,
-    location_latitude, location_longitude, location_radius, location_label, priority, position
+    location_latitude, location_longitude, location_radius, location_label, priority, position, trashed_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 update:
 UPDATE TodoEntity SET title = ?, is_done = ?, reminder_at = ?, updated_at = ?, note = ?, completed_at = ?, due_date = ?,
-    location_latitude = ?, location_longitude = ?, location_radius = ?, location_label = ?, priority = ?, position = ?
+    location_latitude = ?, location_longitude = ?, location_radius = ?, location_label = ?, priority = ?, position = ?,
+    trashed_at = ?
 WHERE id = ?;
 
 -- Plus grande clé d'ordre, '' sans tâche (ADR 0024). COALESCE : colonne non nulle pour SQLDelight.
 selectLastPosition:
 SELECT COALESCE(MAX(position), '') AS last_position FROM TodoEntity;
 
--- Statistiques (ADR 0019) : heures des tâches terminées. Une tâche supprimée ne compte plus. COALESCE : colonne
--- non nulle pour SQLDelight (le WHERE exclut déjà NULL).
+-- Statistiques (ADR 0019) : heures des tâches terminées. Une tâche supprimée ou dans la corbeille ne compte plus.
+-- COALESCE : colonne non nulle pour SQLDelight (le WHERE exclut déjà NULL).
 selectCompletionTimes:
-SELECT COALESCE(completed_at, 0) AS completed_at FROM TodoEntity WHERE is_done = 1 AND completed_at IS NOT NULL;
+SELECT COALESCE(completed_at, 0) AS completed_at FROM TodoEntity
+WHERE is_done = 1 AND completed_at IS NOT NULL AND trashed_at IS NULL;
 
 deleteById:
 DELETE FROM TodoEntity WHERE id = ?;

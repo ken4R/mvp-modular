@@ -7,7 +7,7 @@ import com.mvp.feature.todo.domain.model.TodoPriority
  * partie : ils restent propres à l'appareil. La note (ADR 0014), l'échéance (ADR 0022), la priorité et la clé d'ordre
  * (ADR 0024), elles, en font partie.
  * [updatedAt] : heure de la modification (epoch ms), qui départage deux versions (la plus récente gagne).
- * [isDeleted] : tâche supprimée ; le serveur en garde la trace pour que la suppression atteigne les autres appareils et qu'une version plus ancienne ne la fasse pas réapparaître.
+ * [isDeleted] : tâche supprimée définitivement ; le serveur en garde la trace pour que la suppression atteigne les autres appareils et qu'une version plus ancienne ne la fasse pas réapparaître.
  */
 internal data class TodoRecord(
     val id: String,
@@ -21,4 +21,9 @@ internal data class TodoRecord(
     val priority: TodoPriority = TodoPriority.None,
     /** Clé d'ordre manuel ([com.mvp.feature.todo.domain.order.OrderKey]) ; `""` : inconnue, la tâche garde la sienne. */
     val position: String = "",
+    /**
+     * Heure de mise à la corbeille (epoch ms), `null` hors corbeille (ADR 0025) ; jamais après [updatedAt]. La
+     * suppression définitive, elle, est [isDeleted].
+     */
+    val trashedAt: Long? = null,
 )

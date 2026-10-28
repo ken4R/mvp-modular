@@ -43,8 +43,9 @@ internal class TodoRepositoryImpl(
     override suspend fun toggleTodo(id: String): AppResult<Todo> =
         local.toggle(id)?.let { AppResult.Success(it) } ?: AppResult.Failure(AppError.NotFound)
 
+    // Corbeille (ADR 0025) : la suppression définitive passe par TodoTrashRepository.
     override suspend fun deleteTodo(id: String): AppResult<Unit> =
-        if (local.delete(id)) AppResult.Success(Unit) else AppResult.Failure(AppError.NotFound)
+        if (local.trash(id)) AppResult.Success(Unit) else AppResult.Failure(AppError.NotFound)
 
     override suspend fun setReminder(id: String, at: Long?): AppResult<Todo> =
         local.setReminder(id, at)?.let { AppResult.Success(it) } ?: AppResult.Failure(AppError.NotFound)

@@ -122,7 +122,11 @@ class FakeFileStore : PrivateFileStore {
 
     override fun path(name: String): String = "/fake/$name"
 
+    /** Échec de [delete], pour tester un fichier qui ne s'efface pas. */
+    var deleteFailure: Throwable? = null
+
     override fun delete(name: String) {
+        deleteFailure?.let { throw it }
         files.remove(name)
     }
 

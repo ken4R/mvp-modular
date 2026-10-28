@@ -5,6 +5,7 @@ import com.mvp.feature.todo.domain.model.LocationReminder
 import com.mvp.feature.todo.domain.model.Todo
 import com.mvp.feature.todo.domain.model.TodoAttachment
 import com.mvp.feature.todo.domain.model.TodoPriority
+import com.mvp.feature.todo.domain.model.TrashedTodo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -14,9 +15,11 @@ import kotlinx.coroutines.flow.update
 /**
  * Stockage local des tâches et de leurs pièces jointes. L'app utilise [SqlDelightTodoLocalDataSource]
  * (SQLite et fichiers privés, persistant) ; l'implémentation en mémoire sert aux tests des use cases.
+ * Une tâche de la corbeille (ADR 0025) n'est lue que par [observeTrash] : les autres lectures et les modifications
+ * l'ignorent, comme une tâche qui n'existe pas, jusqu'à [restore].
  */
 interface TodoLocalDataSource {
-    /** Dans l'ordre des clés [Todo.position] ; à clé égale, dans l'ordre d'ajout (ADR 0024). */
+    /** Hors corbeille, dans l'ordre des clés [Todo.position] ; à clé égale, dans l'ordre d'ajout (ADR 0024). */
     fun observe(): Flow<List<Todo>>
     fun get(id: String): Todo?
     fun upsert(todo: Todo)
@@ -45,8 +48,23 @@ interface TodoLocalDataSource {
     /** Plus grande clé d'ordre, `null` sans tâche. */
     fun lastPosition(): String?
 
-    /** Supprime la tâche et ses pièces jointes. */
+    /** Supprime définitivement la tâche (dans la corbeille ou non) et ses pièces jointes. */
     fun delete(id: String): Boolean
+
+    /** Met la tâche à la corbeille, pièces jointes gardées ; `false` si elle n'existe pas ou y est déjà. */
+    fun trash(id: String): Boolean
+
+    /** Sort la tâche de la corbeille ; `null` si elle n'y est pas. */
+    fun restore(id: String): Todo?
+
+    /** Tâches de la corbeille, la dernière jetée en premier. */
+    fun observeTrash(): Flow<List<TrashedTodo>>
+
+    /** Supprime définitivement la tâche [id] si elle est dans la corbeille. */
+    fun deleteTrashed(id: String): Boolean
+
+    /** Supprime définitivement les tâches jetées au plus tard à [trashedBefore] (epoch ms) ; renvoie leur nombre. */
+    fun deleteTrashedBefore(trashedBefore: Long): Int
 
     /** Pièces jointes de la tâche [todoId], dans l'ordre d'ajout. */
     fun observeAttachments(todoId: String): Flow<List<TodoAttachment>>
@@ -59,18 +77,25 @@ interface TodoLocalDataSource {
     fun clear()
 }
 
-internal class InMemoryTodoLocalDataSource(initial: List<Todo> = emptyList()) : TodoLocalDataSource {
+/** [now] date les mises à la corbeille (epoch ms). */
+internal class InMemoryTodoLocalDataSource(
+    initial: List<Todo> = emptyList(),
+    private val now: () -> Long = { 0L },
+) : TodoLocalDataSource {
 
     private val todos = MutableStateFlow(initial.associateBy { it.id })
     private val attachments = MutableStateFlow<List<TodoAttachment>>(emptyList())
 
+    /** Corbeille : id → heure de la mise à la corbeille. */
+    private val trashed = MutableStateFlow<Map<String, Long>>(emptyMap())
+
     override fun observe(): Flow<List<Todo>> =
-        combine(todos, attachments) { todos, attachments ->
+        combine(todos, attachments, trashed) { todos, attachments, trashed ->
             // sortedBy est stable : à clé égale, l'ordre d'ajout, comme le rowid de SQLite.
-            todos.values.sortedBy { it.position }.map { it.withCount(attachments) }
+            todos.values.filterNot { it.id in trashed }.sortedBy { it.position }.map { it.withCount(attachments) }
         }
 
-    override fun get(id: String): Todo? = todos.value[id]?.withCount(attachments.value)
+    override fun get(id: String): Todo? = todos.value[id]?.takeUnless { id in trashed.value }?.withCount(attachments.value)
 
     override fun upsert(todo: Todo) = todos.update { it + (todo.id to todo) }
 
@@ -88,13 +113,14 @@ internal class InMemoryTodoLocalDataSource(initial: List<Todo> = emptyList()) : 
     override fun setPriority(id: String, priority: TodoPriority): Todo? = modify(id) { it.copy(priority = priority) }
 
     override fun setPositions(positions: Map<String, String>) = todos.update { current ->
-        current.mapValues { (id, todo) -> positions[id]?.let { todo.copy(position = it) } ?: todo }
+        current.mapValues { (id, todo) -> positions[id]?.takeUnless { id in trashed.value }?.let { todo.copy(position = it) } ?: todo }
     }
 
     override fun lastPosition(): String? = todos.value.values.maxOfOrNull { it.position }
 
     private fun modify(id: String, transform: (Todo) -> Todo): Todo? {
         var modified: Todo? = null
+        if (id in trashed.value) return null
         todos.update { current ->
             modified = current[id]?.let(transform)
             modified?.let { current + (id to it) } ?: current
@@ -105,9 +131,33 @@ internal class InMemoryTodoLocalDataSource(initial: List<Todo> = emptyList()) : 
     override fun delete(id: String): Boolean {
         val existed = todos.value.containsKey(id)
         todos.update { it - id }
+        trashed.update { it - id }
         attachments.update { list -> list.filterNot { it.todoId == id } }
         return existed
     }
+
+    override fun trash(id: String): Boolean {
+        if (!todos.value.containsKey(id) || id in trashed.value) return false
+        trashed.update { it + (id to now()) }
+        return true
+    }
+
+    override fun restore(id: String): Todo? {
+        if (id !in trashed.value) return null
+        trashed.update { it - id }
+        return get(id)
+    }
+
+    override fun observeTrash(): Flow<List<TrashedTodo>> =
+        combine(todos, attachments, trashed) { todos, attachments, trashed ->
+            trashed.entries.sortedByDescending { it.value }
+                .mapNotNull { (id, at) -> todos[id]?.let { TrashedTodo(it.withCount(attachments), at) } }
+        }
+
+    override fun deleteTrashed(id: String): Boolean = id in trashed.value && delete(id)
+
+    override fun deleteTrashedBefore(trashedBefore: Long): Int =
+        trashed.value.filterValues { it <= trashedBefore }.keys.count(::delete)
 
     override fun observeAttachments(todoId: String): Flow<List<TodoAttachment>> =
         attachments.map { list -> list.filter { it.todoId == todoId } }
@@ -119,7 +169,7 @@ internal class InMemoryTodoLocalDataSource(initial: List<Todo> = emptyList()) : 
         type: AttachmentType,
         bytes: ByteArray,
     ): TodoAttachment? {
-        if (!todos.value.containsKey(todoId)) return null
+        if (!todos.value.containsKey(todoId) || todoId in trashed.value) return null
         val attachment = TodoAttachment(id, todoId, fileName, type, bytes.size.toLong(), addedAt = 0L, localPath = "memory/$id")
         attachments.update { it + attachment }
         return attachment
@@ -133,6 +183,7 @@ internal class InMemoryTodoLocalDataSource(initial: List<Todo> = emptyList()) : 
 
     override fun clear() {
         todos.value = emptyMap()
+        trashed.value = emptyMap()
         attachments.value = emptyList()
     }
 

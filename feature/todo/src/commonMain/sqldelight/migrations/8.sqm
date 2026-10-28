@@ -1,0 +1,2 @@
+-- Version 8 -> 9 : corbeille des tâches (ADR 0025). Les tâches existantes ne sont pas dans la corbeille.
+ALTER TABLE TodoEntity ADD COLUMN trashed_at INTEGER;

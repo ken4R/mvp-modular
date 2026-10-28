@@ -26,6 +26,10 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -72,7 +76,8 @@ import java.time.format.FormatStyle
  * [onOpenComposeMultiplatform] : affiche un bouton vers la version Compose Multiplatform de l'écran (ADR 0010).
  * Un tap sur une tâche ouvre sa fiche (note et pièces jointes, ADR 0014) à la place de la liste ; le bouton
  * « Statistiques », le graphique des tâches terminées par semaine (ADR 0019) ; le bouton « Calendrier », les tâches par
- * date d'échéance (ADR 0022), d'où une tâche ouverte revient au calendrier.
+ * date d'échéance (ADR 0022), d'où une tâche ouverte revient au calendrier ; le bouton « Corbeille », les tâches
+ * supprimées, restaurables 30 jours (ADR 0025). Une suppression affiche « Annuler » quelques secondes.
  */
 @Composable
 fun TodoScreen(
@@ -89,12 +94,34 @@ fun TodoScreen(
     var openedTodoId by rememberSaveable { mutableStateOf<String?>(null) }
     var showStats by rememberSaveable { mutableStateOf(false) }
     var showCalendar by rememberSaveable { mutableStateOf(false) }
+    var showTrash by rememberSaveable { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    // Un nouveau message remplace le précédent (sa tâche reste dans la corbeille).
+    LaunchedEffect(state.trashed) {
+        val notice = state.trashed ?: return@LaunchedEffect
+        val title = notice.title.ifEmpty { "Tâche" }
+        val result = snackbar.showSnackbar(
+            message = "« $title » placée dans la corbeille",
+            actionLabel = "Annuler",
+            duration = SnackbarDuration.Long,
+        )
+        if (result == SnackbarResult.ActionPerformed) {
+            viewModel.onUndoDelete(notice)
+        } else {
+            viewModel.onTrashedNoticeDismissed(notice)
+        }
+    }
+    // Le message n'a d'hôte que sur la liste : il disparaît (la tâche reste dans la corbeille) quand on la quitte.
+    LaunchedEffect(openedTodoId, showStats, showCalendar, showTrash) {
+        if (openedTodoId != null || showStats || showCalendar || showTrash) snackbar.currentSnackbarData?.dismiss()
+    }
     LaunchedEffect(focusRequest) {
         focusRequest?.let {
             // Un lien vers une tâche revient à la liste, où elle est mise en évidence.
             openedTodoId = null
             showStats = false
             showCalendar = false
+            showTrash = false
             viewModel.focus(it)
         }
         onFocusRequestHandled()
@@ -106,6 +133,7 @@ fun TodoScreen(
             openedTodoId = null
             showStats = false
             showCalendar = false
+            showTrash = false
             if (it.isNotEmpty()) viewModel.onInputChange(it)
         }
         onDraftRequestHandled()
@@ -122,6 +150,10 @@ fun TodoScreen(
         TodoCalendarScreen(onClose = { showCalendar = false }, onOpenTodo = { openedTodoId = it })
         return
     }
+    if (showTrash) {
+        TodoTrashScreen(onClose = { showTrash = false })
+        return
+    }
     // Défile jusqu'à la tâche mise en évidence, puis retire la mise en évidence.
     val focusIndex = state.focusedTodoId?.let { id -> state.todos.indexOfFirst { it.id == id } }?.takeIf { it >= 0 }
     LaunchedEffect(state.focusedTodoId, focusIndex != null) {
@@ -136,6 +168,8 @@ fun TodoScreen(
         onOpenComposeMultiplatform = onOpenComposeMultiplatform,
         onOpenStats = { showStats = true },
         onOpenCalendar = { showCalendar = true },
+        onOpenTrash = { showTrash = true },
+        snackbar = snackbar,
         onInputChange = viewModel::onInputChange,
         onAdd = { viewModel.onAdd() },
         onToggle = { viewModel.onToggle(it) },
@@ -173,6 +207,8 @@ private fun TodoContent(
     onOpenComposeMultiplatform: (() -> Unit)?,
     onOpenStats: () -> Unit,
     onOpenCalendar: () -> Unit,
+    onOpenTrash: () -> Unit,
+    snackbar: SnackbarHostState,
     onInputChange: (String) -> Unit,
     onAdd: () -> Unit,
     onToggle: (String) -> Unit,
@@ -207,7 +243,7 @@ private fun TodoContent(
         // Lâchée à sa place : rien à enregistrer.
         if (reordered == state.todos) dragOrder = null else onDrop(reordered, movedId)
     }
-    Scaffold { padding ->
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(Spacing.md),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),
@@ -217,6 +253,7 @@ private fun TodoContent(
             Row(modifier = Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onOpenCalendar) { Text("Calendrier") }
                 TextButton(onClick = onOpenStats) { Text("Statistiques") }
+                TextButton(onClick = onOpenTrash) { Text("Corbeille") }
                 onOpenComposeMultiplatform?.let { TextButton(onClick = it) { Text("Version Compose MP") } }
             }
             state.syncBanner?.let { banner ->

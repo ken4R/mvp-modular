@@ -107,12 +107,12 @@ final class AppLockViewModel: ObservableObject {
 
     func start() {
         guard lockSubscription == nil else { return }
-        lockSubscription = UseCases.shared.observeAppLock(
+        lockSubscription = SettingsUseCases.shared.observeAppLock(
             onLocked: { [weak self] locked in self?.apply(locked: locked.boolValue) },
             // Verrou illisible : l'app reste verrouillée, la déconnexion reste possible.
             onError: { [weak self] _ in self?.apply(locked: true) }
         )
-        settingsSubscription = UseCases.shared.observeSettings(
+        settingsSubscription = SettingsUseCases.shared.observeSettings(
             onSettings: { [weak self] settings in self?.enabled = settings.appLockEnabled },
             onError: { _ in }
         )
@@ -128,7 +128,7 @@ final class AppLockViewModel: ObservableObject {
         autoPromptPending = true
         // Masqué tout de suite, sans attendre le use case : rien ne réapparaît si l'app est suspendue entre-temps.
         if enabled { state = .locked }
-        Task { _ = try? await UseCases.shared.lockApp().invoke(params: NoParams.shared) }
+        Task { _ = try? await SettingsUseCases.shared.lockApp().invoke(params: NoParams.shared) }
     }
 
     func unlock() async {
@@ -137,7 +137,7 @@ final class AppLockViewModel: ObservableObject {
         defer { isAuthenticating = false }
         switch await DeviceAuthenticator.authenticate(reason: "Déverrouiller l'app pour accéder à vos données") {
         case .success:
-            let result = try? await UseCases.shared.unlockApp().invoke(params: NoParams.shared)
+            let result = try? await SettingsUseCases.shared.unlockApp().invoke(params: NoParams.shared)
             if result == nil || result is AppResultFailure {
                 message = "Déverrouillage impossible, réessayez"
             } else {
@@ -155,7 +155,7 @@ final class AppLockViewModel: ObservableObject {
         guard !isLoggingOut else { return }
         isLoggingOut = true
         defer { isLoggingOut = false }
-        let result = try? await UseCases.shared.logout().invoke(params: NoParams.shared)
+        let result = try? await AuthUseCases.shared.logout().invoke(params: NoParams.shared)
         if result == nil || result is AppResultFailure { message = "Déconnexion impossible, réessayez" }
     }
 

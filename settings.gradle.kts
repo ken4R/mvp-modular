@@ -25,6 +25,15 @@ include(":androidApp")
 // Module parapluie KMP : exporte le framework iOS et assemble les modules
 include(":shared")
 
+// Parapluies iOS des apps de démo (ADR 0027) : chacun produit un framework "Shared" réduit à une feature
+include(":umbrella:todo-demo")
+include(":umbrella:todo-compose-demo")
+include(":umbrella:weather-demo")
+include(":umbrella:settings-demo")
+include(":umbrella:auth-demo")
+include(":umbrella:catalog-demo")
+include(":umbrella:onboarding-demo")
+
 // Modules communs
 include(":core:common")
 include(":core:designsystem")

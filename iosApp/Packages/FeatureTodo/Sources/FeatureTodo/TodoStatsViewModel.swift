@@ -22,7 +22,7 @@ final class TodoStatsViewModel: ObservableObject {
 
     func start() {
         guard subscription == nil else { return }
-        subscription = UseCases.shared.observeCompletionStats(
+        subscription = TodoUseCases.shared.observeCompletionStats(
             onStats: { [weak self] stats in self?.apply(stats) },
             onError: { [weak self] _ in self?.failed = true }
         )

@@ -43,7 +43,7 @@ final class SessionViewModel: ObservableObject {
 
     func start() {
         guard subscription == nil else { return }
-        subscription = UseCases.shared.observeSession(
+        subscription = AuthUseCases.shared.observeSession(
             onAccount: { [weak self] account in
                 if let account { self?.state = .loggedIn(account) } else { self?.state = .loggedOut }
             },

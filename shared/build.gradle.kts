@@ -1,65 +1,43 @@
-import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
-
 plugins {
     alias(libs.plugins.mvp.kmp.library)
 }
 
-kotlin {
-    // Framework "Shared" consommé par l'app iOS sous forme de XCFramework, via le package
-    // SPM iosApp/Packages/SharedKMP (voir scripts/build-ios-framework.sh). Chaque module
-    // exporté devient visible en Swift (ajouter ici les futurs modules feature).
-    val xcFramework = XCFramework("Shared")
-    listOf(iosX64(), iosArm64(), iosSimulatorArm64()).forEach { target ->
-        target.binaries.framework {
-            baseName = "Shared"
-            // Dynamique : SPM l'embarque une seule fois même si plusieurs packages en dépendent.
-            isStatic = false
-            binaryOption("bundleId", "com.mvp.shared")
-            // SQLDelight (core:database) utilise le SQLite fourni par iOS. Les modules qui appliquent
-            // le plugin SQLDelight le lient d'eux-mêmes (linkSqlite) ; shared ne l'applique pas.
-            linkerOpts("-lsqlite3")
-            export(projects.core.common)
-            export(projects.core.designsystem)
-            export(projects.core.deeplink)
-            export(projects.core.analytics)
-            export(projects.core.crashreporting)
-            export(projects.core.connectivity)
-            export(projects.core.featureflags)
-            export(projects.feature.todo)
-            export(projects.feature.weather)
-            export(projects.feature.settings)
-            export(projects.feature.auth)
-            export(projects.feature.catalog)
-            export(projects.feature.onboarding)
-            xcFramework.add(this)
-        }
-    }
+// Framework "Shared" de l'app iOS complète, consommé sous forme de XCFramework via le package SPM
+// iosApp/Packages/SharedKMP (voir scripts/build-ios-framework.sh). Chaque module exporté devient visible en Swift
+// (ajouter ici les futurs modules feature). Les apps de démo lient chacune un parapluie réduit (umbrella/, ADR 0027).
+iosUmbrellaFramework(
+    exported = listOf(
+        projects.core.common,
+        projects.core.designsystem,
+        projects.core.deeplink,
+        projects.core.analytics,
+        projects.core.crashreporting,
+        projects.core.connectivity,
+        projects.core.featureflags,
+        projects.feature.todo,
+        projects.feature.weather,
+        projects.feature.settings,
+        projects.feature.auth,
+        projects.feature.catalog,
+        projects.feature.onboarding,
+    ),
+    // Non exportés : les types Ktor n'ont pas à apparaître côté Swift.
+    linked = listOf(
+        projects.core.network,
+        projects.core.database,
+        projects.core.files,
+        projects.core.securestorage,
+        projects.core.notifications,
+        projects.core.location,
+    ),
+)
 
+kotlin {
     sourceSets {
         commonMain.dependencies {
-            api(projects.core.common)
-            api(projects.core.designsystem)
-            api(projects.core.deeplink)
-            api(projects.core.analytics)
-            api(projects.core.crashreporting)
-            api(projects.core.connectivity)
-            api(projects.core.featureflags)
-            api(projects.feature.todo)
-            api(projects.feature.weather)
-            api(projects.feature.settings)
-            api(projects.feature.auth)
-            api(projects.feature.catalog)
-            api(projects.feature.onboarding)
             // Écran Compose Multiplatform (ADR 0010) : api pour que l'app Android l'affiche ; pas exporté vers
             // Swift (les @Composable n'y servent à rien), iOS passe par ComposeScreens (iosMain).
             api(projects.feature.todoCompose)
-            // Non exporté : les types Ktor n'ont pas à apparaître côté Swift.
-            implementation(projects.core.network)
-            implementation(projects.core.database)
-            implementation(projects.core.files)
-            implementation(projects.core.securestorage)
-            implementation(projects.core.notifications)
-            implementation(projects.core.location)
         }
     }
 }

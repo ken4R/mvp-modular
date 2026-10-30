@@ -53,7 +53,7 @@ final class TodoCalendarViewModel: ObservableObject {
     }
 
     func toggle(_ todo: Todo) async {
-        _ = try? await UseCases.shared.toggleTodo().invoke(params: todo.id as NSString)
+        _ = try? await TodoUseCases.shared.toggleTodo().invoke(params: todo.id as NSString)
     }
 
     /// Sans jour précisé : aujourd'hui pour le mois en cours, sinon le 1er du mois.
@@ -77,7 +77,7 @@ final class TodoCalendarViewModel: ObservableObject {
     }
 
     private func observe() {
-        subscription = UseCases.shared.observeTodoCalendar(
+        subscription = TodoUseCases.shared.observeTodoCalendar(
             request: request,
             onMonth: { [weak self] month in
                 self?.month = month

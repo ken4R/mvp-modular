@@ -13,7 +13,7 @@ final class FeatureFlagsViewModel: ObservableObject {
 
     func start() {
         guard subscription == nil else { return }
-        subscription = UseCases.shared.observeFeatureFlags(
+        subscription = FeatureFlagsUseCases.shared.observeFeatureFlags(
             onFlags: { [weak self] flags in self?.flags = flags },
             onError: { _ in }
         )
@@ -31,19 +31,19 @@ final class FeatureFlagsViewModel: ObservableObject {
 
     func setOverride(_ state: FeatureFlagState, enabled: Bool) async {
         let params = FeatureFlagOverride(flag: state.flag, enabled: KotlinBoolean(bool: enabled))
-        let result = try? await UseCases.shared.setFeatureFlagOverride().invoke(params: params)
+        let result = try? await FeatureFlagsUseCases.shared.setFeatureFlagOverride().invoke(params: params)
         message = result is AppResultFailure ? "Réglage réservé aux builds de debug" : nil
     }
 
     func reset() async {
-        _ = try? await UseCases.shared.clearFeatureFlagOverrides().invoke(params: NoParams.shared)
+        _ = try? await FeatureFlagsUseCases.shared.clearFeatureFlagOverrides().invoke(params: NoParams.shared)
         message = nil
     }
 
     /// « Rafraîchir le distant » : passe outre le délai de 15 minutes.
     func forceRefresh() async {
         refreshing = true
-        let result = try? await UseCases.shared.refreshRemoteFlags().invoke(params: RemoteFlagsRefresh(force: true))
+        let result = try? await FeatureFlagsUseCases.shared.refreshRemoteFlags().invoke(params: RemoteFlagsRefresh(force: true))
         message = result is AppResultSuccess<AnyObject>
             ? "Flags distants à jour"
             : "Flags distants injoignables ou refusés : dernières valeurs connues gardées"

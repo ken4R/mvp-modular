@@ -46,7 +46,7 @@ final class CatalogViewModel: ObservableObject {
         guard subscription == nil else { return }
         isObserving = true
         subscribe()
-        connectivitySubscription = UseCases.shared.observeConnectivity(
+        connectivitySubscription = ConnectivityUseCases.shared.observeConnectivity(
             onOnline: { [weak self] online in self?.connectivityChanged(online.boolValue) },
             onError: { _ in }
         )
@@ -80,9 +80,9 @@ final class CatalogViewModel: ObservableObject {
     }
 
     private func subscribe() {
-        let filter = KoinIosKt.catalogFilter(query: query, topRatedOnly: topRatedOnly, sort: sort.rawValue)
+        let filter = CatalogIosKt.catalogFilter(query: query, topRatedOnly: topRatedOnly, sort: sort.rawValue)
         subscription?.cancel()
-        subscription = UseCases.shared.observeFilteredCatalog(
+        subscription = CatalogUseCases.shared.observeFilteredCatalog(
             filter: filter,
             onCatalog: { [weak self] filtered in
                 let catalog = filtered.catalog
@@ -117,7 +117,7 @@ final class CatalogViewModel: ObservableObject {
         isRefreshing = true
         refreshError = nil
         loadMoreError = nil
-        let result = try? await UseCases.shared.refreshCatalog().invoke(params: NoParams.shared)
+        let result = try? await CatalogUseCases.shared.refreshCatalog().invoke(params: NoParams.shared)
         if !(result is AppResultSuccess<AnyObject>) {
             refreshError = (result as? AppResultFailure)?.error.catalogMessage ?? unexpectedMessage
         }
@@ -128,7 +128,7 @@ final class CatalogViewModel: ObservableObject {
     func loadMore() async {
         guard !isLoadingMore, !isRefreshing, hasMore, loadMoreError == nil else { return }
         isLoadingMore = true
-        let result = try? await UseCases.shared.loadMoreProducts().invoke(params: NoParams.shared)
+        let result = try? await CatalogUseCases.shared.loadMoreProducts().invoke(params: NoParams.shared)
         if !(result is AppResultSuccess<AnyObject>) {
             loadMoreError = (result as? AppResultFailure)?.error.catalogMessage ?? unexpectedMessage
         }
@@ -159,7 +159,7 @@ final class ProductDetailViewModel: ObservableObject {
     /// Le cache d'abord (la fiche s'ouvre hors ligne), le serveur sinon : règle portée par la logique KMP.
     func load() async {
         state = .loading
-        let result = try? await UseCases.shared.getProduct().invoke(params: KotlinLong(value: productId))
+        let result = try? await CatalogUseCases.shared.getProduct().invoke(params: KotlinLong(value: productId))
         if let product = (result as? AppResultSuccess<AnyObject>)?.data as? Product {
             state = .loaded(product)
         } else {

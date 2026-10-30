@@ -55,20 +55,20 @@ final class TodoDetailViewModel: ObservableObject {
 
     func start() {
         guard todosSubscription == nil else { return }
-        todosSubscription = UseCases.shared.observeTodos(
+        todosSubscription = TodoUseCases.shared.observeTodos(
             onTodos: { [weak self] todos in self?.apply(todos.first { $0.id == self?.todoId }) },
             onError: { [weak self] error in self?.error = error.detailMessage }
         )
-        attachmentsSubscription = UseCases.shared.observeTodoAttachments(
+        attachmentsSubscription = TodoUseCases.shared.observeTodoAttachments(
             todoId: todoId,
             onAttachments: { [weak self] attachments in self?.attachments = attachments },
             onError: { [weak self] error in self?.error = error.detailMessage }
         )
-        locationSubscription = UseCases.shared.observeLocationRemindersAvailable(
+        locationSubscription = TodoUseCases.shared.observeLocationRemindersAvailable(
             onAvailable: { [weak self] available in self?.locationRemindersAvailable = available.boolValue },
             onError: { _ in }
         )
-        remindersEnabledSubscription = UseCases.shared.observeRemindersEnabled(
+        remindersEnabledSubscription = TodoUseCases.shared.observeRemindersEnabled(
             onEnabled: { [weak self] enabled in self?.remindersEnabled = enabled.boolValue },
             onError: { _ in }
         )
@@ -85,7 +85,7 @@ final class TodoDetailViewModel: ObservableObject {
         isLocating = true
         defer { isLocating = false }
         let request = LocationReminderHere(todoId: todoId, radiusMeters: Int32(placeRadius), label: placeLabel)
-        let result = try? await UseCases.shared.setLocationReminderHere().invoke(params: request)
+        let result = try? await TodoUseCases.shared.setLocationReminderHere().invoke(params: request)
         if let failure = result as? AppResultFailure {
             placeError = failure.error.placeMessage
             placeNeedsSettings = failure.error is AppErrorPermissionDenied
@@ -98,7 +98,7 @@ final class TodoDetailViewModel: ObservableObject {
     }
 
     func removePlace() async {
-        let result = try? await UseCases.shared.removeLocationReminder().invoke(params: todoId as NSString)
+        let result = try? await TodoUseCases.shared.removeLocationReminder().invoke(params: todoId as NSString)
         if let failure = result as? AppResultFailure { placeError = failure.error.detailMessage } else { placeError = nil }
     }
 
@@ -106,7 +106,7 @@ final class TodoDetailViewModel: ObservableObject {
     func stop() {
         if noteChanged {
             let note = TodoNote(todoId: todoId, note: noteDraft)
-            Task { _ = try? await UseCases.shared.updateTodoNote().invoke(params: note) }
+            Task { _ = try? await TodoUseCases.shared.updateTodoNote().invoke(params: note) }
         }
         todosSubscription?.cancel()
         todosSubscription = nil
@@ -154,14 +154,14 @@ final class TodoDetailViewModel: ObservableObject {
     }
 
     private static func loadShare(todoId: String, includeNote: Bool) async -> TodoShare? {
-        let result = try? await UseCases.shared.shareTodo().invoke(params: TodoShareRequest(todoId: todoId, includeNote: includeNote))
+        let result = try? await TodoUseCases.shared.shareTodo().invoke(params: TodoShareRequest(todoId: todoId, includeNote: includeNote))
         return (result as? AppResultSuccess<AnyObject>)?.data as? TodoShare
     }
 
     /// `date == nil` retire l'échéance ; seul le jour compte (calendrier grégorien, fuseau de l'appareil).
     func setDueDate(_ date: Date?) async {
         let dueDate = date.map { KotlinInt(value: CalendarDate.of($0).epochDay) }
-        let result = try? await UseCases.shared.setTodoDueDate().invoke(params: TodoDueDate(todoId: todoId, dueDate: dueDate))
+        let result = try? await TodoUseCases.shared.setTodoDueDate().invoke(params: TodoDueDate(todoId: todoId, dueDate: dueDate))
         if let failure = result as? AppResultFailure {
             dueDateError = failure.error.detailMessage
         } else {
@@ -171,8 +171,8 @@ final class TodoDetailViewModel: ObservableObject {
 
     /// Priorité (ADR 0024), synchronisée comme le titre.
     func setPriority(_ option: TodoPriorityOption) async {
-        let change = KoinIosKt.todoPriorityChange(todoId: todoId, priority: option.rawValue)
-        let result = try? await UseCases.shared.setTodoPriority().invoke(params: change)
+        let change = TodoIosKt.todoPriorityChange(todoId: todoId, priority: option.rawValue)
+        let result = try? await TodoUseCases.shared.setTodoPriority().invoke(params: change)
         if let failure = result as? AppResultFailure { error = failure.error.detailMessage }
     }
 
@@ -181,7 +181,7 @@ final class TodoDetailViewModel: ObservableObject {
         calendarTask?.cancel()
         let todoId = todoId
         calendarTask = Task { [weak self] in
-            let result = try? await UseCases.shared.exportTodoToCalendar().invoke(params: todoId as NSString)
+            let result = try? await TodoUseCases.shared.exportTodoToCalendar().invoke(params: todoId as NSString)
             guard !Task.isCancelled else { return }
             if let failure = result as? AppResultFailure {
                 self?.dueDateError = failure.error.detailMessage
@@ -193,7 +193,7 @@ final class TodoDetailViewModel: ObservableObject {
     }
 
     func saveNote() async {
-        let result = try? await UseCases.shared.updateTodoNote().invoke(params: TodoNote(todoId: todoId, note: noteDraft))
+        let result = try? await TodoUseCases.shared.updateTodoNote().invoke(params: TodoNote(todoId: todoId, note: noteDraft))
         if let failure = result as? AppResultFailure {
             error = failure.error.detailMessage
         } else if let saved = (result as? AppResultSuccess<AnyObject>)?.data as? Todo {
@@ -218,7 +218,7 @@ final class TodoDetailViewModel: ObservableObject {
     }
 
     func delete(_ attachment: TodoAttachment) async {
-        let result = try? await UseCases.shared.deleteTodoAttachment().invoke(params: attachment.id as NSString)
+        let result = try? await TodoUseCases.shared.deleteTodoAttachment().invoke(params: attachment.id as NSString)
         if let failure = result as? AppResultFailure { error = failure.error.detailMessage }
     }
 
@@ -235,9 +235,9 @@ final class TodoDetailViewModel: ObservableObject {
             todoId: todoId,
             fileName: file.fileName,
             mimeType: file.mimeType,
-            bytes: KoinIosKt.bytesOf(data: file.data)
+            bytes: TodoIosKt.bytesOf(data: file.data)
         )
-        let result = try? await UseCases.shared.addTodoAttachment().invoke(params: attachment)
+        let result = try? await TodoUseCases.shared.addTodoAttachment().invoke(params: attachment)
         if let failure = result as? AppResultFailure { error = failure.error.detailMessage }
     }
 }

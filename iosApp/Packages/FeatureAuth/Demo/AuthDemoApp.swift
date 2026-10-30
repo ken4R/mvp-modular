@@ -31,7 +31,7 @@ private struct LoggedInDemoView: View {
                 .font(DS.Typography.titleLarge)
                 .foregroundColor(Color(argb: colors.onBackground))
             Button("Se déconnecter") {
-                Task { _ = try? await UseCases.shared.logout().invoke(params: NoParams.shared) }
+                Task { _ = try? await AuthUseCases.shared.logout().invoke(params: NoParams.shared) }
             }
             .tint(Color(argb: colors.primary))
         }

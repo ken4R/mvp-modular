@@ -72,11 +72,11 @@ final class TodoViewModel: ObservableObject {
         guard subscription == nil else { return }
         isObserving = true
         subscribe()
-        remindersSubscription = UseCases.shared.observeRemindersEnabled(
+        remindersSubscription = TodoUseCases.shared.observeRemindersEnabled(
             onEnabled: { [weak self] enabled in self?.remindersEnabled = enabled.boolValue },
             onError: { _ in }
         )
-        syncSubscription = UseCases.shared.observeTodoSyncStatus(
+        syncSubscription = TodoUseCases.shared.observeTodoSyncStatus(
             onStatus: { [weak self] status in self?.syncBanner = Self.banner(for: status) },
             onError: { _ in }
         )
@@ -96,7 +96,7 @@ final class TodoViewModel: ObservableObject {
 
     /// Filtre courant ; `isActive` (logique KMP) dit s'il retire des tâches.
     private var filter: TodoFilter {
-        KoinIosKt.todoFilter(
+        TodoIosKt.todoFilter(
             query: query,
             status: status.rawValue,
             withReminder: withReminder,
@@ -139,7 +139,7 @@ final class TodoViewModel: ObservableObject {
 
     private func subscribe() {
         subscription?.cancel()
-        subscription = UseCases.shared.observeFilteredTodos(
+        subscription = TodoUseCases.shared.observeFilteredTodos(
             filter: filter,
             onTodos: { [weak self] result in
                 self?.shownTodos = result.todos
@@ -155,7 +155,7 @@ final class TodoViewModel: ObservableObject {
 
     /// Bouton « Réessayer » du bandeau ; sinon la synchronisation réessaie seule, de plus en plus espacée.
     func retrySync() async {
-        _ = try? await UseCases.shared.syncTodos().invoke(params: NoParams.shared)
+        _ = try? await TodoUseCases.shared.syncTodos().invoke(params: NoParams.shared)
     }
 
     nonisolated private static func banner(for status: TodoSyncStatus) -> SyncBanner? {
@@ -172,7 +172,7 @@ final class TodoViewModel: ObservableObject {
 
     /// Un lien demande la tâche `id` : mise en évidence si elle existe ; sinon l'écran reste sur la liste et le dit.
     func focus(_ id: String) async {
-        let result = try? await UseCases.shared.findTodo().invoke(params: id as NSString)
+        let result = try? await TodoUseCases.shared.findTodo().invoke(params: id as NSString)
         if let failure = result as? AppResultFailure {
             error = failure.error.userMessage
             return
@@ -195,7 +195,7 @@ final class TodoViewModel: ObservableObject {
     private static let longNoticeDuration: UInt64 = 15_000_000_000
 
     func add() async {
-        let result = try? await UseCases.shared.addTodo().invoke(params: input as NSString)
+        let result = try? await TodoUseCases.shared.addTodo().invoke(params: input as NSString)
         if let failure = result as? AppResultFailure {
             error = failure.error.userMessage
         } else {
@@ -205,14 +205,14 @@ final class TodoViewModel: ObservableObject {
     }
 
     func toggle(_ todo: Todo) async {
-        let result = try? await UseCases.shared.toggleTodo().invoke(params: todo.id as NSString)
+        let result = try? await TodoUseCases.shared.toggleTodo().invoke(params: todo.id as NSString)
         if let failure = result as? AppResultFailure { error = failure.error.userMessage }
     }
 
     /// La tâche part dans la corbeille (ADR 0025) ; « Annuler » est proposé quelques secondes (plus longtemps avec
     /// VoiceOver, qui lit le message).
     func delete(_ todo: Todo) async {
-        let result = try? await UseCases.shared.deleteTodo().invoke(params: todo.id as NSString)
+        let result = try? await TodoUseCases.shared.deleteTodo().invoke(params: todo.id as NSString)
         if let failure = result as? AppResultFailure {
             error = failure.error.userMessage
             return
@@ -235,7 +235,7 @@ final class TodoViewModel: ObservableObject {
         guard let notice = trashedNotice else { return }
         trashedNotice = nil
         noticeTask?.cancel()
-        let result = try? await UseCases.shared.restoreTodo().invoke(params: notice.id as NSString)
+        let result = try? await TodoUseCases.shared.restoreTodo().invoke(params: notice.id as NSString)
         if let failure = result as? AppResultFailure { error = failure.error.userMessage }
     }
 
@@ -256,7 +256,7 @@ final class TodoViewModel: ObservableObject {
         guard staysInGroup, reordered.map(\.id) != todos.map(\.id) else { return }
         todos = reordered
         Task {
-            let result = try? await UseCases.shared.moveTodo().invoke(params: TodoMove(todoId: movedId, afterTodoId: above?.id))
+            let result = try? await TodoUseCases.shared.moveTodo().invoke(params: TodoMove(todoId: movedId, afterTodoId: above?.id))
             if let failure = result as? AppResultFailure {
                 todos = shownTodos
                 error = failure.error.userMessage
@@ -278,7 +278,7 @@ final class TodoViewModel: ObservableObject {
     @discardableResult
     func setReminder(_ todo: Todo, at date: Date?) async -> Bool {
         let at = date.map { KotlinLong(value: Int64(($0.timeIntervalSince1970 * 1000).rounded())) }
-        let result = try? await UseCases.shared.setTodoReminder().invoke(params: TodoReminder(todoId: todo.id, at: at))
+        let result = try? await TodoUseCases.shared.setTodoReminder().invoke(params: TodoReminder(todoId: todo.id, at: at))
         if let failure = result as? AppResultFailure {
             error = failure.error.userMessage
             return false

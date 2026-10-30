@@ -31,20 +31,20 @@ final class SettingsViewModel: ObservableObject {
 
     func start() {
         guard subscription == nil else { return }
-        subscription = UseCases.shared.observeSettings(
+        subscription = SettingsUseCases.shared.observeSettings(
             onSettings: { [weak self] settings in self?.apply(settings) },
             onError: { [weak self] error in self?.error = error.userMessage }
         )
-        sessionSubscription = UseCases.shared.observeSession(
+        sessionSubscription = AuthUseCases.shared.observeSession(
             onAccount: { [weak self] account in self?.accountEmail = account?.email },
             onError: { _ in }
         )
         #if DEBUG
-        journalSubscription = UseCases.shared.observeAnalyticsJournal(
+        journalSubscription = AnalyticsUseCases.shared.observeAnalyticsJournal(
             onJournal: { [weak self] journal in self?.analyticsJournal = journal },
             onError: { _ in }
         )
-        crashJournalSubscription = UseCases.shared.observeCrashJournal(
+        crashJournalSubscription = CrashReportingUseCases.shared.observeCrashJournal(
             onJournal: { [weak self] reports in self?.crashJournal = reports },
             onError: { _ in }
         )
@@ -67,7 +67,7 @@ final class SettingsViewModel: ObservableObject {
         guard !isLoggingOut else { return }
         isLoggingOut = true
         defer { isLoggingOut = false }
-        guard let result = try? await UseCases.shared.logout().invoke(params: NoParams.shared) else {
+        guard let result = try? await AuthUseCases.shared.logout().invoke(params: NoParams.shared) else {
             error = "Erreur inattendue"
             return
         }
@@ -76,7 +76,7 @@ final class SettingsViewModel: ObservableObject {
 
     func saveProfile() async {
         let profile = UserProfile(displayName: name, email: email)
-        let result = try? await UseCases.shared.updateProfile().invoke(params: profile)
+        let result = try? await SettingsUseCases.shared.updateProfile().invoke(params: profile)
         if let saved = (result as? AppResultSuccess<AnyObject>)?.data as? UserProfile {
             name = saved.displayName
             email = saved.email
@@ -110,7 +110,7 @@ final class SettingsViewModel: ObservableObject {
     }
 
     private func saveNotifications(_ enabled: Bool) async {
-        let result = try? await UseCases.shared.setNotificationsEnabled().invoke(params: KotlinBoolean(bool: enabled))
+        let result = try? await SettingsUseCases.shared.setNotificationsEnabled().invoke(params: KotlinBoolean(bool: enabled))
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
@@ -129,46 +129,46 @@ final class SettingsViewModel: ObservableObject {
             error = "Configurez Face ID, Touch ID ou un code dans Réglages iOS"
             return
         }
-        let result = try? await UseCases.shared.setAppLockEnabled().invoke(params: KotlinBoolean(bool: enabled))
+        let result = try? await SettingsUseCases.shared.setAppLockEnabled().invoke(params: KotlinBoolean(bool: enabled))
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
     /// Appliqué tout de suite à toute l'app, qui suit l'apparence enregistrée (AppearanceRoot).
     func setThemeMode(_ mode: DSThemeMode) async {
-        let result = try? await UseCases.shared.setThemeMode().invoke(params: mode.kotlin)
+        let result = try? await SettingsUseCases.shared.setThemeMode().invoke(params: mode.kotlin)
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
     func setAccent(_ accent: DSAccent) async {
-        let result = try? await UseCases.shared.setAccentColor().invoke(params: accent.kotlin)
+        let result = try? await SettingsUseCases.shared.setAccentColor().invoke(params: accent.kotlin)
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
     /// La date et la version du texte sont ajoutées dans KMP. Retirer la mesure d'audience vide sa file d'attente.
     func setConsent(_ type: ConsentType, granted: Bool) async {
-        let result = try? await UseCases.shared.setConsent().invoke(params: ConsentChoice(type: type, granted: granted))
+        let result = try? await SettingsUseCases.shared.setConsent().invoke(params: ConsentChoice(type: type, granted: granted))
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
     /// La présentation du premier lancement remplace tout de suite les onglets (ADR 0016).
     func restartOnboarding() async {
-        let result = try? await UseCases.shared.restartOnboarding().invoke(params: NoParams.shared)
+        let result = try? await OnboardingUseCases.shared.restartOnboarding().invoke(params: NoParams.shared)
         if let failure = result as? AppResultFailure { error = failure.error.userMessage } else { error = nil }
     }
 
     /// Journal de mesure (debug) : un événement de test, ignoré sans consentement comme les autres.
     func sendTestEvent() async {
-        _ = try? await UseCases.shared.trackEvent().invoke(params: AnalyticsEvent.DebugTest.shared)
+        _ = try? await AnalyticsUseCases.shared.trackEvent().invoke(params: AnalyticsEvent.DebugTest.shared)
     }
 
     /// Suivi des plantages (debug) : exception Kotlin non rattrapable, l'app s'arrête. Avec le consentement
     /// Rapports de plantage, le rapport apparaît dans le journal au lancement suivant (ADR 0020).
     func crashForTest() {
-        UseCases.shared.crashForTest()
+        CrashReportingUseCases.shared.crashForTest()
     }
 
     func flushAnalytics() async {
-        let result = try? await UseCases.shared.flushAnalytics().invoke(params: NoParams.shared)
+        let result = try? await AnalyticsUseCases.shared.flushAnalytics().invoke(params: NoParams.shared)
         if let failure = result as? AppResultFailure { error = failure.error.userMessage }
     }
 

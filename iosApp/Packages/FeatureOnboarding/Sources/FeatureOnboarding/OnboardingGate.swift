@@ -40,7 +40,7 @@ private final class OnboardingGateModel: ObservableObject {
 
     func start() {
         guard subscription == nil else { return }
-        subscription = UseCases.shared.observeOnboardingRequired(
+        subscription = OnboardingUseCases.shared.observeOnboardingRequired(
             onRequired: { [weak self] required in self?.required = required.boolValue },
             // Illisible : la présentation n'est pas imposée, l'app reste utilisable (elle se revoit depuis Réglages).
             onError: { [weak self] _ in self?.required = false }

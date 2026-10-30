@@ -6,7 +6,7 @@ import DesignSystemUI
 import WeatherWidgetData
 
 /// Widget Météo (ADR 0026) : à démarrer une fois au lancement de l'app. KMP décide de ce que le widget peut montrer
-/// (`UseCases.observeWeatherWidget`) ; ici, seulement la recopie dans le fichier de l'App Group (sans la position)
+/// (`WeatherUseCases.observeWeatherWidget`) ; ici, seulement la recopie dans le fichier de l'App Group (sans la position)
 /// et la demande de redessin à WidgetKit. Déconnexion : le fichier ne contient plus aucune météo.
 public enum WeatherWidgetPublisher {
     private static var subscription: Subscription?
@@ -14,7 +14,7 @@ public enum WeatherWidgetPublisher {
 
     public static func start() {
         guard subscription == nil else { return }
-        subscription = UseCases.shared.observeWeatherWidget(
+        subscription = WeatherUseCases.shared.observeWeatherWidget(
             onState: { state in publish(snapshot(of: state)) },
             onError: { _ in publish(WeatherWidgetSnapshot(content: .unavailable, palette: palette)) }
         )
@@ -29,7 +29,7 @@ public enum WeatherWidgetPublisher {
             guard case .success(let widgets) = result,
                   widgets.contains(where: { $0.kind == WeatherWidgetStore.widgetKind }) else { return }
             Task { @MainActor in
-                _ = try? await UseCases.shared.refreshWeatherWidget().invoke(params: NoParams.shared)
+                _ = try? await WeatherUseCases.shared.refreshWeatherWidget().invoke(params: NoParams.shared)
             }
         }
     }

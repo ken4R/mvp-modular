@@ -1,7 +1,4 @@
-package com.mvp.shared
-
-import com.mvp.core.designsystem.AccentColor
-import com.mvp.core.designsystem.ThemeMode
+package com.mvp.core.designsystem
 
 /**
  * Accent construit depuis Swift, qui renomme les entrées des enum Kotlin : [name] est le nom Kotlin de l'entrée

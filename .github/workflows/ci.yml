@@ -71,10 +71,20 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
+      # Compilateur Kotlin/Native et caches des bibliothèques (stdlib, coroutines, Koin, Ktor, Compose, Skia...) :
+      # sans eux, chaque run retélécharge le compilateur et recompile les caches avant la première liaison.
+      - name: Cache Kotlin/Native (~/.konan)
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
       - name: Tests KMP (simulateur iOS)
         run: ./gradlew iosSimulatorArm64Test --continue
-      - name: XCFramework KMP pour les packages SPM
-        run: scripts/build-ios-framework.sh debug
+      # Une seule tranche (simulateur arm64, celle du runner) au lieu des trois : la liaison Kotlin/Native est
+      # l'étape la plus longue. Les builds Xcode ci-dessous (ARCHS=arm64) la retrouvent à jour.
+      - name: XCFramework KMP pour les packages SPM (simulateur arm64)
+        run: scripts/build-ios-framework.sh debug iosSimulatorArm64
       - name: Génération du projet Xcode
         run: |
           brew install xcodegen
@@ -88,6 +98,7 @@ jobs:
               -scheme "$scheme" \
               -configuration Debug \
               -destination 'generic/platform=iOS Simulator' \
+              ARCHS=arm64 \
               CODE_SIGNING_ALLOWED=NO
           done
       - name: Textes de permission de localisation dans l'Info.plist de l'app
@@ -119,10 +130,86 @@ jobs:
             plist=$(find ~/Library/Developer/Xcode/DerivedData -path "*/Debug-iphonesimulator/$app.app/Info.plist" | head -1)
             /usr/libexec/PlistBuddy -c 'Print :CADisableMinimumFrameDurationOnPhone' "$plist"
           done
-      - name: Taille du framework Kotlin et de l'app iOS (suivi du poids, ADR 0010)
+      - name: Taille de l'app iOS (suivi du poids, ADR 0010)
+        run: |
+          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app' -type d | head -1)
+          du -sk "$app" "$app/Frameworks/Shared.framework"
+
+  # Liaison release du framework (optimisations complètes, une dizaine de minutes) dans un job à part, en parallèle
+  # du job iOS : elle ne sert qu'au suivi du poids.
+  ios-release-size:
+    name: Taille du framework Kotlin release (iPhone)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode stable le plus récent
+        run: |
+          xcode=$(ls -d /Applications/Xcode_*.app | grep -iv beta | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Cache Kotlin/Native (~/.konan)
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
+      - name: Taille du framework Kotlin release (suivi du poids, ADR 0010)
         run: |
           # Binaire release pour iPhone (arm64) : la taille qui compte pour l'utilisateur.
           ./gradlew :shared:linkReleaseFrameworkIosArm64
-          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app' -type d | head -1)
-          du -sk "$app" "$app/Frameworks/Shared.framework"
           ls -l shared/build/bin/iosArm64/releaseFramework/Shared.framework/Shared
+
+  # TEMPORAIRE (retiré avant fusion) : temps de liaison du framework, 3 tranches (ancien script) contre 1 (nouveau).
+  # Sans cache ~/.konan : la première liaison montre aussi le coût d'une machine neuve.
+  ios-measures:
+    name: Mesures temps de liaison (temporaire)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode stable le plus récent
+        run: |
+          xcode=$(ls -d /Applications/Xcode_*.app | grep -iv beta | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+      - name: Mesures
+        run: |
+          mesure() {
+            local label="$1"; shift
+            local start=$SECONDS
+            ./gradlew "$@" -q
+            echo "| $label | $((SECONDS - start)) s |" | tee -a "$GITHUB_STEP_SUMMARY"
+          }
+          modif() {
+            echo "internal val mesureTempsDeBuild = $1" > feature/todo/src/commonMain/kotlin/com/mvp/feature/todo/MesureTempsDeBuild.kt
+          }
+          echo "| Étape | Durée |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          mesure "Compilation des klibs simulateur arm64" :shared:compileKotlinIosSimulatorArm64
+          mesure "1re liaison debug simulateur arm64 (caches des bibliothèques compris)" :shared:linkDebugFrameworkIosSimulatorArm64
+          rm -rf shared/build/bin/iosSimulatorArm64/debugFramework
+          mesure "Reliaison debug simulateur arm64 (caches prêts)" :shared:linkDebugFrameworkIosSimulatorArm64
+          mesure "XCFramework debug 3 tranches, 1re fois (x64 et arm64 en plus)" :shared:assembleSharedDebugXCFramework
+          modif 1
+          mesure "Modif dans feature:todo puis XCFramework 3 tranches (ancien script)" :shared:assembleSharedDebugXCFramework
+          modif 2
+          mesure "Modif dans feature:todo puis 1 tranche simulateur (nouveau script)" :shared:linkDebugFrameworkIosSimulatorArm64
+          modif 3
+          start=$SECONDS
+          scripts/build-ios-framework.sh debug iosSimulatorArm64 > /dev/null
+          echo "| Même modif, script complet 1 tranche (liaison + XCFramework + copie) | $((SECONDS - start)) s |" | tee -a "$GITHUB_STEP_SUMMARY"
+          start=$SECONDS
+          scripts/build-ios-framework.sh debug iosSimulatorArm64
+          echo "| Sans modif, script 1 tranche (build Xcode sans changement Kotlin) | $((SECONDS - start)) s |" | tee -a "$GITHUB_STEP_SUMMARY"

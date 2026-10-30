@@ -71,10 +71,21 @@ fi
 dest="iosApp/Packages/SharedKMP/Shared.xcframework"
 cd "$root"
 
+# Ce qui est en place dans SharedKMP : module, configuration et tranches. Avec KMP_SWITCH_ONLY=1 (pré-build des
+# schemes Xcode, ADR 0027), rien n'est fait si c'est déjà le bon : seul un changement d'app relie avant le build.
+if [ ${#targets[@]} -eq 0 ]; then slices=all; else slices="${targets[*]}"; fi
+stamp="$module $config $slices"
+marker="iosApp/Packages/SharedKMP/.kmp-module"
+if [ "${KMP_SWITCH_ONLY:-}" = 1 ] && [ -d "$dest" ] && [ "$(cat "$marker" 2>/dev/null)" = "$stamp" ]; then
+  echo "Shared.xcframework ($stamp) déjà en place"
+  exit 0
+fi
+
 if [ ${#targets[@]} -eq 0 ]; then
   ./gradlew ":$module:assembleShared${Config}XCFramework"
   rm -rf "$dest"
   cp -R "$build/XCFrameworks/$config/Shared.xcframework" "$dest"
+  echo "$stamp" > "$marker"
   echo "Shared.xcframework ($module, $config, toutes les tranches) copié dans $dest"
   exit 0
 fi
@@ -122,9 +133,11 @@ xcodebuild -create-xcframework "${args[@]}" -output "$staging/Shared.xcframework
 
 # Framework inchangé (Gradle à jour) : on garde l'ancien, Xcode n'a rien à retraiter ni à relier.
 if [ -d "$dest" ] && diff -rq "$staging/Shared.xcframework" "$dest" >/dev/null 2>&1; then
+  echo "$stamp" > "$marker"
   echo "Shared.xcframework ($module, $config, ${targets[*]}) inchangé"
   exit 0
 fi
 rm -rf "$dest"
 cp -R "$staging/Shared.xcframework" "$dest"
+echo "$stamp" > "$marker"
 echo "Shared.xcframework ($module, $config, ${targets[*]}) copié dans $dest"

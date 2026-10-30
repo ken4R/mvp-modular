@@ -95,13 +95,17 @@ jobs:
           cd iosApp
           # iosApp revient en dernier : après une démo, l'app complète doit relier son propre framework (ADR 0027).
           for scheme in iosApp TodoDemo WeatherDemo SettingsDemo AuthDemo CatalogDemo TodoComposeDemo OnboardingDemo iosApp; do
+            status=0
             xcodebuild build \
               -project iosApp.xcodeproj \
               -scheme "$scheme" \
               -configuration Debug \
               -destination 'generic/platform=iOS Simulator' \
               ARCHS=arm64 \
-              CODE_SIGNING_ALLOWED=NO
+              CODE_SIGNING_ALLOWED=NO || status=$?
+            # Pré-build du scheme (framework Kotlin de l'app, ADR 0027) : Xcode n'en affiche pas la sortie.
+            echo "--- pré-build $scheme"; cat Generated/kotlin-prebuild.log || true
+            [ "$status" -eq 0 ] || exit "$status"
           done
       - name: Chaque démo embarque son parapluie, pas le framework de l'app complète (ADR 0027)
         run: |

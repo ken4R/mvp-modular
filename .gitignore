@@ -17,5 +17,6 @@ DerivedData/
 
 # Framework KMP copié pour SPM (généré par scripts/build-ios-framework.sh)
 iosApp/Packages/SharedKMP/Shared.xcframework/
+iosApp/Packages/SharedKMP/.kmp-module
 .swiftpm/
 .build/

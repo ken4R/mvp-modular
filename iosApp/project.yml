@@ -121,6 +121,21 @@ targets:
   # App complète : assemble toutes les features.
   iosApp:
     type: application
+    # Avant le build (ADR 0027) : met en place le framework Kotlin de cette app dans Packages/SharedKMP. Xcode
+    # compile les packages Swift en parallèle de la cible KotlinShared : sans ce pré-build, ils verraient le framework
+    # de la dernière app construite. Xcode ignore l'échec d'un pré-build : la cible Kotlin, qui relance le même
+    # script (rien à refaire s'il est à jour), fait échouer le build si la compilation Kotlin échoue.
+    scheme:
+      preActions:
+        - name: Framework Kotlin de l'app
+          settingsTarget: iosApp
+          script: |
+            if [ "$CONFIGURATION" = "Debug" ]; then config=debug; else config=release; fi
+            # Journal : Xcode n'affiche pas la sortie d'un pré-build.
+            {
+              echo "PLATFORM_NAME=${PLATFORM_NAME:-} ARCHS=${ARCHS:-}"
+              KMP_SWITCH_ONLY=1 KMP_MODULE=shared "$SRCROOT/../scripts/build-ios-framework.sh" "$config"
+            } > "$SRCROOT/Generated/kotlin-prebuild.log" 2>&1
     platform: iOS
     sources: [iosApp]
     # Clés sans équivalent INFOPLIST_KEY_ : XcodeGen écrit ce plist, Xcode le fusionne avec l'Info.plist généré.
@@ -202,6 +217,18 @@ targets:
   # Démo de la feature todo, lancée seule avec des données d'exemple.
   TodoDemo:
     type: application
+    # Avant le build : son parapluie dans Packages/SharedKMP (voir iosApp).
+    scheme:
+      preActions:
+        - name: Framework Kotlin de l'app
+          settingsTarget: TodoDemo
+          script: |
+            if [ "$CONFIGURATION" = "Debug" ]; then config=debug; else config=release; fi
+            # Journal : Xcode n'affiche pas la sortie d'un pré-build.
+            {
+              echo "PLATFORM_NAME=${PLATFORM_NAME:-} ARCHS=${ARCHS:-}"
+              KMP_SWITCH_ONLY=1 KMP_MODULE=umbrella:todo-demo "$SRCROOT/../scripts/build-ios-framework.sh" "$config"
+            } > "$SRCROOT/Generated/kotlin-prebuild.log" 2>&1
     platform: iOS
     sources: [Packages/FeatureTodo/Demo]
     settings:
@@ -222,6 +249,18 @@ targets:
   # Démo de la feature météo, ouverte sur une recherche d'exemple.
   WeatherDemo:
     type: application
+    # Avant le build : son parapluie dans Packages/SharedKMP (voir iosApp).
+    scheme:
+      preActions:
+        - name: Framework Kotlin de l'app
+          settingsTarget: WeatherDemo
+          script: |
+            if [ "$CONFIGURATION" = "Debug" ]; then config=debug; else config=release; fi
+            # Journal : Xcode n'affiche pas la sortie d'un pré-build.
+            {
+              echo "PLATFORM_NAME=${PLATFORM_NAME:-} ARCHS=${ARCHS:-}"
+              KMP_SWITCH_ONLY=1 KMP_MODULE=umbrella:weather-demo "$SRCROOT/../scripts/build-ios-framework.sh" "$config"
+            } > "$SRCROOT/Generated/kotlin-prebuild.log" 2>&1
     platform: iOS
     sources: [Packages/FeatureWeather/Demo]
     # Clés sans équivalent INFOPLIST_KEY_ : XcodeGen écrit ce plist, Xcode le fusionne avec l'Info.plist généré.
@@ -245,6 +284,18 @@ targets:
   # Démo de la feature réglages (profil, notifications, verrou Face ID, consentements).
   SettingsDemo:
     type: application
+    # Avant le build : son parapluie dans Packages/SharedKMP (voir iosApp).
+    scheme:
+      preActions:
+        - name: Framework Kotlin de l'app
+          settingsTarget: SettingsDemo
+          script: |
+            if [ "$CONFIGURATION" = "Debug" ]; then config=debug; else config=release; fi
+            # Journal : Xcode n'affiche pas la sortie d'un pré-build.
+            {
+              echo "PLATFORM_NAME=${PLATFORM_NAME:-} ARCHS=${ARCHS:-}"
+              KMP_SWITCH_ONLY=1 KMP_MODULE=umbrella:settings-demo "$SRCROOT/../scripts/build-ios-framework.sh" "$config"
+            } > "$SRCROOT/Generated/kotlin-prebuild.log" 2>&1
     platform: iOS
     sources: [Packages/FeatureSettings/Demo]
     settings:
@@ -262,6 +313,18 @@ targets:
   # Démo de la feature connexion (écran de connexion, puis déconnexion).
   AuthDemo:
     type: application
+    # Avant le build : son parapluie dans Packages/SharedKMP (voir iosApp).
+    scheme:
+      preActions:
+        - name: Framework Kotlin de l'app
+          settingsTarget: AuthDemo
+          script: |
+            if [ "$CONFIGURATION" = "Debug" ]; then config=debug; else config=release; fi
+            # Journal : Xcode n'affiche pas la sortie d'un pré-build.
+            {
+              echo "PLATFORM_NAME=${PLATFORM_NAME:-} ARCHS=${ARCHS:-}"
+              KMP_SWITCH_ONLY=1 KMP_MODULE=umbrella:auth-demo "$SRCROOT/../scripts/build-ios-framework.sh" "$config"
+            } > "$SRCROOT/Generated/kotlin-prebuild.log" 2>&1
     platform: iOS
     sources: [Packages/FeatureAuth/Demo]
     settings:
@@ -279,6 +342,18 @@ targets:
   # Démo de la feature catalogue (liste paginée, fiche produit, cache hors ligne).
   CatalogDemo:
     type: application
+    # Avant le build : son parapluie dans Packages/SharedKMP (voir iosApp).
+    scheme:
+      preActions:
+        - name: Framework Kotlin de l'app
+          settingsTarget: CatalogDemo
+          script: |
+            if [ "$CONFIGURATION" = "Debug" ]; then config=debug; else config=release; fi
+            # Journal : Xcode n'affiche pas la sortie d'un pré-build.
+            {
+              echo "PLATFORM_NAME=${PLATFORM_NAME:-} ARCHS=${ARCHS:-}"
+              KMP_SWITCH_ONLY=1 KMP_MODULE=umbrella:catalog-demo "$SRCROOT/../scripts/build-ios-framework.sh" "$config"
+            } > "$SRCROOT/Generated/kotlin-prebuild.log" 2>&1
     platform: iOS
     sources: [Packages/FeatureCatalog/Demo]
     settings:
@@ -295,6 +370,18 @@ targets:
   # Démo de l'écran Tâches en Compose Multiplatform, à comparer à TodoDemo (SwiftUI). ADR 0010.
   TodoComposeDemo:
     type: application
+    # Avant le build : son parapluie dans Packages/SharedKMP (voir iosApp).
+    scheme:
+      preActions:
+        - name: Framework Kotlin de l'app
+          settingsTarget: TodoComposeDemo
+          script: |
+            if [ "$CONFIGURATION" = "Debug" ]; then config=debug; else config=release; fi
+            # Journal : Xcode n'affiche pas la sortie d'un pré-build.
+            {
+              echo "PLATFORM_NAME=${PLATFORM_NAME:-} ARCHS=${ARCHS:-}"
+              KMP_SWITCH_ONLY=1 KMP_MODULE=umbrella:todo-compose-demo "$SRCROOT/../scripts/build-ios-framework.sh" "$config"
+            } > "$SRCROOT/Generated/kotlin-prebuild.log" 2>&1
     platform: iOS
     sources: [Packages/FeatureTodoCompose/Demo]
     info:
@@ -316,6 +403,18 @@ targets:
   # Démo de la présentation du premier lancement (ADR 0016), remontrée à chaque ouverture.
   OnboardingDemo:
     type: application
+    # Avant le build : son parapluie dans Packages/SharedKMP (voir iosApp).
+    scheme:
+      preActions:
+        - name: Framework Kotlin de l'app
+          settingsTarget: OnboardingDemo
+          script: |
+            if [ "$CONFIGURATION" = "Debug" ]; then config=debug; else config=release; fi
+            # Journal : Xcode n'affiche pas la sortie d'un pré-build.
+            {
+              echo "PLATFORM_NAME=${PLATFORM_NAME:-} ARCHS=${ARCHS:-}"
+              KMP_SWITCH_ONLY=1 KMP_MODULE=umbrella:onboarding-demo "$SRCROOT/../scripts/build-ios-framework.sh" "$config"
+            } > "$SRCROOT/Generated/kotlin-prebuild.log" 2>&1
     platform: iOS
     sources: [Packages/FeatureOnboarding/Demo]
     info:

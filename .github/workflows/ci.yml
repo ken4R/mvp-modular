@@ -71,10 +71,21 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
+      # Compilateur Kotlin/Native et caches des bibliothèques (stdlib, coroutines, Koin, Ktor, Compose, Skia...) :
+      # sans eux, chaque run retélécharge le compilateur et recompile les caches avant la première liaison.
+      # Une clé par job : un cache déjà présent n'est jamais réécrit, celui du job release n'a pas les caches debug.
+      - name: Cache Kotlin/Native (~/.konan)
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-sim-debug-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-sim-debug-${{ runner.os }}-${{ runner.arch }}-
       - name: Tests KMP (simulateur iOS)
         run: ./gradlew iosSimulatorArm64Test --continue
-      - name: XCFramework KMP pour les packages SPM
-        run: scripts/build-ios-framework.sh debug
+      # Une seule tranche (simulateur arm64, celle du runner) au lieu des trois : la liaison Kotlin/Native est
+      # l'étape la plus longue. Les builds Xcode ci-dessous (ARCHS=arm64) la retrouvent à jour.
+      - name: XCFramework KMP pour les packages SPM (simulateur arm64)
+        run: scripts/build-ios-framework.sh debug iosSimulatorArm64
       - name: Génération du projet Xcode
         run: |
           brew install xcodegen
@@ -88,6 +99,7 @@ jobs:
               -scheme "$scheme" \
               -configuration Debug \
               -destination 'generic/platform=iOS Simulator' \
+              ARCHS=arm64 \
               CODE_SIGNING_ALLOWED=NO
           done
       - name: Textes de permission de localisation dans l'Info.plist de l'app
@@ -119,10 +131,37 @@ jobs:
             plist=$(find ~/Library/Developer/Xcode/DerivedData -path "*/Debug-iphonesimulator/$app.app/Info.plist" | head -1)
             /usr/libexec/PlistBuddy -c 'Print :CADisableMinimumFrameDurationOnPhone' "$plist"
           done
-      - name: Taille du framework Kotlin et de l'app iOS (suivi du poids, ADR 0010)
+      - name: Taille de l'app iOS (suivi du poids, ADR 0010)
+        run: |
+          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app' -type d | head -1)
+          du -sk "$app" "$app/Frameworks/Shared.framework"
+
+  # Liaison release du framework (optimisations complètes, une dizaine de minutes) dans un job à part, en parallèle
+  # du job iOS : elle ne sert qu'au suivi du poids.
+  ios-release-size:
+    name: Taille du framework Kotlin release (iPhone)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode stable le plus récent
+        run: |
+          xcode=$(ls -d /Applications/Xcode_*.app | grep -iv beta | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Cache Kotlin/Native (~/.konan)
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-release-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-release-${{ runner.os }}-${{ runner.arch }}-
+      - name: Taille du framework Kotlin release (suivi du poids, ADR 0010)
         run: |
           # Binaire release pour iPhone (arm64) : la taille qui compte pour l'utilisateur.
           ./gradlew :shared:linkReleaseFrameworkIosArm64
-          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app' -type d | head -1)
-          du -sk "$app" "$app/Frameworks/Shared.framework"
           ls -l shared/build/bin/iosArm64/releaseFramework/Shared.framework/Shared

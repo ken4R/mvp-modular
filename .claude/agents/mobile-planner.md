@@ -26,7 +26,7 @@ Transformer une demande en un plan court, ordonné et vérifiable, que les autre
 ## Étapes
 1. [kmp-dev]     domain : modèle, interface de repository, use case + tests commonTest
 2. [kmp-dev]     data : data source, repository impl (safeCall), module Koin
-3. [kmp-dev]     shared : sharedModules, export(), getter dans UseCases (iOS)
+3. [kmp-dev]     shared : sharedModules, export(), façade <Nom>UseCases (iOS), parapluie umbrella/<nom>-demo
 4. [android-dev] ViewModel + écran Compose (tokens MvpTheme)
 5. [ios-dev]     ViewModel ObservableObject + vue SwiftUI (tokens DS)
 6. [qa-tester]   tests complémentaires + checklist de recette

@@ -13,7 +13,18 @@
 #     liées, par exemple simulateur arm64 en Debug, iPhone arm64 pour une archive. La liaison Kotlin/Native
 #     (Compose et Skia compris) est l'étape la plus longue : une tranche au lieu de trois.
 #   - lancé à la main : XCFramework complet, les trois tranches.
+#
+# Variable KMP_MODULE : module Gradle du framework, « shared » (app complète) par défaut, ou le parapluie d'une
+# app de démo, par exemple « umbrella:todo-demo » (ADR 0027). Xcode la reçoit du réglage de la cible Kotlin de
+# chaque démo (iosApp/project.yml). Tous s'appellent « Shared » et vont au même endroit : le dernier compilé gagne.
 set -euo pipefail
+
+module="${KMP_MODULE:-shared}"
+case "$module" in
+  shared|umbrella:*-demo) ;;
+  *) echo "error: KMP_MODULE inconnu '$module' (shared ou umbrella:<nom>-demo)" >&2; exit 1 ;;
+esac
+build="${module//://}/build"
 
 config="${1:-debug}"
 case "$config" in
@@ -60,10 +71,10 @@ dest="iosApp/Packages/SharedKMP/Shared.xcframework"
 cd "$root"
 
 if [ ${#targets[@]} -eq 0 ]; then
-  ./gradlew ":shared:assembleShared${Config}XCFramework"
+  ./gradlew ":$module:assembleShared${Config}XCFramework"
   rm -rf "$dest"
-  cp -R "shared/build/XCFrameworks/$config/Shared.xcframework" "$dest"
-  echo "Shared.xcframework ($config, toutes les tranches) copié dans $dest"
+  cp -R "$build/XCFrameworks/$config/Shared.xcframework" "$dest"
+  echo "Shared.xcframework ($module, $config, toutes les tranches) copié dans $dest"
   exit 0
 fi
 
@@ -75,14 +86,14 @@ for target in "${targets[@]}"; do
     *) echo "error: cible inconnue '$target' (iosSimulatorArm64, iosX64 ou iosArm64)" >&2; exit 1 ;;
   esac
   # Bash 3.2 de macOS : pas de ${target^} pour la majuscule.
-  tasks+=(":shared:link${Config}Framework$(echo "${target:0:1}" | tr '[:lower:]' '[:upper:]')${target:1}")
+  tasks+=(":$module:link${Config}Framework$(echo "${target:0:1}" | tr '[:lower:]' '[:upper:]')${target:1}")
 done
 ./gradlew "${tasks[@]}"
 
-framework() { echo "shared/build/bin/$1/${config}Framework/Shared.framework"; }
+framework() { echo "$build/bin/$1/${config}Framework/Shared.framework"; }
 
 # Une tranche par plateforme dans un XCFramework : les deux architectures simulateur sont fusionnées par lipo.
-staging="shared/build/XCFrameworks/$config-slices"
+staging="$build/XCFrameworks/$config-slices"
 rm -rf "$staging"
 mkdir -p "$staging"
 args=()
@@ -110,9 +121,9 @@ xcodebuild -create-xcframework "${args[@]}" -output "$staging/Shared.xcframework
 
 # Framework inchangé (Gradle à jour) : on garde l'ancien, Xcode n'a rien à retraiter ni à relier.
 if [ -d "$dest" ] && diff -rq "$staging/Shared.xcframework" "$dest" >/dev/null 2>&1; then
-  echo "Shared.xcframework ($config, ${targets[*]}) inchangé"
+  echo "Shared.xcframework ($module, $config, ${targets[*]}) inchangé"
   exit 0
 fi
 rm -rf "$dest"
 cp -R "$staging/Shared.xcframework" "$dest"
-echo "Shared.xcframework ($config, ${targets[*]}) copié dans $dest"
+echo "Shared.xcframework ($module, $config, ${targets[*]}) copié dans $dest"

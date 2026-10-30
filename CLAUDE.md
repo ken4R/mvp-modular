@@ -1,6 +1,6 @@
 # MVP Modular — consignes pour Claude Code
 
-Prototype mobile iOS + Android, **toute la logique en Kotlin Multiplatform**, les apps natives ne font que l'UI. Architecture et conventions détaillées dans `README.md`. `feature/todo` est le module feature de référence : toute nouvelle feature en reprend la structure (domain / data / di, câblage dans `shared`, helper Flow iOS dans `UseCases`).
+Prototype mobile iOS + Android, **toute la logique en Kotlin Multiplatform**, les apps natives ne font que l'UI. Architecture et conventions détaillées dans `README.md`. `feature/todo` est le module feature de référence : toute nouvelle feature en reprend la structure (domain / data / di, câblage dans `shared`, façade Swift `<Nom>UseCases` avec ses helpers Flow dans l'`iosMain` du module).
 
 ## Agents (`.claude/agents/`)
 | Agent | Rôle |
@@ -24,7 +24,7 @@ CI (`.github/workflows/ci.yml`) : tests KMP + build Android sur Ubuntu, tests KM
 ## Règles non négociables
 - `domain` ne dépend de rien ; les apps n'appellent que des use cases exposés par `shared`, qui renvoient `AppResult`.
 - Aucune valeur visuelle en dur : `core:designsystem` → `MvpTheme` (Android) / `DS` (iOS).
-- iOS : chaque feature est un package SPM `iosApp/Packages/Feature<Nom>` qui ne dépend que de `SharedKMP` et `DesignSystemUI`, avec une démo optionnelle (`Demo/`, cible `<Nom>Demo` dans `project.yml`).
+- iOS : chaque feature est un package SPM `iosApp/Packages/Feature<Nom>` qui ne dépend que de `SharedKMP` et `DesignSystemUI`, avec une démo optionnelle (`Demo/`, cible `<Nom>Demo` dans `project.yml`) qui lie son parapluie KMP `umbrella/<nom>-demo` (cible `Kotlin<Nom>Demo`, ADR 0027).
 - Versions uniquement dans `gradle/libs.versions.toml` ; modules KMP via le plugin `mvp.kmp.library`.
 - Tout nouveau use case a un test `commonTest`.
 - Code et commentaires en français, identifiants en anglais.

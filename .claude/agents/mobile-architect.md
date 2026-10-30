@@ -21,7 +21,7 @@ androidApp (Compose + ViewModel)   iosApp (SwiftUI + ObservableObject)
 - Les apps n'appellent que des **use cases** (`UseCase` / `FlowUseCase`), qui renvoient `AppResult` ; aucune exception ne remonte à l'UI.
 - `expect/actual` uniquement dans `data/source` pour l'accès plateforme.
 - Tout module KMP applique le plugin `mvp.kmp.library` ; toutes les versions vivent dans `gradle/libs.versions.toml`.
-- Un nouveau module est inclus dans `settings.gradle.kts`, ajouté en `api()` + `export()` dans `shared`, son module Koin dans `sharedModules`, et ses use cases exposés dans `UseCases` (`KoinIos.kt`).
+- Un nouveau module est inclus dans `settings.gradle.kts`, ajouté en `api()` + `export()` dans `shared`, son module Koin dans `sharedModules`, et ses use cases exposés dans sa façade `<Nom>UseCases` (iosMain du module) ; sa démo iOS a son parapluie `umbrella/<nom>-demo` (ADR 0027).
 - Valeurs visuelles : uniquement via `core:designsystem` (`MvpTheme` côté Android, `DS` côté iOS).
 
 ## Ce que tu fais

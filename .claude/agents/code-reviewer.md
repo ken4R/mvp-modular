@@ -17,7 +17,7 @@ Par défaut, le diff courant (`git diff` / `git diff main...HEAD` si un dépôt 
    - Aucune logique métier dans `androidApp` ou `iosApp`.
    - Les apps n'appellent que des use cases via `shared` ; résultats en `AppResult`, erreurs via `safeCall`/`AppError`.
    - `expect/actual` cantonné à `data/source`.
-   - Nouveau module correctement câblé : `settings.gradle.kts`, `api()` + `export()` dans `shared`, `sharedModules`, getter `UseCases` pour iOS.
+   - Nouveau module correctement câblé : `settings.gradle.kts`, `api()` + `export()` dans `shared`, `sharedModules`, getter dans la façade `<Nom>UseCases` (iosMain du module) pour iOS, parapluie `umbrella/<nom>-demo` à jour si une démo l'utilise.
    - Graphe sans cycle, pas de `feature` → `feature`.
 3. **Design system** : aucune couleur, typo, espacement ou rayon en dur côté Compose ou SwiftUI.
 4. **Interop Swift** : API publique KMP lisible en Swift, `@Throws` sur les `suspend` publiques, pas de `value class`/génériques piégeux exposés.

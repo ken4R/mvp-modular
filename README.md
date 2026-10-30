@@ -107,7 +107,7 @@ Module de référence pour les prochaines features : ajouter, cocher et supprime
 - **Widget Météo et case à cocher du widget Tâches** ([plan](docs/plans/widgets-meteo-interactifs.md), [ADR 0026](docs/adr/0026-widgets-meteo-interactifs.md)) : `CompleteTodoFromWidgetUseCase` termine une tâche cochée dans le widget (session, verrou, corbeille vérifiés, file d'envoi) ; Android l'appelle directement (Glance `actionRunCallback`), iOS 17+ note l'id dans l'App Group et l'app l'applique à sa prochaine ouverture. Widget Météo : dernière météo « Ma position » gardée chiffrée (`LocalWeatherCache`), actualisée sans redemander la position, masquée après 3 h ou à la déconnexion.
 - **Data** : tâches stockées en SQLite (SQLDelight, `todo.db`, migrations `1.sqm` pour la colonne `reminder_at`, `2.sqm` pour la synchronisation, `3.sqm` pour les notes et pièces jointes, `4.sqm` pour l'heure de fin des statistiques, `5.sqm` pour l'échéance) derrière `TodoLocalDataSource` ; elles survivent au redémarrage. Une implémentation en mémoire sert aux tests des use cases.
 - **Android** : `ui/todo/TodoViewModel.kt` + `TodoScreen.kt` (bouton « Rappel » : date puis heure) ; `MvpApplication` lance la synchronisation des rappels.
-- **iOS** : package SPM `iosApp/Packages/FeatureTodo` (`TodoViewModel.swift` + `TodoListView.swift`, cloche et feuille de rappel ; `TodoReminders.start()` à appeler au lancement) et son app de démo `TodoDemo`. Les Flow sont exposés à Swift par callbacks via `UseCases.observeTodos(...)`, qui renvoie une `Subscription` à annuler.
+- **iOS** : package SPM `iosApp/Packages/FeatureTodo` (`TodoViewModel.swift` + `TodoListView.swift`, cloche et feuille de rappel ; `TodoReminders.start()` à appeler au lancement) et son app de démo `TodoDemo`. Les Flow sont exposés à Swift par callbacks via `TodoUseCases.observeTodos(...)` (façade Swift du module, dans son `iosMain`), qui renvoie une `Subscription` à annuler.
 
 ## Feature `weather`
 
@@ -124,7 +124,7 @@ Page Réglages : profil, notifications, consentements et version de l'app.
 - **Règles** : au premier lancement, notifications coupées et aucun consentement accordé (opt-in RGPD). Activer les notifications demande d'abord la permission système (iOS, Android 13+) ; si elle est refusée, le réglage reste coupé. Si elle est retirée dans les paramètres système, le réglage se recoupe au retour dans l'app.
 - **Data** : réglages stockés en SQLite (SQLDelight, `settings.db`, table clé / valeur) derrière `SettingsLocalDataSource` ; ils survivent au redémarrage. Le profil (nom, e-mail), donnée personnelle, est dans le stockage chiffré (`SecureProfileLocalDataSource`), pré-rempli à la connexion et effacé à la déconnexion.
 - **Android** : `ui/settings/SettingsViewModel.kt` + `SettingsScreen.kt`, onglet « Réglages ».
-- **iOS** : package SPM `iosApp/Packages/FeatureSettings` (`SettingsViewModel.swift` + `SettingsView.swift`), onglet « Réglages » de l'app complète, et app de démo `SettingsDemo`. Le Flow est exposé par `UseCases.observeSettings(...)`.
+- **iOS** : package SPM `iosApp/Packages/FeatureSettings` (`SettingsViewModel.swift` + `SettingsView.swift`), onglet « Réglages » de l'app complète, et app de démo `SettingsDemo`. Le Flow est exposé par `SettingsUseCases.observeSettings(...)`.
 - **Verrou Face ID / empreinte** ([plan](docs/plans/deverrouillage-biometrique.md), [ADR 0007](docs/adr/0007-deverrouillage-biometrique.md)) : réglage « Sécurité », coupé par défaut, effacé à la déconnexion. `SetAppLockEnabledUseCase`, `ObserveAppLockUseCase`, `LockAppUseCase` (passage en arrière-plan), `UnlockAppUseCase` (après une authentification système réussie). Une fois activé, l'app demande Face ID / Touch ID / empreinte, avec repli sur le code de l'appareil, à chaque lancement et à chaque retour au premier plan ; « Se déconnecter » reste possible depuis l'écran verrouillé. Android : `ui/applock/` (BiometricPrompt système, sans androidx.biometric), écran masqué dans les apps récentes. iOS : `AppLockGate` (package `FeatureSettings`), LocalAuthentication.
 
 ## Feature `auth`
@@ -134,7 +134,7 @@ Connexion devant l'app : sans session, seul l'écran de connexion est accessible
 - **Data** : pas encore de backend, `FakeAuthRemoteDataSource` accepte n'importe quel e-mail avec le mot de passe `demo1234` (session de 7 jours), **dans les builds debug seulement** : un build release refuse toute connexion (`UnavailableAuthRemoteDataSource`, [ADR 0013](docs/adr/0013-durcissement-distribution.md)). La session est gardée dans `core:securestorage` ; le jeton ne sort jamais de la feature.
 - **Lien avec les autres features** : sans dépendance entre elles, via `UserSessionObserver` (`core:common`). À la connexion, le profil des Réglages est pré-rempli avec le compte ; à la déconnexion, les tâches (et leurs rappels), les réglages et le profil sont effacés, puis la session. Toute feature qui stocke des données de l'utilisateur doit déclarer le sien.
 - **Android** : `ui/auth/SessionViewModel.kt` (écran racine), `LoginViewModel.kt` + `LoginScreen.kt` ; déconnexion dans la section « Compte » des Réglages.
-- **iOS** : package SPM `iosApp/Packages/FeatureAuth` : `SessionGate { ... }` enveloppe les onglets de l'app, `LoginView` ; app de démo `AuthDemo`. Le Flow est exposé par `UseCases.observeSession(...)`.
+- **iOS** : package SPM `iosApp/Packages/FeatureAuth` : `SessionGate { ... }` enveloppe les onglets de l'app, `LoginView` ; app de démo `AuthDemo`. Le Flow est exposé par `AuthUseCases.observeSession(...)`.
 
 ## Feature `catalog`
 
@@ -201,7 +201,7 @@ Ajouter une feature iOS `Xxx` :
    ```
 2. `include(":feature:xxx")` dans `settings.gradle.kts`.
 3. Dans `shared` : `api(projects.feature.xxx)`, `export(projects.feature.xxx)` et ajouter son module Koin à `sharedModules`.
-4. Pour iOS, exposer ses use cases dans `UseCases` (`shared/src/iosMain/.../KoinIos.kt`), avec un helper à callbacks pour chaque Flow.
+4. Pour iOS, exposer ses use cases dans la façade Swift du module : `object <Nom>UseCases : SwiftUseCases()` dans son `iosMain` (modèle : `feature/todo/src/iosMain/.../ios/TodoUseCases.kt`), avec un helper à callbacks pour chaque Flow (`subscribe`). Si la feature a une démo iOS, lui créer son parapluie `umbrella/<nom>-demo` (voir « Un framework par app de démo »).
 
 Le plus simple est de copier `feature/todo` et de renommer.
 
@@ -212,6 +212,14 @@ Le plugin de convention `mvp.kmp.library` (`build-logic/`) configure les cibles 
 - **Tests KMP** : `./gradlew allTests`
 - **Android** : ouvrir le dossier dans Android Studio, lancer `androidApp`.
 - **iOS** : `scripts/build-ios-framework.sh && cd iosApp && xcodegen && open iosApp.xcodeproj`, puis choisir le scheme `iosApp` (app complète : connexion, puis onglets Tâches, Météo, Catalogue et Réglages) ou une démo de feature (`TodoDemo`, `WeatherDemo`, `SettingsDemo`, `AuthDemo`, `CatalogDemo`, `TodoComposeDemo`). Le script doit tourner une première fois avant d'ouvrir Xcode, car les packages SPM ont besoin du XCFramework Kotlin ; ensuite la cible `KotlinShared` le relance à chaque build, en ne liant que la tranche du build en cours (simulateur arm64 en général, iPhone arm64 pour une archive) au lieu des trois. Pour un premier lancement plus rapide sur un Mac Apple Silicon : `scripts/build-ios-framework.sh debug iosSimulatorArm64`.
+
+### Un framework par app de démo (ADR 0027)
+
+Chaque app de démo lie son propre framework « Shared », produit par un module parapluie `umbrella/<nom>-demo` : la feature, les modules dont son graphe Koin a besoin, et rien d'autre (pas de Compose ni de Ktor pour `TodoDemo`, par exemple). Sa cible Xcode `Kotlin<Nom>Demo` lance le même script avec `KMP_MODULE=umbrella:<nom>-demo` ; le framework a le même nom et va au même endroit que celui de l'app complète, si bien que les packages SPM gardent `import Shared`. Passer d'une démo à l'autre, ou à l'app, relie le framework de la cible lancée. Pour préparer une démo à la main : `KMP_MODULE=umbrella:todo-demo scripts/build-ios-framework.sh debug iosSimulatorArm64`.
+
+- Swift n'appelle que les façades des modules (`TodoUseCases`, `SettingsUseCases`…), présentes dans chaque framework qui exporte le module.
+- `UmbrellaKoinTest` (iosTest commun, `umbrella/koin-check`) résout chaque définition Koin de chaque parapluie : une dépendance oubliée casse la CI, pas la démo.
+- La CI vérifie que chaque démo embarque bien son parapluie et affiche la taille de chaque framework.
 
 ## Environnement cloud (Claude Code)
 

@@ -20,12 +20,13 @@ fun Project.iosUmbrellaFramework(exported: List<Any>, linked: List<Any> = emptyL
                 // Dynamique : SPM l'embarque une seule fois même si plusieurs packages en dépendent.
                 isStatic = false
                 binaryOption("bundleId", "com.mvp.shared")
-                // SQLDelight (core:database) utilise le SQLite fourni par iOS. Les modules qui appliquent
-                // le plugin SQLDelight le lient d'eux-mêmes (linkSqlite) ; le parapluie ne l'applique pas.
-                linkerOpts("-lsqlite3")
                 exported.forEach { export(it) }
                 xcFramework.add(this)
             }
+            // SQLDelight (core:database) utilise le SQLite fourni par iOS. Les modules qui appliquent le plugin
+            // SQLDelight le lient d'eux-mêmes (linkSqlite) ; le parapluie ne l'applique pas. Framework et
+            // exécutable de test (UmbrellaKoinTest) en ont besoin.
+            target.binaries.all { linkerOpts("-lsqlite3") }
         }
         sourceSets.getByName("commonMain").dependencies {
             exported.forEach { api(it) }

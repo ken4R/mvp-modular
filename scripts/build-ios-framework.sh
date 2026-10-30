@@ -20,10 +20,11 @@
 set -euo pipefail
 
 module="${KMP_MODULE:-shared}"
-case "$module" in
-  shared|umbrella:*-demo) ;;
-  *) echo "error: KMP_MODULE inconnu '$module' (shared ou umbrella:<nom>-demo)" >&2; exit 1 ;;
-esac
+# Lettres minuscules, chiffres et tirets seulement : le chemin sert aux rm -rf ci-dessous.
+if [ "$module" != shared ] && ! [[ "$module" =~ ^umbrella:[a-z0-9-]+-demo$ ]]; then
+  echo "error: KMP_MODULE inconnu '$module' (shared ou umbrella:<nom>-demo)" >&2
+  exit 1
+fi
 build="${module//://}/build"
 
 config="${1:-debug}"

@@ -93,7 +93,8 @@ jobs:
       - name: Build de l'app iOS et des démos de features (simulateur, sans signature)
         run: |
           cd iosApp
-          for scheme in iosApp TodoDemo WeatherDemo SettingsDemo AuthDemo CatalogDemo TodoComposeDemo OnboardingDemo; do
+          # iosApp revient en dernier : après une démo, l'app complète doit relier son propre framework (ADR 0027).
+          for scheme in iosApp TodoDemo WeatherDemo SettingsDemo AuthDemo CatalogDemo TodoComposeDemo OnboardingDemo iosApp; do
             xcodebuild build \
               -project iosApp.xcodeproj \
               -scheme "$scheme" \
@@ -113,7 +114,7 @@ jobs:
               exit 1
             fi
           }
-          # Témoin : le framework de l'app complète contient bien toutes les façades.
+          # Témoin : le framework de l'app complète, reconstruite après les démos, contient bien toutes les façades.
           app=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app/Frameworks/Shared.framework/Shared' | head -1)
           du -k "$app"
           grep -aq CatalogUseCases "$app"

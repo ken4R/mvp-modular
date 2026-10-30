@@ -44,6 +44,7 @@ Contenu des parapluies :
 - Passer d'une démo à une autre, ou à l'app complète, remplace le framework de `Packages/SharedKMP` : la première compilation après le changement relie le framework de la cible et recompile les packages Swift qui en dépendent. Rester sur la même cible ne coûte rien de plus qu'avant.
 - La CI lie un framework de plus par démo et un exécutable de test par parapluie.
 - Une nouvelle feature avec démo demande son parapluie ; un module ajouté au graphe d'une feature doit être ajouté aux parapluies qui la contiennent, ce que `UmbrellaKoinTest` signale.
+- Les `getAll()` d'un parapluie ne voient que ses modules : dans OnboardingDemo, retirer un consentement ne purge pas la mesure d'audience ni les plantages (modules absents) ; dans AuthDemo, la déconnexion n'efface que ce que la démo contient. `UmbrellaKoinTest` ne le signale pas, c'est voulu pour une démo.
 - `ComposeScreens` existe en deux copies (shared et le parapluie de TodoComposeDemo) : il lit le thème de `feature:settings`, dont `feature:todo-compose` ne dépend pas.
 - Les packages Swift compilent contre le framework de la cible en cours : un package qui appellerait la façade d'un module absent du parapluie de sa démo ne compile plus pour cette démo (la CI construit chaque démo).
 - Pistes : une démo peut remplacer un module réel par un faux dans son `umbrellaModules` (session de démo, réseau simulé) sans toucher à l'app complète.

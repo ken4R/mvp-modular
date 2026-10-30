@@ -24,8 +24,8 @@ final class TodoTrashViewModel: ObservableObject {
     func start() {
         guard subscription == nil else { return }
         // Une app restée ouverte longtemps supprime aussi ce qui a fait son temps.
-        Task { _ = try? await UseCases.shared.purgeExpiredTrash().invoke(params: NoParams.shared) }
-        subscription = UseCases.shared.observeTrash(
+        Task { _ = try? await TodoUseCases.shared.purgeExpiredTrash().invoke(params: NoParams.shared) }
+        subscription = TodoUseCases.shared.observeTrash(
             onItems: { [weak self] items in
                 self?.rows = items.map { item in
                     TrashRow(id: item.todo.id, title: item.todo.title, isDone: item.todo.isDone, daysLeft: Int(item.daysLeft))
@@ -42,17 +42,17 @@ final class TodoTrashViewModel: ObservableObject {
     }
 
     func restore(_ row: TrashRow) async {
-        let result = try? await UseCases.shared.restoreTodo().invoke(params: row.id as NSString)
+        let result = try? await TodoUseCases.shared.restoreTodo().invoke(params: row.id as NSString)
         message = Self.succeeded(result) ? "« \(row.title) » est revenue dans la liste" : "Tâche introuvable"
     }
 
     func deletePermanently(_ row: TrashRow) async {
-        let result = try? await UseCases.shared.deleteTodoPermanently().invoke(params: row.id as NSString)
+        let result = try? await TodoUseCases.shared.deleteTodoPermanently().invoke(params: row.id as NSString)
         message = Self.succeeded(result) ? "« \(row.title) » est supprimée définitivement" : "Suppression impossible"
     }
 
     func emptyTrash() async {
-        let result = try? await UseCases.shared.emptyTrash().invoke(params: NoParams.shared)
+        let result = try? await TodoUseCases.shared.emptyTrash().invoke(params: NoParams.shared)
         message = Self.succeeded(result) ? "Corbeille vidée" : "Suppression impossible"
     }
 

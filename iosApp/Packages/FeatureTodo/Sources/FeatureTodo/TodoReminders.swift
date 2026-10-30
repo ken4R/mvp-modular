@@ -15,15 +15,15 @@ public enum TodoReminders {
         // Le centre de notifications ne garde qu'une référence faible vers son délégué.
         // Posé dès le lancement : un tap qui lance l'app est remis à ce délégué.
         UNUserNotificationCenter.current().delegate = delegate
-        subscription = UseCases.shared.startTodoReminders()
+        subscription = TodoUseCases.shared.startTodoReminders()
         // Rappels par lieu (ADR 0023) : iOS déclenche lui-même la notification à l'arrivée, ce délégué gère le tap.
-        locationSubscription = UseCases.shared.startTodoLocationReminders()
+        locationSubscription = TodoUseCases.shared.startTodoLocationReminders()
     }
 
     /// Relit les permissions de localisation (retour au premier plan) : les rappels par lieu sont reposés ou retirés.
     public static func refreshLocationAvailability() {
         Task { @MainActor in
-            _ = try? await UseCases.shared.refreshLocationRemindersAvailability().invoke(params: NoParams.shared)
+            _ = try? await TodoUseCases.shared.refreshLocationRemindersAvailability().invoke(params: NoParams.shared)
         }
     }
 }
@@ -51,7 +51,7 @@ private final class ReminderNotificationDelegate: NSObject, UNUserNotificationCe
         if response.actionIdentifier == UNNotificationDefaultActionIdentifier,
            let link = response.notification.request.content.userInfo[deepLinkKey] as? String {
             Task { @MainActor in
-                _ = try? await UseCases.shared.openDeepLink().invoke(params: link as NSString)
+                _ = try? await DeepLinkUseCases.shared.openDeepLink().invoke(params: link as NSString)
             }
         }
         completionHandler()

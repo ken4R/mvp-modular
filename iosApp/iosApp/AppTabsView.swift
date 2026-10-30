@@ -85,7 +85,7 @@ struct AppTabsView: View {
 
     private func track(_ tab: Tab) {
         let event = AnalyticsEvent.ScreenViewed(screen: tab.analyticsScreen)
-        Task { _ = try? await UseCases.shared.trackEvent().invoke(params: event) }
+        Task { _ = try? await AnalyticsUseCases.shared.trackEvent().invoke(params: event) }
     }
 
     private func show(_ link: DeepLink) {
@@ -123,7 +123,7 @@ private final class DeepLinkRouter: ObservableObject {
 
     func start() {
         guard subscription == nil else { return }
-        subscription = UseCases.shared.observePendingDeepLink(
+        subscription = DeepLinkUseCases.shared.observePendingDeepLink(
             onLink: { [weak self] link in self?.link = link },
             onError: { _ in }
         )
@@ -135,7 +135,7 @@ private final class DeepLinkRouter: ObservableObject {
     }
 
     func consume(_ link: DeepLink) {
-        Task { _ = try? await UseCases.shared.consumeDeepLink().invoke(params: link) }
+        Task { _ = try? await DeepLinkUseCases.shared.consumeDeepLink().invoke(params: link) }
     }
 }
 
@@ -149,13 +149,13 @@ private final class FeatureFlagObserver: ObservableObject {
 
     init(key: String, defaultValue: Bool) {
         // Clé du JSON distant plutôt que l'entrée d'enum Kotlin, que Swift renomme.
-        flag = KoinIosKt.featureFlag(key: key)
+        flag = FeatureFlagsIosKt.featureFlag(key: key)
         enabled = defaultValue
     }
 
     func start() {
         guard subscription == nil, let flag else { return }
-        subscription = UseCases.shared.observeFeatureFlag(
+        subscription = FeatureFlagsUseCases.shared.observeFeatureFlag(
             flag: flag,
             onEnabled: { [weak self] enabled in self?.enabled = enabled.boolValue },
             onError: { _ in }

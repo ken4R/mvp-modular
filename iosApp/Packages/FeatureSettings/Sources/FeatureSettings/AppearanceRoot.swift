@@ -13,7 +13,7 @@ final class AppearanceModel: ObservableObject {
     func start() {
         guard subscription == nil else { return }
         // Une erreur de lecture garde l'apparence précédente (par défaut : thème de l'appareil, accent bleu).
-        subscription = UseCases.shared.observeAppearance(
+        subscription = SettingsUseCases.shared.observeAppearance(
             onAppearance: { [weak self] appearance in
                 self?.themeMode = DSThemeMode(appearance.themeMode)
                 self?.accent = DSAccent(appearance.accent)

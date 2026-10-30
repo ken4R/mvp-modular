@@ -9,7 +9,7 @@ enum OnboardingPage: String {
     /// Consentement demandé par cette étape (même nom Kotlin que l'étape), `nil` pour les autres.
     var consentType: ConsentType? {
         switch self {
-        case .Analytics, .CrashReports: return KoinIosKt.consentType(name: rawValue)
+        case .Analytics, .CrashReports: return SettingsIosKt.consentType(name: rawValue)
         case .Welcome, .Notifications, .Location, .AppLock: return nil
         }
     }
@@ -36,7 +36,7 @@ final class OnboardingViewModel: ObservableObject {
     func load() async {
         guard steps.isEmpty else { return }
         let device = OnboardingDevice(appLockAvailable: PermissionRequests.deviceAuthenticationAvailable)
-        let result = try? await UseCases.shared.getOnboardingSteps().invoke(params: device)
+        let result = try? await OnboardingUseCases.shared.getOnboardingSteps().invoke(params: device)
         steps = ((result as? AppResultSuccess<AnyObject>)?.data as? [OnboardingStep]) ?? []
         // Illisibles (ne devrait pas arriver) : rien à montrer, la présentation se termine.
         if steps.isEmpty { await finish() }
@@ -53,7 +53,7 @@ final class OnboardingViewModel: ObservableObject {
         case .Notifications:
             // Refusées : on passe à la suite, elles s'activent plus tard depuis Réglages.
             if await PermissionRequests.notifications() {
-                await save(try? await UseCases.shared.setNotificationsEnabled().invoke(params: KotlinBoolean(bool: true)))
+                await save(try? await SettingsUseCases.shared.setNotificationsEnabled().invoke(params: KotlinBoolean(bool: true)))
             } else {
                 await advance()
             }
@@ -66,7 +66,7 @@ final class OnboardingViewModel: ObservableObject {
             guard PermissionRequests.deviceAuthenticationAvailable else { return await advance() }
             // Annulé : l'utilisateur reste sur l'étape, il peut réessayer ou choisir « Plus tard ».
             guard await PermissionRequests.authenticate(reason: "Activer le déverrouillage de l'app") else { return }
-            await save(try? await UseCases.shared.setAppLockEnabled().invoke(params: KotlinBoolean(bool: true)))
+            await save(try? await SettingsUseCases.shared.setAppLockEnabled().invoke(params: KotlinBoolean(bool: true)))
         case .Analytics, .CrashReports:
             await saveConsent(page, granted: true)
         }
@@ -101,7 +101,7 @@ final class OnboardingViewModel: ObservableObject {
     private func saveConsent(_ page: OnboardingPage, granted: Bool) async {
         guard let type = page.consentType else { return await advance() }
         let choice = ConsentChoice(type: type, granted: granted)
-        await save(try? await UseCases.shared.setConsent().invoke(params: choice))
+        await save(try? await SettingsUseCases.shared.setConsent().invoke(params: choice))
     }
 
     private func save(_ result: AnyObject?) async {
@@ -118,7 +118,7 @@ final class OnboardingViewModel: ObservableObject {
 
     /// Une fois enregistré, OnboardingGate affiche l'app.
     private func finish() async {
-        let result = try? await UseCases.shared.completeOnboarding().invoke(params: NoParams.shared)
+        let result = try? await OnboardingUseCases.shared.completeOnboarding().invoke(params: NoParams.shared)
         if result == nil || result is AppResultFailure {
             error = "Impossible d'enregistrer, réessayez"
         } else {

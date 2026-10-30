@@ -30,6 +30,6 @@ private struct OnboardingDemoDone: View {
     }
 
     static func restart() async {
-        _ = try? await UseCases.shared.restartOnboarding().invoke(params: NoParams.shared)
+        _ = try? await OnboardingUseCases.shared.restartOnboarding().invoke(params: NoParams.shared)
     }
 }

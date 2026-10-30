@@ -32,9 +32,9 @@ final class WeatherViewModel: ObservableObject {
 
     init(
         initialQuery: String? = nil,
-        searchCities: SearchCitiesUseCase = UseCases.shared.searchCities(),
-        getCurrentWeather: GetCurrentWeatherUseCase = UseCases.shared.getCurrentWeather(),
-        getLocalWeather: GetLocalWeatherUseCase = UseCases.shared.getLocalWeather()
+        searchCities: SearchCitiesUseCase = WeatherUseCases.shared.searchCities(),
+        getCurrentWeather: GetCurrentWeatherUseCase = WeatherUseCases.shared.getCurrentWeather(),
+        getLocalWeather: GetLocalWeatherUseCase = WeatherUseCases.shared.getLocalWeather()
     ) {
         self.initialQuery = initialQuery
         self.searchCities = searchCities
@@ -44,7 +44,7 @@ final class WeatherViewModel: ObservableObject {
 
     func observeConnectivity() {
         guard connectivitySubscription == nil else { return }
-        connectivitySubscription = UseCases.shared.observeConnectivity(
+        connectivitySubscription = ConnectivityUseCases.shared.observeConnectivity(
             onOnline: { [weak self] online in self?.isOnline = online.boolValue },
             onError: { _ in }
         )

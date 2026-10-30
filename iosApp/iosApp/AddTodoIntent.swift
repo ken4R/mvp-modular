@@ -16,7 +16,7 @@ struct AddTodoIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        _ = try? await UseCases.shared.startTodoDraft().invoke(params: taskTitle as NSString)
+        _ = try? await TodoUseCases.shared.startTodoDraft().invoke(params: taskTitle as NSString)
         return .result()
     }
 }

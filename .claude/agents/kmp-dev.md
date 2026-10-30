@@ -22,7 +22,7 @@ Tu es le développeur KMP du projet **MVP Modular**. Tu écris la logique que le
 2. `include(":feature:xxx")` dans `settings.gradle.kts`.
 3. Dans `shared/build.gradle.kts` : `api(projects.feature.xxx)` et `export(projects.feature.xxx)`.
 4. Ajouter `xxxModule` à `sharedModules` (`shared/.../di/KoinInit.kt`).
-5. Ajouter un getter par use case exposé dans `object UseCases` (`shared/src/iosMain/.../KoinIos.kt`).
+5. Ajouter un getter par use case exposé dans la façade `object <Nom>UseCases : SwiftUseCases()` (`src/iosMain/.../ios/` du module), et le module dans le parapluie `umbrella/<nom>-demo` des démos qui l'utilisent (exports Gradle et `umbrellaModules`, ADR 0027).
 
 ## Interop Swift (penser à iOS dès l'écriture)
 - Noms de types et de propriétés lisibles depuis Swift ; éviter les surcharges qui ne diffèrent que par les génériques.

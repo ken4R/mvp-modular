@@ -93,15 +93,43 @@ jobs:
       - name: Build de l'app iOS et des démos de features (simulateur, sans signature)
         run: |
           cd iosApp
-          for scheme in iosApp TodoDemo WeatherDemo SettingsDemo AuthDemo CatalogDemo TodoComposeDemo OnboardingDemo; do
+          # iosApp revient en dernier : après une démo, l'app complète doit relier son propre framework (ADR 0027).
+          for scheme in iosApp TodoDemo WeatherDemo SettingsDemo AuthDemo CatalogDemo TodoComposeDemo OnboardingDemo iosApp; do
+            status=0
             xcodebuild build \
               -project iosApp.xcodeproj \
               -scheme "$scheme" \
               -configuration Debug \
               -destination 'generic/platform=iOS Simulator' \
               ARCHS=arm64 \
-              CODE_SIGNING_ALLOWED=NO
+              CODE_SIGNING_ALLOWED=NO || status=$?
+            # Pré-build du scheme (framework Kotlin de l'app, ADR 0027) : Xcode n'en affiche pas la sortie.
+            echo "--- pré-build $scheme"; cat Generated/kotlin-prebuild.log || true
+            [ "$status" -eq 0 ] || exit "$status"
           done
+      - name: Chaque démo embarque son parapluie, pas le framework de l'app complète (ADR 0027)
+        run: |
+          # $1 : app ; $2 : façade d'un module absent de son parapluie. Le binaire garde le nom des classes exportées.
+          check() {
+            bin=$(find ~/Library/Developer/Xcode/DerivedData -path "*/Debug-iphonesimulator/$1.app/Frameworks/Shared.framework/Shared" | head -1)
+            du -k "$bin"
+            if grep -aq "$2" "$bin"; then
+              echo "error: $1 embarque $2 : ce n'est pas son parapluie" >&2
+              exit 1
+            fi
+          }
+          # Témoin : le framework de l'app complète, reconstruite après les démos, contient bien toutes les façades.
+          app=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app/Frameworks/Shared.framework/Shared' | head -1)
+          du -k "$app"
+          grep -aq CatalogUseCases "$app"
+          grep -aq TodoUseCases "$app"
+          check TodoDemo CatalogUseCases
+          check TodoComposeDemo CatalogUseCases
+          check WeatherDemo TodoUseCases
+          check SettingsDemo TodoUseCases
+          check AuthDemo SettingsUseCases
+          check CatalogDemo TodoUseCases
+          check OnboardingDemo TodoUseCases
       - name: Textes de permission de localisation dans l'Info.plist de l'app
         run: |
           plist=$(find ~/Library/Developer/Xcode/DerivedData -path '*/Debug-iphonesimulator/iosApp.app/Info.plist' | head -1)

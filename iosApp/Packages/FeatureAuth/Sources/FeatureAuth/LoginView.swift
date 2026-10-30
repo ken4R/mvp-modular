@@ -88,7 +88,7 @@ final class LoginViewModel: ObservableObject {
         guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
-        let result = try? await UseCases.shared.login().invoke(params: Credentials(email: email, password: password))
+        let result = try? await AuthUseCases.shared.login().invoke(params: Credentials(email: email, password: password))
         if result is AppResultSuccess<AnyObject> {
             // La session prend le relais (SessionGate) ; le mot de passe ne reste pas en mémoire.
             password = ""

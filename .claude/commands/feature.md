@@ -9,7 +9,7 @@ Enchaîne les sous-agents dans cet ordre, en passant à chacun le plan et les r�
 
 1. **mobile-planner** : écrit le plan dans `docs/plans/`.
 2. **mobile-architect** : seulement si le plan liste des décisions à prendre ; écrit les ADR.
-3. **kmp-dev** : domain, data, di, câblage `shared` et `UseCases`, tests `commonTest`.
+3. **kmp-dev** : domain, data, di, câblage `shared`, façade `<Nom>UseCases` et parapluie de démo, tests `commonTest`.
 4. **android-dev** et **ios-dev** en parallèle : écrans et ViewModels.
 5. **qa-tester** : complète les tests, les lance, rédige la checklist de recette.
 6. **code-reviewer**, puis **security-reviewer** si la feature touche réseau, stockage, auth, permissions ou secrets.

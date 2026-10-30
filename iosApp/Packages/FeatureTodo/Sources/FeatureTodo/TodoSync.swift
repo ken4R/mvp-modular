@@ -8,8 +8,8 @@ public enum TodoSync {
 
     public static func start() {
         guard subscription == nil else { return }
-        subscription = UseCases.shared.startTodoSync()
+        subscription = TodoUseCases.shared.startTodoSync()
         // Corbeille (ADR 0025) : les tâches jetées depuis plus de 30 jours sont supprimées définitivement.
-        Task { @MainActor in _ = try? await UseCases.shared.purgeExpiredTrash().invoke(params: NoParams.shared) }
+        Task { @MainActor in _ = try? await TodoUseCases.shared.purgeExpiredTrash().invoke(params: NoParams.shared) }
     }
 }

@@ -16,7 +16,7 @@ struct iOSApp: App {
         KoinIosKt.doInitKoin()
         // Plantages : enregistrés seulement avec le consentement Rapports de plantage, ceux du lancement précédent
         // partent maintenant (ADR 0020).
-        Task { @MainActor in _ = try? await UseCases.shared.startCrashReporting().invoke(params: NoParams.shared) }
+        Task { @MainActor in _ = try? await CrashReportingUseCases.shared.startCrashReporting().invoke(params: NoParams.shared) }
         // Feature flags distants (ADR 0021) : partent du cache, relus au plus une fois toutes les 15 minutes.
         Self.refreshFeatureFlags()
         TodoReminders.start()
@@ -48,7 +48,7 @@ struct iOSApp: App {
             // ils attendent dans KMP que les onglets soient affichés.
             .onOpenURL { url in
                 Task { @MainActor in
-                    _ = try? await UseCases.shared.openDeepLink().invoke(params: url.absoluteString as NSString)
+                    _ = try? await DeepLinkUseCases.shared.openDeepLink().invoke(params: url.absoluteString as NSString)
                 }
             }
         }
@@ -60,13 +60,13 @@ struct iOSApp: App {
                 WeatherWidgetPublisher.refresh()
             }
             guard phase == .background else { return }
-            Task { @MainActor in _ = try? await UseCases.shared.flushAnalytics().invoke(params: NoParams.shared) }
+            Task { @MainActor in _ = try? await AnalyticsUseCases.shared.flushAnalytics().invoke(params: NoParams.shared) }
         }
     }
 
     private static func refreshFeatureFlags() {
         Task { @MainActor in
-            _ = try? await UseCases.shared.refreshRemoteFlags().invoke(params: RemoteFlagsRefresh(force: false))
+            _ = try? await FeatureFlagsUseCases.shared.refreshRemoteFlags().invoke(params: RemoteFlagsRefresh(force: false))
         }
     }
 }

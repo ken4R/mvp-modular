@@ -51,7 +51,7 @@ if [ ${#targets[@]} -eq 0 ] && [ -n "${PLATFORM_NAME:-}" ] && [ -n "${ARCHS:-}" 
       iphonesimulator/arm64) targets+=(iosSimulatorArm64) ;;
       iphonesimulator/x86_64) targets+=(iosX64) ;;
       iphoneos/arm64) targets+=(iosArm64) ;;
-      *) echo "warning: tranche $PLATFORM_NAME/$arch inconnue, XCFramework complet" >&2; targets=(); break ;;
+      *) echo "warning: tranche $PLATFORM_NAME/$arch inconnue (ARCHS=$ARCHS), XCFramework complet, plus lent" >&2; targets=(); break ;;
     esac
   done
 fi

@@ -73,12 +73,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       # Compilateur Kotlin/Native et caches des bibliothèques (stdlib, coroutines, Koin, Ktor, Compose, Skia...) :
       # sans eux, chaque run retélécharge le compilateur et recompile les caches avant la première liaison.
+      # Une clé par job : un cache déjà présent n'est jamais réécrit, celui du job release n'a pas les caches debug.
       - name: Cache Kotlin/Native (~/.konan)
         uses: actions/cache@v4
         with:
           path: ~/.konan
-          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
-          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
+          key: konan-sim-debug-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-sim-debug-${{ runner.os }}-${{ runner.arch }}-
       - name: Tests KMP (simulateur iOS)
         run: ./gradlew iosSimulatorArm64Test --continue
       # Une seule tranche (simulateur arm64, celle du runner) au lieu des trois : la liaison Kotlin/Native est
@@ -157,8 +158,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.konan
-          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
-          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
+          key: konan-release-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-release-${{ runner.os }}-${{ runner.arch }}-
       - name: Taille du framework Kotlin release (suivi du poids, ADR 0010)
         run: |
           # Binaire release pour iPhone (arm64) : la taille qui compte pour l'utilisateur.

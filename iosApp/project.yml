@@ -55,9 +55,13 @@ aggregateTargets:
         # où le faux service de connexion est désactivé.
         script: |
           if [ "$CONFIGURATION" = "Debug" ]; then config=debug; else config=release; fi
+          # Sans cible : le script ne lie que les tranches du build en cours (PLATFORM_NAME, ARCHS).
           "$SRCROOT/../scripts/build-ios-framework.sh" "$config"
     settings:
       ENABLE_USER_SCRIPT_SANDBOXING: NO
+      # Construite pour la destination choisie (iPhone ou simulateur) : PLATFORM_NAME et ARCHS sont ceux de l'app.
+      SDKROOT: iphoneos
+      SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
 
 targets:
   # App complète : assemble toutes les features.

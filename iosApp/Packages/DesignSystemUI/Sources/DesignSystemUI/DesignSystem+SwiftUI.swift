@@ -35,6 +35,7 @@ public enum DS {
     }
 
     public enum Typography {
+        public static var display: Font { tokens.typography.display.font }
         public static var titleLarge: Font { tokens.typography.titleLarge.font }
         public static var titleMedium: Font { tokens.typography.titleMedium.font }
         public static var body: Font { tokens.typography.body.font }

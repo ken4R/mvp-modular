@@ -5,6 +5,7 @@ import FeatureTodoCompose
 import FeatureWeather
 import FeatureCatalog
 import FeatureSettings
+import FeatureFocus
 
 /// Onglets de l'app complète, et navigation des liens profonds.
 /// Construite seulement une fois connecté et déverrouillé (SessionGate, AppLockGate) :
@@ -35,18 +36,31 @@ struct AppTabsView: View {
     /// Onglet Tâches : écran SwiftUI ou sa version Compose Multiplatform (ADR 0010). Affichée dans l'onglet,
     /// pas en feuille : une feuille passerait au-dessus du cache d'aperçu et du verrou d'AppLockGate.
     @State private var showComposeTodo = false
+    /// Mode focus (ADR 0028) : écran du compte à rebours à la place de la liste, bandeau sur la liste pendant une session.
+    @StateObject private var focus = FocusViewModel()
+    @State private var showFocus = false
 
     var body: some View {
         TabView(selection: $tab) {
             Group {
                 if showComposeTodo {
                     TodoComposeView(onClose: { showComposeTodo = false })
+                } else if showFocus, focus.timer != nil {
+                    FocusView(viewModel: focus, onClose: { showFocus = false })
                 } else {
                     TodoListView(
                         focusRequest: $todoRequest,
                         draftRequest: $draftRequest,
-                        onOpenComposeMultiplatform: { showComposeTodo = true }
+                        onOpenComposeMultiplatform: { showComposeTodo = true },
+                        onStartFocusMode: { id, title in
+                            focus.startFocus(todoId: id, title: title) { showFocus = true }
+                        }
                     )
+                    .safeAreaInset(edge: .top) {
+                        if let timer = focus.timer {
+                            FocusBanner(timer: timer) { showFocus = true }
+                        }
+                    }
                 }
             }
             .tabItem { Label("Tâches", systemImage: "checklist") }
@@ -66,11 +80,17 @@ struct AppTabsView: View {
         .onAppear {
             router.start()
             catalogFlag.start()
+            focus.start()
             track(tab)
         }
         .onDisappear {
             router.stop()
             catalogFlag.stop()
+            focus.stop()
+        }
+        // Session arrêtée (ici, depuis la Live Activity ou par la déconnexion) : retour à la liste.
+        .onChange(of: focus.timer == nil) { stopped in
+            if stopped && focus.loaded { showFocus = false }
         }
         // Catalogue coupé pendant qu'il est affiché : retour sur Tâches.
         .onChange(of: catalogFlag.enabled) { enabled in

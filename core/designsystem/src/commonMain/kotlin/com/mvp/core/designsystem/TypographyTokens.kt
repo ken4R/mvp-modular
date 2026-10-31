@@ -10,6 +10,8 @@ data class TextStyleToken(
 )
 
 data class TypographyTokens(
+    /** Grand chiffre (compte à rebours du mode focus, ADR 0028). */
+    val display: TextStyleToken = TextStyleToken(64f, 72f, FontWeightToken.Regular),
     val titleLarge: TextStyleToken = TextStyleToken(28f, 34f, FontWeightToken.Bold),
     val titleMedium: TextStyleToken = TextStyleToken(20f, 26f, FontWeightToken.SemiBold),
     val body: TextStyleToken = TextStyleToken(16f, 22f, FontWeightToken.Regular),

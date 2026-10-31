@@ -18,6 +18,7 @@ androidApp (Jetpack Compose)      iosApp (SwiftUI)
          (modèle à copier)   (réseau : Open-Meteo)                       (connexion, session)
          feature:todo-compose ← écran Tâches en Compose Multiplatform (UI partagée, ADR 0010)
          feature:onboarding   ← présentation du premier lancement (ADR 0016)
+         feature:focus        ← mode focus Pomodoro sur une tâche (ADR 0028)
          ├─ domain : entités, interfaces de repository, use cases
          ├─ data   : repository, data sources (SQLite / HTTP)
          └─ di     : module Koin
@@ -152,6 +153,15 @@ Présentation du premier lancement ([plan](docs/plans/onboarding.md), [ADR 0016]
 - **Data** : base `onboarding.db` (version vue), sans `UserSessionObserver` : vue une fois par appareil, gardée à la déconnexion. Les choix passent par les use cases de `feature:settings` (notifications, verrou, consentement).
 - **Android** : `ui/onboarding/` (`OnboardingScreen` + `OnboardingViewModel`), affiché par `MainActivity` après la connexion et le verrou, avant les onglets.
 - **iOS** : package SPM `iosApp/Packages/FeatureOnboarding` (`OnboardingGate { ... }` autour des onglets, dans `AppLockGate`), app de démo `OnboardingDemo`.
+
+## Feature `focus`
+
+Mode focus (Pomodoro) sur une tâche ([plan](docs/plans/mode-focus.md), [ADR 0028](docs/adr/0028-mode-focus-pomodoro.md)) : 25 min de concentration, 5 min de pause, une pause de 15 min toutes les 4 concentrations menées à terme. Une seule session à la fois, lancée depuis la fiche d'une tâche à faire.
+
+- **Domain** : `FocusSession` (enregistrée), `FocusSnapshot` (ce que les apps affichent : statut, fin de phase, titre masqué hors de l'app avec le verrou), `FocusTimer` (temps restant « 24:59 » et progression), `FocusDurations`. Use cases : `StartFocusUseCase`, `PauseFocusUseCase`, `ResumeFocusUseCase`, `StartNextFocusPhaseUseCase` (« Commencer la pause », « Passer » ; une concentration écourtée ne compte pas), `StopFocusUseCase`, `ObserveFocusUseCase` (réémis aux changements et à la fin de phase), `ObserveFocusTimerUseCase` (chaque seconde, pour l'écran).
+- **Data** : session dans le stockage chiffré (`core:securestorage`, elle contient le titre de la tâche), effacée à la déconnexion (`UserSessionObserver`) ; alerte de fin de phase par `core:notifications` (groupe `focus`, sans le titre, selon le réglage Notifications).
+- **Android** : `ui/focus/` (`FocusScreen` + `FocusViewModel`, bandeau sur la liste), notification en cours `focus/FocusNotifier.kt` (chronomètre du système, boutons Pause / Reprendre / Arrêter par `FocusActionReceiver`), lancée par `MvpApplication`.
+- **iOS** : package SPM `iosApp/Packages/FeatureFocus` (`FocusView`, `FocusBanner`, `FocusViewModel` ; `FocusLiveActivity.start()` au lancement), produit `FocusActivityData` (attributs ActivityKit) partagé avec l'extension des widgets, qui affiche la Live Activity (écran verrouillé, Dynamic Island ; iOS 16.2+). Pas d'app de démo.
 
 ## Écran en Compose Multiplatform (`feature:todo-compose`)
 

@@ -89,6 +89,12 @@
             android:name="com.mvp.core.notifications.LocationNotificationReceiver"
             android:exported="false" />
 
+        <!-- Boutons de la notification du mode focus (ADR 0028). Non exporté : appelé seulement par les PendingIntent
+             explicites de la notification de l'app. -->
+        <receiver
+            android:name=".focus.FocusActionReceiver"
+            android:exported="false" />
+
         <!-- Reposer les alertes de proximité, effacées par un redémarrage ou une mise à jour de l'app. Diffusions
              système protégées : le récepteur n'a pas besoin d'être exporté. -->
         <receiver

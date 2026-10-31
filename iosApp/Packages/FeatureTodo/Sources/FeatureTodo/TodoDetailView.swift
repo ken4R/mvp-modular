@@ -19,9 +19,12 @@ struct TodoDetailView: View {
     @State private var previewedId: String?
     @FocusState private var noteFocused: Bool
     private let onClose: () -> Void
+    /// Mode focus (ADR 0028), fourni par l'app : le package ne dépend pas de la feature focus.
+    private let onStartFocusMode: ((_ todoId: String, _ title: String) -> Void)?
 
-    init(todoId: String, onClose: @escaping () -> Void) {
+    init(todoId: String, onStartFocusMode: ((_ todoId: String, _ title: String) -> Void)? = nil, onClose: @escaping () -> Void) {
         _viewModel = StateObject(wrappedValue: TodoDetailViewModel(todoId: todoId))
+        self.onStartFocusMode = onStartFocusMode
         self.onClose = onClose
     }
 
@@ -122,6 +125,12 @@ struct TodoDetailView: View {
 
     private func content(colors: ColorTokens) -> some View {
         List {
+            if let onStartFocusMode, let todo = viewModel.todo, !todo.isDone {
+                Section {
+                    Button("Mode focus (Pomodoro)") { onStartFocusMode(todo.id, todo.title) }
+                        .tint(Color(argb: colors.primary))
+                }
+            }
             prioritySection
             dueDateSection(colors: colors)
             locationSection(colors: colors)

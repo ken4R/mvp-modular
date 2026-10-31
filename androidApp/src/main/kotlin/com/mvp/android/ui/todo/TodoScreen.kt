@@ -86,6 +86,8 @@ fun TodoScreen(
     draftRequest: String? = null,
     onDraftRequestHandled: () -> Unit = {},
     onOpenComposeMultiplatform: (() -> Unit)? = null,
+    /** Mode focus (ADR 0028) : bouton de la fiche d'une tâche, si fourni. */
+    onStartFocusMode: ((todoId: String, title: String) -> Unit)? = null,
     viewModel: TodoViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -139,7 +141,7 @@ fun TodoScreen(
         onDraftRequestHandled()
     }
     openedTodoId?.let { id ->
-        TodoDetailScreen(todoId = id, onClose = { openedTodoId = null })
+        TodoDetailScreen(todoId = id, onClose = { openedTodoId = null }, onStartFocusMode = onStartFocusMode)
         return
     }
     if (showStats) {

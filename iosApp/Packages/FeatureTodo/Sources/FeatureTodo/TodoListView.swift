@@ -28,21 +28,25 @@ public struct TodoListView: View {
     @Binding private var draftRequest: String?
     /// Bouton vers la version Compose Multiplatform de l'écran (ADR 0010), si fourni.
     private let onOpenComposeMultiplatform: (() -> Void)?
+    /// Bouton « Mode focus » de la fiche d'une tâche (ADR 0028), si fourni par l'app.
+    private let onStartFocusMode: ((_ todoId: String, _ title: String) -> Void)?
 
     public init(
         focusRequest: Binding<String?> = .constant(nil),
         draftRequest: Binding<String?> = .constant(nil),
-        onOpenComposeMultiplatform: (() -> Void)? = nil
+        onOpenComposeMultiplatform: (() -> Void)? = nil,
+        onStartFocusMode: ((_ todoId: String, _ title: String) -> Void)? = nil
     ) {
         _focusRequest = focusRequest
         _draftRequest = draftRequest
         self.onOpenComposeMultiplatform = onOpenComposeMultiplatform
+        self.onStartFocusMode = onStartFocusMode
     }
 
     public var body: some View {
         Group {
             if let openedTodoId {
-                TodoDetailView(todoId: openedTodoId) { self.openedTodoId = nil }
+                TodoDetailView(todoId: openedTodoId, onStartFocusMode: onStartFocusMode) { self.openedTodoId = nil }
                     .id(openedTodoId)
             } else if showStats {
                 TodoStatsView { showStats = false }

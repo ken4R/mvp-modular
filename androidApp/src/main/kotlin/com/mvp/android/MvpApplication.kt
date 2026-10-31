@@ -2,11 +2,13 @@ package com.mvp.android
 
 import android.app.Application
 import com.mvp.android.di.androidAppModule
+import com.mvp.android.focus.FocusNotifier
 import com.mvp.android.widget.TodoWidget
 import com.mvp.android.widget.WeatherWidget
 import com.mvp.android.widget.WidgetUpdater
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.core.crashreporting.domain.usecase.StartCrashReportingUseCase
+import com.mvp.feature.focus.domain.usecase.ObserveFocusUseCase
 import com.mvp.feature.todo.domain.usecase.PurgeExpiredTrashUseCase
 import com.mvp.feature.todo.domain.usecase.ObserveTodoWidgetUseCase
 import com.mvp.feature.todo.domain.usecase.StartTodoSyncUseCase
@@ -44,5 +46,7 @@ class MvpApplication : Application() {
         WidgetUpdater(this, get<ObserveTodoWidgetUseCase>()(NoParams)) { TodoWidget() }.start(MainScope())
         // Widget Météo (ADR 0026) : redessiné à chaque nouvelle météo, vidé à la déconnexion ou quand elle est trop vieille.
         WidgetUpdater(this, get<ObserveWeatherWidgetUseCase>()(NoParams)) { WeatherWidget() }.start(MainScope())
+        // Mode focus (ADR 0028) : notification en cours tant qu'une session existe, retirée à l'arrêt ou à la déconnexion.
+        FocusNotifier(this, get<ObserveFocusUseCase>()(NoParams)).start(MainScope())
     }
 }

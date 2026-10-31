@@ -165,6 +165,9 @@ targets:
       groups: [app]
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios
+        # ActivityKit (Live Activity du mode focus, ADR 0028) n'existe qu'à partir d'iOS 16.1 : lien faible pour que
+        # l'app démarre encore sous iOS 16.0.
+        OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "ActivityKit"]
         # Nom sous l'icône, et nom que Siri attend dans « Ajoute une tâche dans MVP Modular » (ADR 0018).
         INFOPLIST_KEY_CFBundleDisplayName: MVP Modular
         # iOS 16 seulement : l'écran d'ajout d'événement exige l'accès au calendrier ; depuis iOS 17 il n'en demande aucun (ADR 0022).
@@ -213,6 +216,8 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.mvp.ios.todowidget
+        # Live Activity du mode focus : ActivityKit en lien faible (iOS 16.0, voir iosApp).
+        OTHER_LDFLAGS: ["$(inherited)", "-weak_framework", "ActivityKit"]
         INFOPLIST_KEY_CFBundleDisplayName: Widgets
         SKIP_INSTALL: YES
     dependencies:

@@ -51,15 +51,18 @@ class FocusViewModel(
             .launchIn(viewModelScope)
     }
 
-    fun start(todoId: String, title: String) = perform { startFocus(StartFocus(todoId, title)) }
+    /** [onStarted] : appelé seulement si la session a démarré (l'écran Focus ne s'ouvre pas sur un échec). */
+    fun start(todoId: String, title: String, onStarted: () -> Unit) =
+        perform(onSuccess = onStarted) { startFocus(StartFocus(todoId, title)) }
     fun pause() = perform { pauseFocus(NoParams) }
     fun resume() = perform { resumeFocus(NoParams) }
     fun next() = perform { startNextPhase(NoParams) }
     fun stop() = perform { stopFocus(NoParams) }
 
-    private fun perform(action: suspend () -> AppResult<Unit>) {
+    private fun perform(onSuccess: () -> Unit = {}, action: suspend () -> AppResult<Unit>) {
         viewModelScope.launch {
             val result = action()
+            if (result is AppResult.Success) onSuccess()
             _state.update {
                 it.copy(
                     error = (result as? AppResult.Failure)?.error?.let { error ->

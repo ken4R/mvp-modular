@@ -20,13 +20,13 @@ public enum FocusLiveActivity {
     }
 
     /// Appelé sur le main thread (callbacks de SwiftUseCases).
-    private static func submit(_ state: FocusState?) {
+    private static func submit(_ state: FocusSnapshot?) {
         guard #available(iOS 16.2, *) else { return }
         FocusActivityUpdater.shared.submit(state.map(content(of:)))
     }
 
     @available(iOS 16.2, *)
-    private static func content(of state: FocusState) -> FocusActivityAttributes.ContentState {
+    private static func content(of state: FocusSnapshot) -> FocusActivityAttributes.ContentState {
         let status: FocusActivityAttributes.Status = state.isRunning ? .running : (state.isPaused ? .paused : .finished)
         return FocusActivityAttributes.ContentState(
             title: state.lockScreenTitle ?? "Session de concentration",
@@ -36,7 +36,8 @@ public enum FocusLiveActivity {
             phaseEnd: state.endsAt.map { Date(timeIntervalSince1970: Double($0.int64Value) / 1000) },
             remainingLabel: FocusFormat.shared.remaining(millis: state.remainingMillis),
             nextPhaseLabel: state.nextPhaseLabel,
-            isBreak: state.isBreak
+            isBreak: state.isBreak,
+            visibleUntil: Date(timeIntervalSince1970: Double(state.visibleUntil) / 1000)
         )
     }
 }
@@ -71,8 +72,9 @@ private final class FocusActivityUpdater {
             for activity in activities { await activity.end(nil, dismissalPolicy: .immediate) }
             return
         }
-        // Après la fin de la phase, le système affiche l'état comme périmé (l'app peut être suspendue à ce moment-là).
-        let update = ActivityContent(state: content, staleDate: content.phaseEnd)
+        // Après la fin de la phase ou de la session de connexion, le système affiche l'état comme périmé (l'app peut
+        // être suspendue à ce moment-là) : l'extension n'affiche plus alors le titre de la tâche.
+        let update = ActivityContent(state: content, staleDate: content.staleDate)
         if let current = activities.first {
             await current.update(update)
             for extra in activities.dropFirst() { await extra.end(nil, dismissalPolicy: .immediate) }

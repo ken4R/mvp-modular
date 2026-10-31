@@ -4,9 +4,10 @@ enum class FocusStatus { Running, Paused, Finished }
 
 /**
  * Ce que les apps affichent d'une session (écran Focus, notification en cours Android, Live Activity iOS).
- * Les booléens doublent [status] et [phase] pour Swift, qui renomme les entrées des enums Kotlin.
+ * Les booléens doublent [status] et [phase] pour Swift, qui renomme les entrées des enums Kotlin. Pas « FocusState » :
+ * le nom entrerait en conflit avec `SwiftUI.FocusState` dans tout fichier Swift qui importe `Shared`.
  */
-data class FocusState(
+data class FocusSnapshot(
     val todoId: String,
     /** Titre de la tâche, pour l'écran de l'app. */
     val title: String,
@@ -26,6 +27,11 @@ data class FocusState(
     val nextPhase: FocusPhase,
     /** Lien vers la tâche (mvpmodular://tasks/<id>). */
     val link: String,
+    /**
+     * Fin de la session de connexion (epoch ms) : au-delà, rien ne doit rester affiché hors de l'app, même si l'app
+     * ne tourne plus pour le retirer (délai de la notification Android, péremption de la Live Activity).
+     */
+    val visibleUntil: Long,
 ) {
     val phaseLabel: String get() = phase.label
     val nextPhaseLabel: String get() = nextPhase.label
@@ -37,7 +43,7 @@ data class FocusState(
 
 /** État de l'écran Focus, recalculé chaque seconde tant que le compte à rebours tourne. */
 data class FocusTimer(
-    val state: FocusState,
+    val state: FocusSnapshot,
     val remainingMillis: Long,
     /** « 24:59 » : secondes arrondies au-dessus, la phase affiche 25:00 à son départ et 00:00 à sa fin. */
     val remainingLabel: String,

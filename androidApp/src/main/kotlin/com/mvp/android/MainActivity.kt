@@ -276,10 +276,7 @@ private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel,
                                 draftRequest = draftRequest,
                                 onDraftRequestHandled = { draftRequest = null },
                                 onOpenComposeMultiplatform = { showComposeMultiplatformTodo = true },
-                                onStartFocusMode = { id, title ->
-                                    focusViewModel.start(id, title)
-                                    showFocus = true
-                                },
+                                onStartFocusMode = { id, title -> focusViewModel.start(id, title) { showFocus = true } },
                             )
                         }
                     }

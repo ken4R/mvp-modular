@@ -32,8 +32,9 @@ public final class FocusViewModel: ObservableObject {
         subscription = nil
     }
 
-    public func startFocus(todoId: String, title: String) {
-        run { try await FocusUseCases.shared.startFocus().invoke(params: StartFocus(todoId: todoId, title: title)) }
+    /// `onStarted` : appelé seulement si la session a démarré (l'écran Focus ne s'ouvre pas sur un échec).
+    public func startFocus(todoId: String, title: String, onStarted: @escaping () -> Void) {
+        run(onSuccess: onStarted) { try await FocusUseCases.shared.startFocus().invoke(params: StartFocus(todoId: todoId, title: title)) }
     }
 
     func pause() { run { try await FocusUseCases.shared.pauseFocus().invoke(params: NoParams.shared) } }
@@ -41,13 +42,14 @@ public final class FocusViewModel: ObservableObject {
     func next() { run { try await FocusUseCases.shared.startNextFocusPhase().invoke(params: NoParams.shared) } }
     func stopFocus() { run { try await FocusUseCases.shared.stopFocus().invoke(params: NoParams.shared) } }
 
-    private func run(_ action: @escaping () async throws -> Any?) {
+    private func run(onSuccess: @escaping () -> Void = {}, _ action: @escaping () async throws -> Any?) {
         Task {
             let result = try? await action()
             if let failure = result as? AppResultFailure {
                 error = (failure.error as? AppErrorValidation)?.message ?? "Action impossible"
-            } else {
+            } else if result != nil {
                 error = nil
+                onSuccess()
             }
         }
     }

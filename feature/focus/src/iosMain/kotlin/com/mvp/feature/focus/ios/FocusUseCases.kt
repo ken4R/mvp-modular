@@ -4,7 +4,7 @@ import com.mvp.core.common.domain.error.AppError
 import com.mvp.core.common.domain.usecase.NoParams
 import com.mvp.core.common.ios.Subscription
 import com.mvp.core.common.ios.SwiftUseCases
-import com.mvp.feature.focus.domain.model.FocusState
+import com.mvp.feature.focus.domain.model.FocusSnapshot
 import com.mvp.feature.focus.domain.model.FocusTimer
 import com.mvp.feature.focus.domain.usecase.ObserveFocusTimerUseCase
 import com.mvp.feature.focus.domain.usecase.ObserveFocusUseCase
@@ -27,7 +27,7 @@ object FocusUseCases : SwiftUseCases() {
     fun stopFocus(): StopFocusUseCase = get()
 
     /** Session en cours (`nil` sans session), à recopier dans la Live Activity : réémise aux changements et à la fin de phase. */
-    fun observeFocus(onState: (FocusState?) -> Unit, onError: (AppError) -> Unit): Subscription =
+    fun observeFocus(onState: (FocusSnapshot?) -> Unit, onError: (AppError) -> Unit): Subscription =
         get<ObserveFocusUseCase>()(NoParams).subscribe(onState, onError)
 
     /** Compte à rebours de l'écran Focus, réémis à chaque seconde affichée. */

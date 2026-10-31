@@ -14,7 +14,7 @@ import android.os.Build
 import android.util.Log
 import com.mvp.core.common.domain.result.AppResult
 import com.mvp.feature.focus.domain.model.FocusFormat
-import com.mvp.feature.focus.domain.model.FocusState
+import com.mvp.feature.focus.domain.model.FocusSnapshot
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -26,10 +26,10 @@ import kotlinx.coroutines.flow.onEach
  * changement de la session ([states], ObserveFocusUseCase), retirée sans session (arrêt, déconnexion).
  *
  * Pas de service au premier plan : le compte à rebours est celui du système (chronomètre décompté jusqu'à `endsAt`)
- * et la notification se retire seule à la fin de la phase (`setTimeoutAfter`), où l'alerte de fin programmée par KMP
- * prend le relais, même app arrêtée. Si l'app vit encore, elle est remplacée par « terminée » avec l'action suivante.
+ * et la notification se retire à la fin de la phase (`setTimeoutAfter`, ou FocusNotifier si l'app vit encore), où
+ * l'alerte de fin programmée par KMP prend le relais, même app arrêtée. La suite se lance depuis l'app.
  */
-class FocusNotifier(private val context: Context, private val states: Flow<AppResult<FocusState?>>) {
+class FocusNotifier(private val context: Context, private val states: Flow<AppResult<FocusSnapshot?>>) {
 
     fun start(scope: CoroutineScope) {
         states
@@ -37,7 +37,8 @@ class FocusNotifier(private val context: Context, private val states: Flow<AppRe
                 // Un échec d'affichage ne doit pas faire tomber l'app (portée sans gestionnaire d'erreur).
                 try {
                     when (result) {
-                        is AppResult.Success -> result.data?.let(::show) ?: cancel()
+                        // Phase finie : l'alerte de fin programmée par KMP prend le relais (pas de seconde notification).
+                        is AppResult.Success -> result.data?.takeUnless { it.isFinished }?.let(::show) ?: cancel()
                         is AppResult.Failure -> cancel()
                     }
                 } catch (e: CancellationException) {
@@ -49,7 +50,7 @@ class FocusNotifier(private val context: Context, private val states: Flow<AppRe
             .launchIn(scope)
     }
 
-    private fun show(state: FocusState) {
+    private fun show(state: FocusSnapshot) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -74,14 +75,12 @@ class FocusNotifier(private val context: Context, private val states: Flow<AppRe
             state.isPaused -> builder
                 .addAction(action(FocusActionReceiver.ACTION_RESUME, "Reprendre"))
                 .addAction(action(FocusActionReceiver.ACTION_STOP, "Arrêter"))
-            else -> builder
-                .addAction(action(FocusActionReceiver.ACTION_NEXT, if (state.nextPhase.isBreak) "Commencer la pause" else "Reprendre"))
-                .addAction(action(FocusActionReceiver.ACTION_STOP, "Arrêter"))
+            else -> return
         }
         manager.notify(NOTIFICATION_TAG, NOTIFICATION_ID, builder.build())
     }
 
-    private fun baseBuilder(state: FocusState): Notification.Builder {
+    private fun baseBuilder(state: FocusSnapshot): Notification.Builder {
         val builder = Notification.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setCategory(Notification.CATEGORY_PROGRESS)
@@ -93,15 +92,18 @@ class FocusNotifier(private val context: Context, private val states: Flow<AppRe
             builder.setWhen(endsAt)
                 .setUsesChronometer(true)
                 .setChronometerCountDown(true)
-                .setTimeoutAfter((endsAt - System.currentTimeMillis()).coerceAtLeast(1))
         }
+        // Retirée par le système à la fin de la phase, et dans tous les cas à la fin de la session de connexion :
+        // si le processus est mort, personne d'autre ne la retirerait.
+        val hideAt = if (state.isRunning && endsAt != null) minOf(endsAt, state.visibleUntil) else state.visibleUntil
+        builder.setTimeoutAfter((hideAt - System.currentTimeMillis()).coerceAtLeast(1))
         return builder
     }
 
-    private fun statusText(state: FocusState): String = when {
+    private fun statusText(state: FocusSnapshot): String = when {
         state.isRunning -> state.phaseLabel
         state.isPaused -> "${state.phaseLabel} en pause · ${FocusFormat.remaining(state.remainingMillis)} restantes"
-        else -> "${state.phaseLabel} terminée · ensuite : ${state.nextPhaseLabel.lowercase()}"
+        else -> "${state.phaseLabel} terminée"
     }
 
     private fun cancel() {

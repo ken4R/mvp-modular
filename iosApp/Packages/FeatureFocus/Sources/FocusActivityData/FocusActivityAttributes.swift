@@ -23,6 +23,8 @@ public struct FocusActivityAttributes: ActivityAttributes {
         public var remainingLabel: String
         public var nextPhaseLabel: String
         public var isBreak: Bool
+        /// Fin de la session de connexion : au-delà, la Live Activity ne montre plus le titre.
+        public var visibleUntil: Date
 
         public init(
             title: String,
@@ -32,7 +34,8 @@ public struct FocusActivityAttributes: ActivityAttributes {
             phaseEnd: Date?,
             remainingLabel: String,
             nextPhaseLabel: String,
-            isBreak: Bool
+            isBreak: Bool,
+            visibleUntil: Date
         ) {
             self.title = title
             self.phaseLabel = phaseLabel
@@ -42,6 +45,13 @@ public struct FocusActivityAttributes: ActivityAttributes {
             self.remainingLabel = remainingLabel
             self.nextPhaseLabel = nextPhaseLabel
             self.isBreak = isBreak
+            self.visibleUntil = visibleUntil
+        }
+
+        /// Péremption de la Live Activity : fin de la phase en cours, et au plus tard fin de la session de connexion.
+        public var staleDate: Date {
+            if status == .running, let phaseEnd { return min(phaseEnd, visibleUntil) }
+            return visibleUntil
         }
     }
 

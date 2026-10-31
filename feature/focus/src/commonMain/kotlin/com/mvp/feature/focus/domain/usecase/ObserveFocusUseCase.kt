@@ -9,7 +9,7 @@ import com.mvp.core.deeplink.domain.DeepLinks
 import com.mvp.core.deeplink.domain.model.DeepLink
 import com.mvp.feature.focus.domain.model.FocusDurations
 import com.mvp.feature.focus.domain.model.FocusSession
-import com.mvp.feature.focus.domain.model.FocusState
+import com.mvp.feature.focus.domain.model.FocusSnapshot
 import com.mvp.feature.focus.domain.model.FocusStatus
 import com.mvp.feature.focus.domain.repository.FocusRepository
 import kotlinx.coroutines.CoroutineDispatcher
@@ -34,10 +34,10 @@ class ObserveFocusUseCase(
     private val durations: FocusDurations,
     private val now: () -> Long,
     dispatcher: CoroutineDispatcher,
-) : FlowUseCase<NoParams, FocusState?>(dispatcher) {
+) : FlowUseCase<NoParams, FocusSnapshot?>(dispatcher) {
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    override fun execute(params: NoParams): Flow<AppResult<FocusState?>> =
+    override fun execute(params: NoParams): Flow<AppResult<FocusSnapshot?>> =
         combine(repository.observe(), session.observeExpiresAt(), appLock.observeAppLockEnabled()) { focus, expiresAt, locked ->
             Triple(focus, expiresAt, locked)
         }
@@ -49,7 +49,7 @@ class ObserveFocusUseCase(
                         emit(null)
                         break
                     }
-                    val state = stateOf(focus, current, locked, durations)
+                    val state = stateOf(focus, current, locked, durations, visibleUntil = expiresAt)
                     emit(state)
                     val wakeAt = listOfNotNull(focus.endsAt.takeIf { state.isRunning }, expiresAt).min()
                     delay(wakeAt - current)
@@ -59,7 +59,13 @@ class ObserveFocusUseCase(
             .map { AppResult.Success(it) }
 
     companion object {
-        internal fun stateOf(focus: FocusSession, now: Long, appLocked: Boolean, durations: FocusDurations): FocusState {
+        internal fun stateOf(
+            focus: FocusSession,
+            now: Long,
+            appLocked: Boolean,
+            durations: FocusDurations,
+            visibleUntil: Long,
+        ): FocusSnapshot {
             val status = when {
                 focus.isPaused -> FocusStatus.Paused
                 focus.isFinishedAt(now) -> FocusStatus.Finished
@@ -68,7 +74,7 @@ class ObserveFocusUseCase(
             val running = status == FocusStatus.Running
             // Le compte n'avance qu'en passant à la phase suivante : une concentration finie compte déjà pour la suivante.
             val countedWork = focus.completedWorkPhases + if (status == FocusStatus.Finished && !focus.phase.isBreak) 1 else 0
-            return FocusState(
+            return FocusSnapshot(
                 todoId = focus.todoId,
                 title = focus.title,
                 lockScreenTitle = focus.title.takeUnless { appLocked },
@@ -81,6 +87,7 @@ class ObserveFocusUseCase(
                 completedWorkPhases = focus.completedWorkPhases,
                 nextPhase = durations.next(focus.phase, countedWork),
                 link = DeepLinks.url(DeepLink.Tasks(focus.todoId)),
+                visibleUntil = visibleUntil,
             )
         }
     }

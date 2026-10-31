@@ -85,13 +85,13 @@ public struct FocusView: View {
         .tint(Color(argb: colors.primary))
     }
 
-    private static func phaseLine(_ focus: FocusState) -> String {
+    private static func phaseLine(_ focus: FocusSnapshot) -> String {
         let done = Int(focus.completedWorkPhases)
         let count = done == 0 ? "" : " · \(done) concentration\(done > 1 ? "s" : "") terminée\(done > 1 ? "s" : "")"
         return focus.phaseLabel + (focus.isPaused ? " (en pause)" : "") + count
     }
 
-    private static func nextLabel(_ focus: FocusState) -> String {
+    private static func nextLabel(_ focus: FocusSnapshot) -> String {
         focus.isBreak ? "Reprendre la concentration" : "Commencer la \(focus.nextPhaseLabel.lowercased())"
     }
 

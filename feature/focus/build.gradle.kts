@@ -11,6 +11,7 @@ kotlin {
             implementation(projects.core.securestorage)
             implementation(projects.core.notifications)
             implementation(projects.core.deeplink)
+            implementation(libs.kotlinx.serialization.json)
         }
     }
 }

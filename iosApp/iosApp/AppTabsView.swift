@@ -53,8 +53,7 @@ struct AppTabsView: View {
                         draftRequest: $draftRequest,
                         onOpenComposeMultiplatform: { showComposeTodo = true },
                         onStartFocusMode: { id, title in
-                            focus.startFocus(todoId: id, title: title)
-                            showFocus = true
+                            focus.startFocus(todoId: id, title: title) { showFocus = true }
                         }
                     )
                     .safeAreaInset(edge: .top) {

@@ -9,7 +9,7 @@ import com.mvp.feature.focus.data.session.FocusUserSessionObserver
 import com.mvp.feature.focus.domain.model.FocusDurations
 import com.mvp.feature.focus.domain.model.FocusFormat
 import com.mvp.feature.focus.domain.model.FocusPhase
-import com.mvp.feature.focus.domain.model.FocusState
+import com.mvp.feature.focus.domain.model.FocusSnapshot
 import com.mvp.feature.focus.domain.model.FocusStatus
 import com.mvp.feature.focus.domain.model.FocusTimer
 import com.mvp.feature.focus.domain.repository.FocusRepository
@@ -59,7 +59,7 @@ class FocusUseCasesTest {
     private val observe get() = ObserveFocusUseCase(repository, session, appLock, durations, now, dispatcher)
     private val timer get() = ObserveFocusTimerUseCase(observe, now, dispatcher)
 
-    private suspend fun current(): FocusState? = (observe(NoParams).first() as AppResult.Success).data
+    private suspend fun current(): FocusSnapshot? = (observe(NoParams).first() as AppResult.Success).data
     private suspend fun currentTimer(): FocusTimer? = (timer(NoParams).first() as AppResult.Success).data
     private fun alarmAt(): Long? = scheduler.scheduled[NotificationFocusAlarm.GROUP]?.single()?.atEpochMillis
 
@@ -162,7 +162,7 @@ class FocusUseCasesTest {
     @Test
     fun theStateTurnsFinishedAtTheEndOfThePhase() = scope.runTest {
         startFocus(StartFocus("t1", "Rapport"))
-        val states = mutableListOf<FocusState?>()
+        val states = mutableListOf<FocusSnapshot?>()
         val job = launch { observe(NoParams).collect { states += (it as AppResult.Success).data } }
         runCurrent()
 
@@ -236,6 +236,43 @@ class FocusUseCasesTest {
     }
 
     @Test
+    fun resumingARunningPhaseChangesNothing() = scope.runTest {
+        startFocus(StartFocus("t1", "Rapport"))
+        val alert = alarmAt()
+        advanceTimeBy(MINUTE)
+
+        assertEquals(AppResult.Success(Unit), resume(NoParams))
+
+        assertEquals(FocusStatus.Running, current()!!.status)
+        assertEquals(24 * MINUTE, current()!!.remainingMillis)
+        assertEquals(alert, alarmAt())
+    }
+
+    @Test
+    fun skippingAPausedBreakStartsAWorkPhaseWithoutChangingTheCount() = scope.runTest {
+        startFocus(StartFocus("t1", "Rapport"))
+        advanceTimeBy(25 * MINUTE)
+        next(NoParams)
+        advanceTimeBy(MINUTE)
+        pause(NoParams)
+
+        next(NoParams)
+
+        val state = current()!!
+        assertEquals(FocusPhase.Work, state.phase)
+        assertEquals(FocusStatus.Running, state.status)
+        assertEquals(1, state.completedWorkPhases)
+        assertEquals(now() + 25 * MINUTE, alarmAt())
+    }
+
+    @Test
+    fun theStateCarriesTheEndOfTheLoginSession() = scope.runTest {
+        startFocus(StartFocus("t1", "Rapport"))
+
+        assertEquals(start + DAY, current()!!.visibleUntil)
+    }
+
+    @Test
     fun stopEndsTheSessionAndItsAlert() = scope.runTest {
         startFocus(StartFocus("t1", "Rapport"))
 
@@ -289,7 +326,7 @@ class FocusUseCasesTest {
     fun theSessionDisappearsWhenTheLoginSessionExpires() = scope.runTest {
         session.expiresAt.value = start + 10 * MINUTE
         startFocus(StartFocus("t1", "Rapport"))
-        val states = mutableListOf<FocusState?>()
+        val states = mutableListOf<FocusSnapshot?>()
         val job = launch { observe(NoParams).collect { states += (it as AppResult.Success).data } }
         runCurrent()
 

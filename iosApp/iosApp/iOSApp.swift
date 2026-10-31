@@ -6,6 +6,7 @@ import FeatureTodoWidget
 import FeatureWeather
 import FeatureSettings
 import FeatureOnboarding
+import FeatureFocus
 
 /// App complète : initialise la logique KMP et assemble les features, derrière l'écran de connexion.
 @main
@@ -27,6 +28,8 @@ struct iOSApp: App {
         TodoWidgetPublisher.start()
         // Widget Météo : dernière météo « Ma position », actualisée au lancement et au retour au premier plan.
         WeatherWidgetPublisher.start()
+        // Mode focus (ADR 0028) : Live Activity tenue à jour tant qu'une session existe, terminée à l'arrêt ou à la déconnexion.
+        FocusLiveActivity.start()
     }
 
     var body: some Scene {

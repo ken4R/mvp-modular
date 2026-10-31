@@ -38,6 +38,7 @@ fun MvpTheme(appearance: Appearance = Appearance.Default, content: @Composable (
             colorScheme = colors.toColorScheme(dark),
             typography = DesignSystem.typography.let {
                 Typography(
+                    displayLarge = it.display.toTextStyle(),
                     headlineSmall = it.titleLarge.toTextStyle(),
                     titleMedium = it.titleMedium.toTextStyle(),
                     bodyLarge = it.body.toTextStyle(),

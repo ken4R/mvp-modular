@@ -20,6 +20,7 @@ iosUmbrellaFramework(
         projects.feature.auth,
         projects.feature.catalog,
         projects.feature.onboarding,
+        projects.feature.focus,
     ),
     // Non exportés : les types Ktor n'ont pas à apparaître côté Swift.
     linked = listOf(

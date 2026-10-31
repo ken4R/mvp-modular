@@ -8,6 +8,7 @@ import com.mvp.android.ui.auth.SessionViewModel
 import com.mvp.android.ui.catalog.CatalogViewModel
 import com.mvp.android.ui.deeplink.DeepLinkViewModel
 import com.mvp.android.ui.featureflags.FeatureFlagsViewModel
+import com.mvp.android.ui.focus.FocusViewModel
 import com.mvp.android.ui.onboarding.OnboardingViewModel
 import com.mvp.android.ui.settings.SettingsViewModel
 import com.mvp.android.ui.todo.AttachmentReader
@@ -33,6 +34,8 @@ val androidAppModule = module {
     viewModelOf(::TodoCalendarViewModel)
     // Corbeille, 30 jours avant la suppression définitive (ADR 0025).
     viewModelOf(::TodoTrashViewModel)
+    // Mode focus sur une tâche (ADR 0028).
+    viewModelOf(::FocusViewModel)
     viewModelOf(::WeatherViewModel)
     viewModelOf(::CatalogViewModel)
     viewModelOf(::SettingsViewModel)

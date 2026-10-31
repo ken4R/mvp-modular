@@ -13,6 +13,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -45,10 +46,14 @@ import com.mvp.android.ui.catalog.CatalogScreen
 import com.mvp.android.ui.common.RecentsPrivacy
 import com.mvp.android.ui.deeplink.DeepLinkViewModel
 import com.mvp.android.ui.featureflags.FeatureFlagsViewModel
+import com.mvp.android.ui.focus.FocusBanner
+import com.mvp.android.ui.focus.FocusScreen
+import com.mvp.android.ui.focus.FocusViewModel
 import com.mvp.android.ui.onboarding.OnboardingScreen
 import com.mvp.android.ui.onboarding.OnboardingViewModel
 import com.mvp.android.ui.settings.SettingsScreen
 import com.mvp.android.ui.theme.MvpTheme
+import com.mvp.android.ui.theme.Spacing
 import com.mvp.android.ui.todo.TodoScreen
 import com.mvp.android.ui.weather.WeatherScreen
 import com.mvp.core.common.domain.analytics.AnalyticsScreen
@@ -205,6 +210,11 @@ private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel,
     var draftRequest by remember { mutableStateOf<String?>(null) }
     // Onglet Tâches : écran natif (Jetpack Compose) ou version Compose Multiplatform partagée avec iOS (ADR 0010).
     var showComposeMultiplatformTodo by rememberSaveable { mutableStateOf(false) }
+    // Mode focus (ADR 0028) : écran du compte à rebours à la place de la liste, bandeau sur la liste pendant une session.
+    val focusViewModel = koinViewModel<FocusViewModel>()
+    val focus by focusViewModel.state.collectAsStateWithLifecycle()
+    var showFocus by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(focus.loaded, focus.timer == null) { if (focus.loaded && focus.timer == null) showFocus = false }
     BackHandler(enabled = tab == Tab.Todo && showComposeMultiplatformTodo) { showComposeMultiplatformTodo = false }
     val pendingLink by deepLinks.pending.collectAsStateWithLifecycle()
     // Mesuré seulement avec le consentement Analytics (vérifié dans KMP).
@@ -252,14 +262,27 @@ private fun AppTabs(deepLinks: DeepLinkViewModel, analytics: AnalyticsViewModel,
             when (tab) {
                 Tab.Todo -> if (showComposeMultiplatformTodo) {
                     TodoComposeScreen(onClose = { showComposeMultiplatformTodo = false }, appearance = appearance)
+                } else if (showFocus && focus.timer != null) {
+                    FocusScreen(focus, focusViewModel, onClose = { showFocus = false })
                 } else {
-                    TodoScreen(
-                        focusRequest = todoRequest,
-                        onFocusRequestHandled = { todoRequest = null },
-                        draftRequest = draftRequest,
-                        onDraftRequestHandled = { draftRequest = null },
-                        onOpenComposeMultiplatform = { showComposeMultiplatformTodo = true },
-                    )
+                    Column(Modifier.fillMaxSize()) {
+                        focus.timer?.let { timer ->
+                            Box(Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs)) { FocusBanner(timer) { showFocus = true } }
+                        }
+                        Box(Modifier.weight(1f)) {
+                            TodoScreen(
+                                focusRequest = todoRequest,
+                                onFocusRequestHandled = { todoRequest = null },
+                                draftRequest = draftRequest,
+                                onDraftRequestHandled = { draftRequest = null },
+                                onOpenComposeMultiplatform = { showComposeMultiplatformTodo = true },
+                                onStartFocusMode = { id, title ->
+                                    focusViewModel.start(id, title)
+                                    showFocus = true
+                                },
+                            )
+                        }
+                    }
                 }
                 Tab.Weather -> WeatherScreen()
                 Tab.Catalog -> CatalogScreen(productRequest = productRequest, onProductRequestHandled = { productRequest = null })

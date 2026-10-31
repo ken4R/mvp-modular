@@ -78,7 +78,12 @@ import org.koin.androidx.compose.koinViewModel
  * (PDF, texte, images).
  */
 @Composable
-fun TodoDetailScreen(todoId: String, onClose: () -> Unit, viewModel: TodoDetailViewModel = koinViewModel()) {
+fun TodoDetailScreen(
+    todoId: String,
+    onClose: () -> Unit,
+    onStartFocusMode: ((todoId: String, title: String) -> Unit)? = null,
+    viewModel: TodoDetailViewModel = koinViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(todoId) { viewModel.open(todoId) }
     // Le brouillon de la note survit à un changement d'onglet, au verrou et à l'arrêt de l'app en arrière-plan.
@@ -145,6 +150,10 @@ fun TodoDetailScreen(todoId: String, onClose: () -> Unit, viewModel: TodoDetailV
                     )
                     DetailContent(
                         state = state,
+                        // Mode focus (ADR 0028) : une tâche à faire seulement.
+                        onStartFocusMode = state.todo?.takeIf { !it.isDone }?.let { todo ->
+                            onStartFocusMode?.let { start -> { start(todo.id, todo.title) } }
+                        },
                         onPickDueDate = { pickDueDate(context, state.todo?.dueDate) { viewModel.onSetDueDate(it) } },
                         onRemoveDueDate = { viewModel.onSetDueDate(null) },
                         onAddToCalendar = { viewModel.onAddToCalendar() },
@@ -166,6 +175,7 @@ fun TodoDetailScreen(todoId: String, onClose: () -> Unit, viewModel: TodoDetailV
 @Composable
 private fun DetailContent(
     state: TodoDetailUiState,
+    onStartFocusMode: (() -> Unit)?,
     onPickDueDate: () -> Unit,
     onRemoveDueDate: () -> Unit,
     onAddToCalendar: () -> Unit,
@@ -178,6 +188,7 @@ private fun DetailContent(
     onOpen: (TodoAttachment) -> Unit,
     onDelete: (String) -> Unit,
 ) {
+    onStartFocusMode?.let { OutlinedButton(onClick = it) { Text("Mode focus (Pomodoro)") } }
     PrioritySection(state.todo?.priority ?: TodoPriority.None, onSetPriority)
     DueDateSection(state.todo?.dueDate, state.todo?.isOverdueToday() == true, onPickDueDate, onRemoveDueDate, onAddToCalendar)
     LocationReminderSection(state, place)
